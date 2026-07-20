@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章详情 - Spring Blog</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 Spring Blog</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <main class="main-content">
+            <div class="card article-detail" id="articleContent">
+                <div class="loading"><div class="spinner"></div>加载中...</div>
+            </div>
+
+            <!-- 评论区 -->
+            <div class="card">
+                <div class="comment-section">
+                    <h3 class="comment-title">💬 评论 (<span id="commentCount">0</span>)</h3>
+
+                    <!-- 评论输入框 -->
+                    <div class="comment-input" id="commentInputBox">
+                        <textarea id="commentText" placeholder="写下你的评论..."></textarea>
+                        <button class="btn btn-primary" onclick="submitComment()">发表</button>
+                    </div>
+                    <div id="loginToComment" style="display:none; text-align:center; padding:20px; color:var(--text-light);">
+                        请先<a href="/login">登录</a>后再发表评论
+                    </div>
+
+                    <!-- 评论列表 -->
+                    <div id="commentList"></div>
+                </div>
+            </div>
+        </main>
+
+        <aside class="sidebar">
+            <div class="card sidebar-card">
+                <div class="sidebar-title">🔥 热门文章</div>
+                <ul class="hot-list" id="hotList"><li class="loading">加载中...</li></ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="/js/app.js?v=2"></script>
+    <script>
+        const articleId = [[${articleId}]];
+
+        // 加载文章详情
+        async function loadArticle() {
+            try {
+                const article = await http.get(`/articles/${articleId}`);
+                document.getElementById('articleContent').innerHTML = `
+                    <div class="article-header">
+                        <h1>${escapeHtml(article.title)}</h1>
+                        <div class="article-meta">
+                            <span>📅 ${formatTime(article.createTime)}</span>
+                            <span>👁 ${article.viewCount || 0} 阅读</span>
+                            <span>💬 ${article.commentCount || 0} 评论</span>
+                        </div>
+                        <div class="article-tags">
+                            ${article.category ? `<span class="category-tag">${escapeHtml(article.category)}</span>` : ''}
+                            ${(article.tags || '').split(',').filter(t => t).map(t => `<span class="tag">${escapeHtml(t.trim())}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="article-actions">
+                        <button class="action-btn" onclick="likeArticle()" id="likeBtn">
+                            ❤ <span id="likeCount">${article.likeCount || 0}</span> 点赞
+                        </button>
+                    </div>
+                    <div class="article-body">
+                        <p>${escapeHtml(article.content).replace(/\n/g, '<br>')}</p>
+                    </div>
+                `;
+            } catch (e) {
+                document.getElementById('articleContent').innerHTML =
+                    '<div class="empty-state"><h3>文章加载失败</h3><p>' + e.message + '</p></div>';
+            }
+        }
+
+        // 加载评论
+        async function loadComments() {
+            try {
+                const comments = await http.get(`/articles/${articleId}/comments`);
+                document.getElementById('commentCount').textContent = comments.length;
+
+                if (comments.length === 0) {
+                    document.getElementById('commentList').innerHTML =
+                        '<div class="empty-state"><p>暂无评论，快来抢沙发吧~</p></div>';
+                    return;
+                }
+
+                document.getElementById('commentList').innerHTML = comments.map(c => `
+                    <div class="comment-item">
+                        <img src="${c.userAvatar || '/images/default-avatar.svg'}" class="comment-avatar"
+                             onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
+                        <div class="comment-body">
+                            <div class="comment-user">
+                                ${escapeHtml(c.username || '匿名')}
+                                <span class="comment-time">${formatTime(c.createTime)}</span>
+                            </div>
+                            <div class="comment-text">
+                                ${c.replyToUsername ? `<span style="color:var(--primary)">@${escapeHtml(c.replyToUsername)}</span> ` : ''}
+                                ${escapeHtml(c.content)}
+                            </div>
+                            <span class="comment-reply" onclick="replyTo(${c.id}, '${escapeHtml(c.username)}')">回复</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('commentList').innerHTML =
+                    '<div class="empty-state"><p>评论加载失败</p></div>';
+            }
+        }
+
+        let replyParentId = 0;
+        let replyToUserId = null;
+
+        function replyTo(parentId, username) {
+            replyParentId = parentId;
+            document.getElementById('commentText').placeholder = `回复 @${username}:`;
+            document.getElementById('commentText').focus();
+        }
+
+        async function submitComment() {
+            if (!Auth.isLoggedIn()) {
+                Toast.show('请先登录', 'error');
+                return;
+            }
+            const content = document.getElementById('commentText').value.trim();
+            if (!content) {
+                Toast.show('请输入评论内容', 'warning');
+                return;
+            }
+            try {
+                await http.post(`/articles/${articleId}/comments`, {
+                    content: content,
+                    parentId: replyParentId
+                });
+                document.getElementById('commentText').value = '';
+                document.getElementById('commentText').placeholder = '写下你的评论...';
+                replyParentId = 0;
+                Toast.show('评论发表成功！');
+                loadComments();
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+
+        async function likeArticle() {
+            try {
+                await http.post(`/articles/${articleId}/like`);
+                const likeEl = document.getElementById('likeCount');
+                likeEl.textContent = parseInt(likeEl.textContent) + 1;
+                Toast.show('点赞成功！');
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+
+        // 根据登录状态显示评论框
+        function updateCommentUI() {
+            if (Auth.isLoggedIn()) {
+                document.getElementById('commentInputBox').style.display = 'flex';
+                document.getElementById('loginToComment').style.display = 'none';
+            } else {
+                document.getElementById('commentInputBox').style.display = 'none';
+                document.getElementById('loginToComment').style.display = 'block';
+            }
+        }
+
+        // 加载热门文章
+        async function loadHotArticles() {
+            try {
+                const articles = await http.get('/articles/hot', { limit: 5 });
+                document.getElementById('hotList').innerHTML = articles.map((a, i) => `
+                    <li>
+                        <span class="hot-rank ${i < 3 ? 'top' : ''}">${i + 1}</span>
+                        <a href="/article/${a.id}">${escapeHtml(a.title)}</a>
+                    </li>
+                `).join('');
+            } catch (e) {}
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        loadArticle();
+        loadComments();
+        loadHotArticles();
+        updateCommentUI();
+    </script>
+</body>
+</html>

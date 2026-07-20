@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - Spring Blog</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 Spring Blog</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <div class="auth-container">
+        <div class="card auth-card">
+            <h2 class="auth-title">欢迎回来 👋</h2>
+            <p class="auth-subtitle">登录您的博客账号</p>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-control" id="username" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-control" id="password" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="loginBtn">登录</button>
+            </form>
+            <div class="auth-footer">
+                还没有账号？<a href="/register">立即注册</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=2"></script>
+    <script>
+        async function handleLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById('loginBtn');
+            btn.textContent = '登录中...';
+            btn.disabled = true;
+
+            try {
+                const data = await http.post('/user/login', {
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value
+                });
+                Auth.saveAuth(data.accessToken, data.user);
+                Toast.show('登录成功！');
+                setTimeout(() => window.location.href = '/', 500);
+            } catch (err) {
+                Toast.show(err.message, 'error');
+                btn.textContent = '登录';
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

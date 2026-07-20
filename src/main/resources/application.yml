@@ -1,0 +1,97 @@
+server:
+  port: 8080
+  tomcat:
+    threads:
+      max: 200        # 最大工作线程数
+      min-spare: 20   # 最小空闲线程
+    max-connections: 10000   # 最大连接数
+    accept-count: 500        # 等待队列长度
+    connection-timeout: 5000 # 连接超时
+
+spring:
+  application:
+    name: spring-blog
+
+  # 数据库配置（H2开发环境）
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:blog;DB_CLOSE_DELAY=-1;MODE=MySQL
+    username: sa
+    password:
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  # H2控制台
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # SQL初始化
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+      schema-locations: classpath:db/schema.sql
+      data-locations: classpath:db/data.sql
+
+  # Thymeleaf配置
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    encoding: UTF-8
+    mode: HTML
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+# MyBatis-Plus配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT配置（企业级）
+jwt:
+  # 密钥：生产环境必须通过环境变量注入，禁止硬编码！
+  # 设置方式: set JWT_SECRET=你的随机密钥(至少32字符)
+  secret: ${JWT_SECRET:SpringAiBlogSecretKey2024VeryLongAndSecureKeyForJWT-Enterprise}
+  access-token-expiration: 1800000     # Access Token有效期: 30分钟
+  refresh-token-expiration: 604800000  # Refresh Token有效期: 7天
+  issuer: spring-blog                  # Token签发者标识
+  audience: blog-client                # Token受众标识
+  clock-skew-seconds: 60               # 时钟偏差容忍(秒)
+
+# 安全配置（企业级）
+security:
+  login:
+    max-attempts: 5              # 同一账号最大失败次数
+    lock-duration-minutes: 30    # 账号锁定时间(分钟)
+    ip-max-attempts: 20          # 同一IP最大失败次数
+
+# CORS配置
+cors:
+  allowed-origins: http://localhost:8080,http://127.0.0.1:8080
+
+# 日志配置
+logging:
+  charset:
+    console: GBK
+    file: UTF-8
+  level:
+    root: INFO
+    spring.ai.example.spring_ai_demo: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{requestId}] %-5level %logger{50} - %msg%n"

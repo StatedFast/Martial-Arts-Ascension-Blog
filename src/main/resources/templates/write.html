@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>写文章 - Spring Blog</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 Spring Blog</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <div class="container" style="grid-template-columns: 1fr;">
+        <div class="card">
+            <div class="editor-container">
+                <h2 id="editorMode">✍️ 写文章</h2>
+                <input type="text" class="editor-title-input" id="articleTitle" placeholder="输入文章标题...">
+
+                <div class="editor-toolbar">
+                    <select id="articleCategory">
+                        <option value="">选择分类</option>
+                        <option value="Spring">Spring</option>
+                        <option value="数据库">数据库</option>
+                        <option value="架构">架构</option>
+                        <option value="前端">前端</option>
+                        <option value="Python">Python</option>
+                        <option value="DevOps">DevOps</option>
+                    </select>
+                    <input type="text" id="articleTags" placeholder="标签，逗号分隔（如：Java,Spring）">
+                    <label style="display:flex;align-items:center;gap:6px;">
+                        <input type="checkbox" id="isPublished" checked> 立即发布
+                    </label>
+                    <button class="btn btn-primary" onclick="publishArticle()">发布文章</button>
+                </div>
+
+                <textarea class="editor-content" id="articleContent" placeholder="在这里书写你的文章内容...&#10;&#10;支持Markdown格式"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=2"></script>
+    <script>
+        if (!Auth.isLoggedIn()) {
+            window.location.href = '/login';
+        }
+
+        // 检查是否是编辑模式
+        const urlParams = new URLSearchParams(window.location.search);
+        const editId = urlParams.get('id');
+
+        if (editId) {
+            document.getElementById('editorMode').textContent = '✏️ 编辑文章';
+            loadArticleForEdit(editId);
+        }
+
+        async function loadArticleForEdit(id) {
+            try {
+                const article = await http.get('/articles/' + id);
+                document.getElementById('articleTitle').value = article.title;
+                document.getElementById('articleContent').value = article.content;
+                document.getElementById('articleCategory').value = article.category || '';
+                document.getElementById('articleTags').value = article.tags || '';
+                document.getElementById('isPublished').checked = article.status === 1;
+            } catch (e) {
+                Toast.show('加载文章失败: ' + e.message, 'error');
+            }
+        }
+
+        async function publishArticle() {
+            const title = document.getElementById('articleTitle').value.trim();
+            const content = document.getElementById('articleContent').value.trim();
+
+            if (!title) { Toast.show('请输入文章标题', 'warning'); return; }
+            if (!content) { Toast.show('请输入文章内容', 'warning'); return; }
+
+            const data = {
+                title: title,
+                content: content,
+                summary: content.substring(0, 200),
+                category: document.getElementById('articleCategory').value,
+                tags: document.getElementById('articleTags').value,
+                status: document.getElementById('isPublished').checked ? 1 : 0
+            };
+
+            try {
+                if (editId) {
+                    data.id = parseInt(editId);
+                    await http.put('/articles/' + editId, data);
+                    Toast.show('文章已更新！');
+                } else {
+                    await http.post('/articles', data);
+                    Toast.show('文章发布成功！');
+                }
+                setTimeout(() => window.location.href = '/', 800);
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

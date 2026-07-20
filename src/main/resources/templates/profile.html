@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人中心 - Spring Blog</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 Spring Blog</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="main-content">
+            <!-- 个人信息卡片 -->
+            <div class="card profile-header">
+                <div class="profile-avatar-container">
+                    <img src="" id="profileAvatar" class="profile-avatar" alt="头像"
+                         onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
+                    <button class="avatar-edit-btn" onclick="showAvatarModal()">📷</button>
+                </div>
+                <h2 id="profileNickname">加载中...</h2>
+                <p id="profileBio" style="color:var(--text-light)"></p>
+                <div class="author-stats">
+                    <div class="stat-item">
+                        <div class="stat-num" id="articleCount">0</div>
+                        <div class="stat-label">文章</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num" id="commentCount">0</div>
+                        <div class="stat-label">评论</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab切换 -->
+            <div class="card">
+                <div class="profile-tabs">
+                    <div class="profile-tab active" onclick="switchTab('info')">基本信息</div>
+                    <div class="profile-tab" onclick="switchTab('password')">修改密码</div>
+                    <div class="profile-tab" onclick="switchTab('articles')">我的文章</div>
+                </div>
+
+                <!-- 基本信息 -->
+                <div id="tab-info" class="tab-content" style="padding:20px;">
+                    <form onsubmit="updateProfile(event)">
+                        <div class="form-group">
+                            <label class="form-label">昵称</label>
+                            <input type="text" class="form-control" id="editNickname" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">邮箱</label>
+                            <input type="email" class="form-control" id="editEmail">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">个人简介</label>
+                            <textarea class="form-control" id="editBio" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">保存修改</button>
+                    </form>
+                </div>
+
+                <!-- 修改密码 -->
+                <div id="tab-password" class="tab-content" style="display:none; padding:20px;">
+                    <form onsubmit="changePassword(event)">
+                        <div class="form-group">
+                            <label class="form-label">原密码</label>
+                            <input type="password" class="form-control" id="oldPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">新密码</label>
+                            <input type="password" class="form-control" id="newPassword" required minlength="6">
+                        </div>
+                        <button type="submit" class="btn btn-primary">修改密码</button>
+                    </form>
+                </div>
+
+                <!-- 我的文章 -->
+                <div id="tab-articles" class="tab-content" style="display:none; padding:20px;">
+                    <div id="myArticles"><div class="loading">加载中...</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 头像编辑弹窗 -->
+    <div class="modal-overlay" id="avatarModal">
+        <div class="modal-box">
+            <h3 class="modal-title">修改头像</h3>
+            <div class="form-group">
+                <label class="form-label">头像URL</label>
+                <input type="text" class="form-control" id="avatarUrl" placeholder="输入头像图片URL">
+            </div>
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button class="btn btn-outline" onclick="closeAvatarModal()">取消</button>
+                <button class="btn btn-primary" onclick="updateAvatar()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=2"></script>
+    <script>
+        if (!Auth.isLoggedIn()) {
+            window.location.href = '/login';
+        }
+
+        let currentUser = null;
+
+        // 加载用户信息
+        async function loadProfile() {
+            try {
+                const user = await http.get('/user/profile');
+                currentUser = user;
+                document.getElementById('profileNickname').textContent = user.nickname;
+                document.getElementById('profileBio').textContent = user.bio || '这个人很懒，什么都没写...';
+                document.getElementById('profileAvatar').src = user.avatar || '/images/default-avatar.svg';
+                document.getElementById('editNickname').value = user.nickname || '';
+                document.getElementById('editEmail').value = user.email || '';
+                document.getElementById('editBio').value = user.bio || '';
+
+                // 统计
+                document.getElementById('commentCount').textContent = '--';
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+
+        // Tab切换
+        function switchTab(tab) {
+            document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tab).style.display = 'block';
+
+            if (tab === 'articles') loadMyArticles();
+        }
+
+        // 更新个人信息
+        async function updateProfile(e) {
+            e.preventDefault();
+            try {
+                await http.put('/user/profile?' + new URLSearchParams({
+                    nickname: document.getElementById('editNickname').value,
+                    email: document.getElementById('editEmail').value,
+                    bio: document.getElementById('editBio').value
+                }).toString());
+                Toast.show('个人信息已更新');
+                loadProfile();
+            } catch (err) {
+                Toast.show(err.message, 'error');
+            }
+        }
+
+        // 修改头像
+        async function updateAvatar() {
+            const url = document.getElementById('avatarUrl').value.trim();
+            if (!url) { Toast.show('请输入头像URL', 'warning'); return; }
+            try {
+                await http.put(`/user/avatar?avatarUrl=${encodeURIComponent(url)}`);
+                document.getElementById('profileAvatar').src = url;
+                closeAvatarModal();
+                Toast.show('头像已更新');
+                // 更新localStorage中的用户信息
+                const user = Auth.getUser();
+                if (user) { user.avatar = url; Auth.saveAuth(localStorage.getItem('token'), user); renderNavbar(); }
+            } catch (err) {
+                Toast.show(err.message, 'error');
+            }
+        }
+
+        // 修改密码
+        async function changePassword(e) {
+            e.preventDefault();
+            try {
+                await http.put('/user/password?' + new URLSearchParams({
+                    oldPassword: document.getElementById('oldPassword').value,
+                    newPassword: document.getElementById('newPassword').value
+                }).toString());
+                Toast.show('密码修改成功，请重新登录');
+                setTimeout(() => Auth.logout(), 1500);
+            } catch (err) {
+                Toast.show(err.message, 'error');
+            }
+        }
+
+        // 加载我的文章
+        async function loadMyArticles() {
+            try {
+                const data = await http.get('/articles/archive');
+                const container = document.getElementById('myArticles');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><h3>暂未发布文章</h3><a href="/write" class="btn btn-primary" style="margin-top:12px;">去写文章</a></div>';
+                    document.getElementById('articleCount').textContent = '0';
+                    return;
+                }
+                let totalCount = 0;
+                let html = '';
+                data.forEach(group => {
+                    totalCount += group.count;
+                    html += `<h4 style="margin:16px 0 8px; color:var(--primary);">📅 ${group.month} (${group.count}篇)</h4>`;
+                    group.articles.forEach(a => {
+                        html += `<div class="article-item">
+                            <div class="article-title"><a href="/article/${a.id}">${escapeHtml(a.title)}</a></div>
+                            <div class="article-meta">
+                                <span>📅 ${formatTime(a.createTime)}</span>
+                                <span>👁 ${a.viewCount || 0} 阅读</span>
+                                <span>💬 ${a.commentCount || 0} 评论</span>
+                            </div>
+                        </div>`;
+                    });
+                });
+                container.innerHTML = html;
+                document.getElementById('articleCount').textContent = totalCount;
+            } catch (e) {
+                document.getElementById('myArticles').innerHTML =
+                    '<div class="empty-state"><p>加载失败</p></div>';
+            }
+        }
+
+        function showAvatarModal() {
+            document.getElementById('avatarModal').classList.add('show');
+            document.getElementById('avatarUrl').value = currentUser?.avatar || '';
+        }
+        function closeAvatarModal() {
+            document.getElementById('avatarModal').classList.remove('show');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        loadProfile();
+    </script>
+</body>
+</html>

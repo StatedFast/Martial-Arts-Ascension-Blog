@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">Spring Blog</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 韩老魔的博客项目</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <div class="container">
+        <!-- 文章列表 -->
+        <main class="main-content">
+            <!-- 搜索栏 -->
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="搜索文章..." onkeyup="if(event.key==='Enter') searchArticles()">
+                <button class="btn btn-primary" onclick="searchArticles()">搜索</button>
+            </div>
+
+            <!-- 文章列表容器 -->
+            <div class="card">
+                <div id="articleList"></div>
+            </div>
+
+            <!-- 分页 -->
+            <div class="pagination" id="pagination"></div>
+        </main>
+
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <!-- 分类 -->
+            <div class="card sidebar-card">
+                <div class="sidebar-title">📂 文章分类</div>
+                <div class="category-list" id="categoryList">
+                    <a href="#" class="category-item active" onclick="filterByCategory('');return false;">全部</a>
+                    <a href="#" class="category-item" onclick="filterByCategory('Spring');return false;">Spring</a>
+                    <a href="#" class="category-item" onclick="filterByCategory('数据库');return false;">数据库</a>
+                    <a href="#" class="category-item" onclick="filterByCategory('架构');return false;">架构</a>
+                    <a href="#" class="category-item" onclick="filterByCategory('前端');return false;">前端</a>
+                </div>
+            </div>
+
+            <!-- 热门文章 -->
+            <div class="card sidebar-card">
+                <div class="sidebar-title">🔥 热门文章</div>
+                <ul class="hot-list" id="hotList">
+                    <li class="loading">加载中...</li>
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="/js/app.js?v=2"></script>
+    <script>
+        // ==================== 首页逻辑 ====================
+        let currentPage = 1;
+        let currentCategory = '';
+        let currentKeyword = '';
+
+        // 加载文章列表
+        async function loadArticles(page = 1) {
+            currentPage = page;
+            const params = { page, size: 10 };
+            if (currentCategory) params.category = currentCategory;
+            if (currentKeyword) params.keyword = currentKeyword;
+
+            try {
+                const data = await http.get('/articles', params);
+                const list = document.getElementById('articleList');
+
+                if (!data.records || data.records.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><h3>暂无文章</h3><p>还没有发布任何文章</p></div>';
+                    document.getElementById('pagination').innerHTML = '';
+                    return;
+                }
+
+                list.innerHTML = data.records.map(article => `
+                    <div class="article-item">
+                        <div class="article-title">
+                            <a href="/article/${article.id}">${article.isTop ? '📌 ' : ''}${escapeHtml(article.title)}</a>
+                        </div>
+                        <div class="article-meta">
+                            <span>📅 ${formatTime(article.createTime)}</span>
+                            <span>👁 ${article.viewCount || 0} 阅读</span>
+                            <span>💬 ${article.commentCount || 0} 评论</span>
+                            <span>❤ ${article.likeCount || 0} 点赞</span>
+                        </div>
+                        <div class="article-summary">${escapeHtml(article.summary || '')}</div>
+                        <div class="article-tags">
+                            ${article.category ? `<span class="category-tag">${escapeHtml(article.category)}</span>` : ''}
+                            ${(article.tags || '').split(',').filter(t => t).map(t => `<span class="tag">${escapeHtml(t.trim())}</span>`).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+                // 分页
+                renderPagination(data);
+            } catch (e) {
+                document.getElementById('articleList').innerHTML =
+                    '<div class="empty-state"><h3>加载失败</h3><p>' + e.message + '</p></div>';
+            }
+        }
+
+        function renderPagination(data) {
+            const pag = document.getElementById('pagination');
+            if (data.pages <= 1) { pag.innerHTML = ''; return; }
+
+            let html = '';
+            for (let i = 1; i <= data.pages; i++) {
+                html += `<button class="page-btn ${i === currentPage ? 'active' : ''}"
+                               onclick="loadArticles(${i})">${i}</button>`;
+            }
+            pag.innerHTML = html;
+        }
+
+        function searchArticles() {
+            currentKeyword = document.getElementById('searchInput').value.trim();
+            loadArticles(1);
+        }
+
+        function filterByCategory(cat) {
+            currentCategory = cat;
+            document.querySelectorAll('.category-item').forEach(el => {
+                el.classList.toggle('active', el.textContent.trim() === (cat || '全部'));
+            });
+            loadArticles(1);
+        }
+
+        // 加载热门文章
+        async function loadHotArticles() {
+            try {
+                const articles = await http.get('/articles/hot', { limit: 5 });
+                const list = document.getElementById('hotList');
+                list.innerHTML = articles.map((a, i) => `
+                    <li>
+                        <span class="hot-rank ${i < 3 ? 'top' : ''}">${i + 1}</span>
+                        <a href="/article/${a.id}">${escapeHtml(a.title)}</a>
+                    </li>
+                `).join('');
+            } catch (e) {
+                document.getElementById('hotList').innerHTML = '<li>暂无热门文章</li>';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        // 初始化
+        loadArticles();
+        loadHotArticles();
+    </script>
+</body>
+</html>
