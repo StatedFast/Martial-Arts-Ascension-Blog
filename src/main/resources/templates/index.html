@@ -58,7 +58,7 @@
         </aside>
     </div>
 
-    <script src="/js/app.js?v=2"></script>
+    <script src="/js/app.js?v=3"></script>
     <script>
         // ==================== 首页逻辑 ====================
         let currentPage = 1;
@@ -159,6 +159,9 @@
         // 初始化
         loadArticles();
         loadHotArticles();
+
+        // AI 助手对话框（右下角悬浮按钮）
+        AiAssistant.init();
     </script>
 </body>
 </html>

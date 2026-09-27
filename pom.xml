@@ -149,7 +149,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<jvmArguments>-Dfile.encoding=UTF-8 -Dsun.stdout.encoding=GBK -Dsun.stderr.encoding=GBK</jvmArguments>
+					<jvmArguments>-Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8</jvmArguments>
 				</configuration>
 			</plugin>
 		</plugins>
