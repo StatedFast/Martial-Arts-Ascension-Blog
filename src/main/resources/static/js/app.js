@@ -172,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
  * - UI 动态注入：页面只需调用 AiAssistant.init()
  * - 对接 /api/ai/chat/stream（SSE 流式，打字机效果）
  * - EventSource 不支持 POST + Authorization 头，故用 fetch + ReadableStream 手动解析 SSE
+ * - 回复按轻量 Markdown 渲染（先整体转义再生成标签，天然防 XSS）
  */
 const AiAssistant = {
     streaming: false,
@@ -188,10 +189,10 @@ const AiAssistant = {
             <div class="ai-panel" id="aiPanel">
                 <div class="ai-header">
                     <div class="ai-header-info">
-                        <span class="ai-header-avatar">🤖</span>
+                        <div class="ai-header-avatar">🤖<span class="ai-status-dot"></span></div>
                         <div>
-                            <div class="ai-header-title">AI 助手 · 小博</div>
-                            <div class="ai-header-sub">找文章 / 看排行 / 总结内容</div>
+                            <div class="ai-header-title">小博 · AI 助手</div>
+                            <div class="ai-header-sub">在线 · 找文章 / 看排行 / 总结内容</div>
                         </div>
                     </div>
                     <button class="ai-close" id="aiClose" title="关闭">✕</button>
@@ -203,7 +204,14 @@ const AiAssistant = {
                 <div class="ai-input-area" id="aiInputArea">
                     <textarea class="ai-input" id="aiInput" rows="1"
                               placeholder="试试：推荐几篇文章 / 热门排行 / 我发布了多少篇文章"></textarea>
-                    <button class="ai-send" id="aiSend">发送</button>
+                    <button class="ai-send" id="aiSend" title="发送">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 2 11 13"></path>
+                            <path d="M22 2 15 22 11 13 2 9z"></path>
+                        </svg>
+                        <span class="ai-spinner"></span>
+                    </button>
                 </div>
             </div>
         `);
@@ -222,7 +230,13 @@ const AiAssistant = {
         // 输入框自适应高度
         input.addEventListener('input', () => {
             input.style.height = 'auto';
-            input.style.height = Math.min(input.scrollHeight, 90) + 'px';
+            input.style.height = Math.min(input.scrollHeight, 96) + 'px';
+        });
+
+        // 快捷问题：事件委托，点击直接发送
+        document.getElementById('aiMessages').addEventListener('click', (e) => {
+            const chip = e.target.closest('.ai-chip');
+            if (chip) this.send(chip.dataset.q);
         });
     },
 
@@ -235,10 +249,33 @@ const AiAssistant = {
         this.refreshLoginState();
         if (!this.welcomed) {
             this.welcomed = true;
-            this.appendMessage('assistant',
-                '你好，我是博客 AI 助手「小博」🤖\n我可以帮你：\n· 搜索、推荐文章——试试「推荐几篇和 JWT 有关的文章」\n· 查看热门排行\n· 总结文章内容\n· 统计你的发布情况——试试「我发布了多少篇文章」');
+            this.appendWelcome();
         }
         document.getElementById('aiInput').focus();
+    },
+
+    /** 欢迎卡片：头像 + 简介 + 快捷问题（点击直接发送） */
+    appendWelcome() {
+        const chips = [
+            ['🔍', '推荐几篇和 JWT 有关的文章'],
+            ['🔥', '看看热门文章排行'],
+            ['📊', '我发布了多少篇文章']
+        ];
+        const el = document.createElement('div');
+        el.className = 'ai-welcome';
+        el.innerHTML = `
+            <div class="ai-welcome-avatar">🤖</div>
+            <div class="ai-welcome-title">你好，我是小博</div>
+            <div class="ai-welcome-sub">你的博客 AI 助手<br>找文章 · 看排行 · 总结内容 · 答疑</div>
+            <div class="ai-chips">
+                ${chips.map(([icon, q]) => `
+                    <button class="ai-chip" data-q="${q}">
+                        <span class="ai-chip-icon">${icon}</span>${q}
+                    </button>`).join('')}
+            </div>
+        `;
+        document.getElementById('aiMessages').appendChild(el);
+        this.scrollToBottom(true);
     },
 
     /** 根据登录态切换输入区 / 登录提示 */
@@ -248,33 +285,64 @@ const AiAssistant = {
         document.getElementById('aiInputArea').style.display = logged ? 'flex' : 'none';
     },
 
-    /** 追加一条消息气泡，返回气泡元素（textContent 赋值，天然防 XSS） */
+    /** 追加一条消息（头像 + 气泡），返回气泡元素 */
     appendMessage(role, text) {
         const msg = document.createElement('div');
         msg.className = 'ai-msg ' + role;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'ai-avatar';
+        if (role === 'user') {
+            const user = Auth.getUser() || {};
+            if (user.avatar) {
+                avatar.innerHTML = `<img src="${this.escapeHtml(user.avatar)}" alt=""
+                    onerror="this.onerror=null;this.src='/images/default-avatar.svg'">`;
+            } else {
+                avatar.textContent = (user.nickname || user.username || '我').slice(0, 1);
+            }
+        } else {
+            avatar.textContent = '🤖';
+        }
+
         const bubble = document.createElement('div');
         bubble.className = 'ai-bubble';
-        bubble.textContent = text || '';
+        if (role === 'assistant') {
+            // 助手回复按 Markdown 渲染（renderMarkdown 内部已转义，防 XSS）
+            bubble.innerHTML = this.renderMarkdown(text || '');
+        } else {
+            bubble.textContent = text || '';
+        }
+
+        msg.appendChild(avatar);
         msg.appendChild(bubble);
         document.getElementById('aiMessages').appendChild(msg);
-        this.scrollToBottom();
+        this.scrollToBottom(true);
         return bubble;
     },
 
-    scrollToBottom() {
+    /** 智能滚动：仅当接近底部时自动跟随，用户上翻查看历史时不打扰 */
+    scrollToBottom(force) {
         const list = document.getElementById('aiMessages');
-        list.scrollTop = list.scrollHeight;
+        const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+        if (force || nearBottom) list.scrollTop = list.scrollHeight;
     },
 
-    /** 发送消息并流式接收回复 */
-    async send() {
+    /** HTML 属性值转义（用于头像 URL 等拼接场景） */
+    escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    },
+
+    /** 发送消息并流式接收回复（text 传入时优先，否则读输入框） */
+    async send(text) {
         if (this.streaming) return;
         if (!Auth.isLoggedIn()) {
             Toast.show('请先登录后再使用 AI 助手', 'error');
             return;
         }
         const input = document.getElementById('aiInput');
-        const message = input.value.trim();
+        const message = (text != null ? String(text) : input.value).trim();
         if (!message) return;
 
         input.value = '';
@@ -288,8 +356,9 @@ const AiAssistant = {
         const btn = document.getElementById('aiSend');
         this.streaming = true;
         btn.disabled = true;
-        btn.textContent = '思考中';
+        btn.classList.add('loading');
 
+        let paintTimer = null;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch('/api/ai/chat/stream', {
@@ -322,12 +391,28 @@ const AiAssistant = {
             const decoder = new TextDecoder('utf-8');
             let buffer = '';
             let started = false;
+            let raw = '';
+            let lastPaint = 0;
+
+            // Markdown 渲染有开销，流式期间节流刷新（≥70ms 一次），结束后再全量渲染一次
+            const paint = (streaming) => {
+                bubble.innerHTML = this.renderMarkdown(raw)
+                    + (streaming ? '<span class="ai-cursor"></span>' : '');
+                this.scrollToBottom(false);
+            };
 
             const consume = (chunk) => {
                 if (chunk === null) return;
-                if (!started) { started = true; bubble.textContent = ''; }
-                bubble.textContent += chunk;
-                this.scrollToBottom();
+                if (!started) { started = true; bubble.innerHTML = ''; }
+                raw += chunk;
+                const now = Date.now();
+                if (now - lastPaint >= 70) {
+                    lastPaint = now;
+                    paint(true);
+                } else {
+                    clearTimeout(paintTimer);
+                    paintTimer = setTimeout(() => paint(true), 70);
+                }
             };
 
             while (true) {
@@ -342,15 +427,21 @@ const AiAssistant = {
             }
             consume(this.parseSseEvent(buffer)); // 尾部残余
 
-            if (!started) bubble.textContent = '（没有收到回复，请稍后再试）';
+            clearTimeout(paintTimer);
+            if (started) {
+                paint(false); // 结束后全量渲染，去掉打字光标
+            } else {
+                bubble.textContent = '（没有收到回复，请稍后再试）';
+            }
         } catch (e) {
+            clearTimeout(paintTimer);
             bubble.classList.add('ai-error');
             bubble.textContent = '😥 ' + e.message;
         } finally {
             this.streaming = false;
             btn.disabled = false;
-            btn.textContent = '发送';
-            this.scrollToBottom();
+            btn.classList.remove('loading');
+            this.scrollToBottom(false);
         }
     },
 
@@ -366,5 +457,108 @@ const AiAssistant = {
             }
         }
         return dataLines.length ? dataLines.join('\n') : null;
+    },
+
+    /**
+     * 轻量 Markdown 渲染
+     * 支持：代码块 / 行内代码 / 标题 / 加粗 / 斜体 / 链接 / 无序有序列表 / 引用 / 分隔线
+     * 安全策略：先整体 HTML 转义，再生成固定的安全标签；链接仅放行 http(s)
+     */
+    renderMarkdown(text) {
+        const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        // 行内格式（作用于已转义文本）
+        const inline = (s) => s
+            .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+            .replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,
+                '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+        const lines = esc(text || '').split('\n');
+        let html = '';
+        let code = null;   // 代码块行缓冲（null = 不在代码块中）
+        let para = [];     // 段落行缓冲
+        let list = null;   // 当前列表类型：ul / ol
+
+        const flushPara = () => {
+            if (para.length) {
+                html += '<p>' + para.map(inline).join('<br>') + '</p>';
+                para = [];
+            }
+        };
+        const flushList = () => {
+            if (list) { html += list === 'ul' ? '</ul>' : '</ol>'; list = null; }
+        };
+        const flushAll = () => { flushPara(); flushList(); };
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+
+            // 代码块围栏
+            if (trimmed.startsWith('```')) {
+                if (code === null) { flushAll(); code = []; }
+                else { html += '<pre><code>' + code.join('\n') + '</code></pre>'; code = null; }
+                continue;
+            }
+            if (code !== null) { code.push(line); continue; }
+
+            // 空行 = 段落 / 列表收尾
+            if (!trimmed) { flushAll(); continue; }
+
+            // 标题
+            const h = trimmed.match(/^(#{1,4})\s+(.*)$/);
+            if (h) {
+                flushAll();
+                const lv = h[1].length;
+                html += `<h${lv}>${inline(h[2])}</h${lv}>`;
+                continue;
+            }
+
+            // 分隔线
+            if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+                flushAll();
+                html += '<hr>';
+                continue;
+            }
+
+            // 无序列表
+            const ul = trimmed.match(/^[-*•]\s+(.*)$/);
+            if (ul) {
+                flushPara();
+                if (list !== 'ul') { flushList(); html += '<ul>'; list = 'ul'; }
+                html += '<li>' + inline(ul[1]) + '</li>';
+                continue;
+            }
+
+            // 有序列表
+            const ol = trimmed.match(/^\d+[.、)]\s*(.*)$/);
+            if (ol) {
+                flushPara();
+                if (list !== 'ol') { flushList(); html += '<ol>'; list = 'ol'; }
+                html += '<li>' + inline(ol[1]) + '</li>';
+                continue;
+            }
+
+            // 引用（> 已被转义为 &gt;，两种前缀都要匹配）
+            const bq = trimmed.match(/^(?:>|&gt;)\s?(.*)$/);
+            if (bq) {
+                flushAll();
+                html += '<blockquote>' + inline(bq[1]) + '</blockquote>';
+                continue;
+            }
+
+            // 普通文本行：并入当前段落（段内换行转 <br>）
+            flushList();
+            para.push(line);
+        }
+
+        // 收尾：流式过程中可能存在未闭合的代码块 / 段落
+        if (code !== null && code.length) {
+            html += '<pre><code>' + code.join('\n') + '</code></pre>';
+        }
+        flushAll();
+        return html;
     }
 };
