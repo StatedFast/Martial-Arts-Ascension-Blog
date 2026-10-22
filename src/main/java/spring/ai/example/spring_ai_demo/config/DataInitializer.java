@@ -30,8 +30,8 @@ public class DataInitializer implements CommandLineRunner {
     private final UserMapper userMapper;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
 
-    /** 种子用户的默认密码（仅开发环境） */
-    private static final String DEFAULT_SEED_PASSWORD = "Abc@1234";
+    /** 种子用户的默认密码（仅开发环境，与 data.sql 中 MD5 对应的原始密码一致） */
+    private static final String DEFAULT_SEED_PASSWORD = "123456";
 
     public DataInitializer(UserMapper userMapper) {
         this.userMapper = userMapper;

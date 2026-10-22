@@ -91,14 +91,7 @@
 			<version>${mybatis-plus.version}</version>
 		</dependency>
 
-		<!-- H2 内存数据库（开发用） -->
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-
-		<!-- MySQL（生产用，按需切换） -->
+		<!-- MySQL（本地开发/生产均使用 MySQL 8.x） -->
 		<dependency>
 			<groupId>com.mysql</groupId>
 			<artifactId>mysql-connector-j</artifactId>

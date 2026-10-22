@@ -17,7 +17,7 @@ public class MyBatisPlusConfig implements MetaObjectHandler {
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
         PaginationInnerInterceptor paginationInterceptor = new PaginationInnerInterceptor();
-        paginationInterceptor.setDbType(DbType.H2);
+        paginationInterceptor.setDbType(DbType.MYSQL);
         interceptor.addInnerInterceptor(paginationInterceptor);
         return interceptor;
     }

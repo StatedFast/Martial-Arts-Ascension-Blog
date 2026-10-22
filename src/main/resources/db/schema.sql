@@ -1,3 +1,5 @@
+-- ==================== 表结构（MySQL 8.x，幂等脚本） ====================
+
 -- 用户表
 CREATE TABLE IF NOT EXISTS blog_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -12,13 +14,13 @@ CREATE TABLE IF NOT EXISTS blog_user (
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted INT DEFAULT 0
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 文章表
 CREATE TABLE IF NOT EXISTS blog_article (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
-    content CLOB NOT NULL,
+    content LONGTEXT NOT NULL,
     summary VARCHAR(500),
     cover_image VARCHAR(255),
     author_id BIGINT NOT NULL,
@@ -31,8 +33,11 @@ CREATE TABLE IF NOT EXISTS blog_article (
     is_top INT DEFAULT 0,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    deleted INT DEFAULT 0
-);
+    deleted INT DEFAULT 0,
+    KEY idx_article_author (author_id),
+    KEY idx_article_category (category),
+    KEY idx_article_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 评论表
 CREATE TABLE IF NOT EXISTS blog_comment (
@@ -45,8 +50,10 @@ CREATE TABLE IF NOT EXISTS blog_comment (
     like_count BIGINT DEFAULT 0,
     status INT DEFAULT 1,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    deleted INT DEFAULT 0
-);
+    deleted INT DEFAULT 0,
+    KEY idx_comment_article (article_id),
+    KEY idx_comment_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 操作日志表
 CREATE TABLE IF NOT EXISTS blog_operation_log (
@@ -63,13 +70,6 @@ CREATE TABLE IF NOT EXISTS blog_operation_log (
     duration BIGINT,
     status INT DEFAULT 1,
     error_msg VARCHAR(1000),
-    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 索引
-CREATE INDEX IF NOT EXISTS idx_article_author ON blog_article(author_id);
-CREATE INDEX IF NOT EXISTS idx_article_category ON blog_article(category);
-CREATE INDEX IF NOT EXISTS idx_article_create_time ON blog_article(create_time);
-CREATE INDEX IF NOT EXISTS idx_comment_article ON blog_comment(article_id);
-CREATE INDEX IF NOT EXISTS idx_comment_user ON blog_comment(user_id);
-CREATE INDEX IF NOT EXISTS idx_operation_log_time ON blog_operation_log(create_time);
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_operation_log_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
