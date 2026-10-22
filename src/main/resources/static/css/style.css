@@ -3,20 +3,27 @@
    ======================================== */
 
 :root {
+    /* 品牌色与渐变 */
     --primary: #3b82f6;
     --primary-dark: #2563eb;
     --primary-light: #93c5fd;
-    --bg: #f8fafc;
+    --primary-soft: #eff6ff;
+    --primary-gradient: linear-gradient(135deg, #4f8df9 0%, #3b82f6 48%, #6366f1 100%);
+    /* 中性色 */
+    --bg: #f6f7fb;
     --card-bg: #ffffff;
-    --text: #1e293b;
+    --text: #0f172a;
     --text-light: #64748b;
-    --border: #e2e8f0;
-    --success: #22c55e;
+    --border: #e5e9f2;
+    /* 语义色 */
+    --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
-    --radius: 12px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    /* 形状与阴影（多层柔和投影） */
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 6px 16px -8px rgba(15,23,42,0.1);
+    --shadow-lg: 0 2px 6px rgba(15,23,42,0.05), 0 18px 36px -14px rgba(15,23,42,0.18);
 }
 
 * {
@@ -27,20 +34,28 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    background: var(--bg);
+    background:
+        radial-gradient(1100px 480px at 12% -6%, rgba(99,102,241,0.09), transparent 60%),
+        radial-gradient(980px 440px at 92% -4%, rgba(59,130,246,0.1), transparent 55%),
+        var(--bg);
+    background-attachment: fixed;
     color: var(--text);
     line-height: 1.6;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
 /* ======== 导航栏 ======== */
 .navbar {
-    background: var(--card-bg);
-    box-shadow: var(--shadow);
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(14px) saturate(1.6);
+    -webkit-backdrop-filter: blur(14px) saturate(1.6);
+    border-bottom: 1px solid rgba(226,232,240,0.9);
+    box-shadow: 0 1px 0 rgba(15,23,42,0.02);
     position: sticky;
     top: 0;
     z-index: 1000;
-    backdrop-filter: blur(10px);
 }
 
 .nav-inner {
@@ -50,45 +65,64 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 60px;
+    height: 64px;
 }
 
 .nav-brand {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: var(--primary);
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--primary-dark);
     text-decoration: none;
     display: flex;
     align-items: center;
     gap: 8px;
+    transition: opacity 0.2s;
+}
+
+.nav-brand:hover {
+    opacity: 0.85;
 }
 
 .nav-links {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 8px;
 }
 
 .nav-links a {
     color: var(--text);
     text-decoration: none;
     font-size: 0.95rem;
-    padding: 6px 12px;
-    border-radius: 6px;
+    padding: 7px 14px;
+    border-radius: 999px;
     transition: all 0.2s;
 }
 
 .nav-links a:hover {
-    background: var(--primary);
-    color: white;
+    background: var(--primary-soft);
+    color: var(--primary-dark);
 }
 
 .nav-links .btn-write {
-    background: var(--primary);
+    background: var(--primary-gradient);
     color: white;
-    padding: 8px 18px;
-    border-radius: 20px;
+    padding: 8px 20px;
+    border-radius: 999px;
     font-weight: 500;
+    box-shadow: 0 5px 14px -4px rgba(59,130,246,0.55);
+}
+
+.nav-links .btn-write:hover {
+    background: var(--primary-gradient);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px -5px rgba(59,130,246,0.65);
+    filter: brightness(1.06);
 }
 
 .user-avatar {
@@ -97,7 +131,8 @@ body {
     border-radius: 50%;
     cursor: pointer;
     object-fit: cover;
-    border: 2px solid var(--border);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--primary-light);
 }
 
 .user-menu {
@@ -106,39 +141,52 @@ body {
     align-items: center;
     gap: 8px;
     cursor: pointer;
+    padding: 4px 8px 4px 4px;
+    border-radius: 999px;
+    transition: background 0.2s;
+}
+
+.user-menu:hover {
+    background: var(--primary-soft);
 }
 
 .user-dropdown {
     position: absolute;
-    top: 50px;
+    top: 52px;
     right: 0;
     background: var(--card-bg);
-    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     box-shadow: var(--shadow-lg);
     min-width: 150px;
     display: none;
     overflow: hidden;
+    padding: 6px;
 }
 
 .user-dropdown.show {
     display: block;
+    animation: ai-slide-up 0.22s cubic-bezier(0.21, 1.02, 0.73, 1);
 }
 
 .user-dropdown a {
     display: block;
-    padding: 12px 20px;
+    padding: 10px 14px;
+    border-radius: 8px;
     color: var(--text);
     text-decoration: none;
     font-size: 0.9rem;
-    transition: background 0.2s;
+    transition: background 0.2s, color 0.2s;
 }
 
 .user-dropdown a:hover {
-    background: var(--bg);
+    background: var(--primary-soft);
+    color: var(--primary-dark);
 }
 
 .user-dropdown .logout {
     color: var(--danger);
+    margin-top: 4px;
     border-top: 1px solid var(--border);
 }
 
@@ -146,9 +194,9 @@ body {
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 24px 20px;
+    padding: 28px 20px 48px;
     display: grid;
-    grid-template-columns: 1fr 300px;
+    grid-template-columns: minmax(0, 1fr) 300px;
     gap: 24px;
 }
 
@@ -158,7 +206,7 @@ body {
 
 .sidebar {
     position: sticky;
-    top: 80px;
+    top: 88px;
     align-self: start;
 }
 
@@ -166,21 +214,46 @@ body {
 .card {
     background: var(--card-bg);
     border-radius: var(--radius);
+    border: 1px solid rgba(226,232,240,0.75);
     box-shadow: var(--shadow);
     padding: 24px;
     margin-bottom: 20px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .card:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
+    border-color: rgba(147,197,253,0.6);
 }
 
 /* ======== 文章列表 ======== */
 .article-item {
+    position: relative;
     border-bottom: 1px solid var(--border);
-    padding: 20px 0;
+    padding: 20px 8px 20px 16px;
+    transition: background 0.2s;
+}
+
+.article-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 22px;
+    bottom: 22px;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--primary-gradient);
+    opacity: 0;
+    transition: opacity 0.25s;
+}
+
+.article-item:hover::before {
+    opacity: 1;
+}
+
+.article-item:hover {
+    background: linear-gradient(90deg, rgba(59,130,246,0.045), transparent 70%);
 }
 
 .article-item:last-child {
@@ -188,8 +261,10 @@ body {
 }
 
 .article-title {
-    font-size: 1.25rem;
+    font-size: 1.22rem;
     font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.45;
     margin-bottom: 8px;
 }
 
@@ -221,30 +296,32 @@ body {
 .article-summary {
     color: var(--text-light);
     font-size: 0.95rem;
-    line-height: 1.6;
+    line-height: 1.65;
 }
 
 .article-tags {
-    margin-top: 10px;
+    margin-top: 12px;
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
 }
 
 .tag {
-    background: #eff6ff;
-    color: var(--primary);
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.8rem;
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+    border: 1px solid rgba(147,197,253,0.45);
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-size: 0.78rem;
 }
 
 .category-tag {
-    background: #fef3c7;
-    color: #92400e;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.8rem;
+    background: #fef7e6;
+    color: #b45309;
+    border: 1px solid #fde68a;
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-size: 0.78rem;
     font-weight: 500;
 }
 
@@ -304,11 +381,24 @@ body {
 }
 
 .sidebar-title {
+    position: relative;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
     margin-bottom: 16px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--primary);
+    padding-left: 12px;
+}
+
+.sidebar-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.15em;
+    bottom: 0.15em;
+    width: 4px;
+    border-radius: 4px;
+    background: var(--primary-gradient);
 }
 
 .hot-list {
@@ -330,8 +420,8 @@ body {
 .hot-rank {
     width: 22px;
     height: 22px;
-    background: var(--bg);
-    border-radius: 4px;
+    background: #eef2f7;
+    border-radius: 7px;
     text-align: center;
     line-height: 22px;
     font-size: 0.8rem;
@@ -341,8 +431,9 @@ body {
 }
 
 .hot-rank.top {
-    background: var(--danger);
+    background: linear-gradient(135deg, #fb7185, #ef4444);
     color: white;
+    box-shadow: 0 3px 8px -2px rgba(239,68,68,0.55);
 }
 
 .hot-list a {
@@ -364,9 +455,9 @@ body {
 }
 
 .category-item {
-    padding: 6px 14px;
-    border-radius: 20px;
-    background: var(--bg);
+    padding: 6px 15px;
+    border-radius: 999px;
+    background: #f1f5f9;
     color: var(--text);
     text-decoration: none;
     font-size: 0.85rem;
@@ -374,47 +465,63 @@ body {
 }
 
 .category-item:hover, .category-item.active {
-    background: var(--primary);
+    background: var(--primary-gradient);
     color: white;
+    box-shadow: 0 4px 10px -3px rgba(59,130,246,0.5);
 }
 
 /* ======== 按钮 ======== */
 .btn {
     display: inline-block;
     padding: 10px 24px;
-    border-radius: 8px;
+    border-radius: 10px;
     border: none;
     font-size: 0.95rem;
     font-weight: 500;
+    font-family: inherit;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.22s ease;
     text-decoration: none;
     text-align: center;
 }
 
 .btn-primary {
-    background: var(--primary);
+    background: var(--primary-gradient);
     color: white;
+    box-shadow: 0 5px 14px -5px rgba(59,130,246,0.55);
 }
 
 .btn-primary:hover {
-    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 9px 20px -6px rgba(59,130,246,0.65);
+    filter: brightness(1.05);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
 }
 
 .btn-outline {
-    background: transparent;
+    background: var(--card-bg);
     border: 2px solid var(--border);
     color: var(--text);
 }
 
 .btn-outline:hover {
     border-color: var(--primary);
-    color: var(--primary);
+    color: var(--primary-dark);
+    background: var(--primary-soft);
 }
 
 .btn-danger {
-    background: var(--danger);
+    background: linear-gradient(135deg, #f87171, #ef4444);
     color: white;
+    box-shadow: 0 5px 14px -5px rgba(239,68,68,0.55);
+}
+
+.btn-danger:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
 }
 
 .btn-sm {
@@ -429,7 +536,7 @@ body {
 
 /* ======== 表单 ======== */
 .form-group {
-    margin-bottom: 16px;
+    margin-bottom: 18px;
 }
 
 .form-label {
@@ -437,22 +544,26 @@ body {
     margin-bottom: 6px;
     font-weight: 500;
     font-size: 0.9rem;
+    color: var(--text);
 }
 
 .form-control {
     width: 100%;
-    padding: 10px 14px;
+    padding: 11px 14px;
     border: 2px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 0.95rem;
-    transition: border-color 0.2s;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     outline: none;
-    background: var(--card-bg);
+    background: #fbfcfe;
+    color: var(--text);
 }
 
 .form-control:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: var(--card-bg);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 }
 
 textarea.form-control {
@@ -463,18 +574,19 @@ textarea.form-control {
 /* ======== 认证页面 ======== */
 .auth-container {
     max-width: 420px;
-    margin: 80px auto;
+    margin: 72px auto;
     padding: 0 20px;
 }
 
 .auth-card {
-    padding: 40px;
+    padding: 40px 36px;
 }
 
 .auth-title {
     text-align: center;
-    font-size: 1.5rem;
-    font-weight: 700;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     margin-bottom: 8px;
 }
 
@@ -487,19 +599,24 @@ textarea.form-control {
 
 .auth-footer {
     text-align: center;
-    margin-top: 20px;
+    margin-top: 22px;
     color: var(--text-light);
     font-size: 0.9rem;
 }
 
 .auth-footer a {
-    color: var(--primary);
+    color: var(--primary-dark);
+    font-weight: 500;
     text-decoration: none;
+}
+
+.auth-footer a:hover {
+    text-decoration: underline;
 }
 
 /* ======== 文章详情 ======== */
 .article-detail {
-    padding: 30px;
+    padding: 34px;
 }
 
 .article-header {
@@ -507,14 +624,16 @@ textarea.form-control {
 }
 
 .article-header h1 {
-    font-size: 1.8rem;
+    font-size: 1.85rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     line-height: 1.4;
     margin-bottom: 12px;
 }
 
 .article-body {
     font-size: 1.05rem;
-    line-height: 1.8;
+    line-height: 1.9;
     color: var(--text);
 }
 
@@ -535,25 +654,28 @@ textarea.form-control {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 16px;
-    border-radius: 20px;
+    padding: 8px 18px;
+    border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--card-bg);
     cursor: pointer;
     font-size: 0.9rem;
+    font-family: inherit;
     transition: all 0.2s;
     color: var(--text-light);
 }
 
 .action-btn:hover {
-    border-color: var(--primary);
-    color: var(--primary);
+    border-color: var(--primary-light);
+    color: var(--primary-dark);
+    background: var(--primary-soft);
 }
 
 .action-btn.liked {
-    background: var(--primary);
+    background: var(--primary-gradient);
     color: white;
-    border-color: var(--primary);
+    border-color: transparent;
+    box-shadow: 0 5px 12px -4px rgba(59,130,246,0.55);
 }
 
 /* ======== 评论区 ======== */
@@ -563,7 +685,8 @@ textarea.form-control {
 
 .comment-title {
     font-size: 1.2rem;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     margin-bottom: 20px;
 }
 
@@ -575,12 +698,20 @@ textarea.form-control {
 
 .comment-input textarea {
     flex: 1;
-    padding: 10px 14px;
+    padding: 11px 14px;
     border: 2px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     resize: vertical;
     min-height: 60px;
     font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.comment-input textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 }
 
 .comment-item {
@@ -595,6 +726,8 @@ textarea.form-control {
     height: 40px;
     border-radius: 50%;
     flex-shrink: 0;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--border);
 }
 
 .comment-body {
@@ -623,16 +756,81 @@ textarea.form-control {
     color: var(--text-light);
     font-size: 0.85rem;
     cursor: pointer;
+    transition: color 0.2s;
 }
 
 .comment-reply:hover {
-    color: var(--primary);
+    color: var(--primary-dark);
 }
 
 .comment-children {
     margin-left: 40px;
     border-left: 2px solid var(--border);
     padding-left: 16px;
+}
+
+/* ======== 首页欢迎横幅 ======== */
+.hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius);
+    padding: 36px 32px;
+    margin-bottom: 24px;
+    background: linear-gradient(125deg, #4f8df9 0%, #3b6ef6 45%, #6c5ce7 100%);
+    color: #fff;
+    box-shadow: 0 18px 44px -18px rgba(59,130,246,0.6);
+}
+
+.hero::before,
+.hero::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    pointer-events: none;
+}
+
+.hero::before {
+    right: -70px;
+    top: -90px;
+    width: 260px;
+    height: 260px;
+}
+
+.hero::after {
+    right: 80px;
+    bottom: -120px;
+    width: 200px;
+    height: 200px;
+    background: rgba(255,255,255,0.08);
+}
+
+.hero-eyebrow {
+    position: relative;
+    z-index: 1;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    opacity: 0.85;
+    margin-bottom: 10px;
+}
+
+.hero-title {
+    position: relative;
+    z-index: 1;
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.35;
+    margin-bottom: 8px;
+}
+
+.hero-sub {
+    position: relative;
+    z-index: 1;
+    font-size: 0.95rem;
+    opacity: 0.92;
+    max-width: 520px;
 }
 
 /* ======== 搜索栏 ======== */
@@ -644,16 +842,24 @@ textarea.form-control {
 
 .search-bar input {
     flex: 1;
-    padding: 10px 16px;
+    padding: 12px 18px;
     border: 2px solid var(--border);
-    border-radius: 24px;
+    border-radius: 999px;
     font-size: 0.95rem;
     outline: none;
-    transition: border-color 0.2s;
+    background: var(--card-bg);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: var(--shadow);
 }
 
 .search-bar input:focus {
     border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+.search-bar .btn {
+    border-radius: 999px;
+    padding: 10px 26px;
 }
 
 /* ======== 分页 ======== */
@@ -665,23 +871,32 @@ textarea.form-control {
 }
 
 .page-btn {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     background: var(--card-bg);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--text);
     transition: all 0.2s;
 }
 
-.page-btn:hover, .page-btn.active {
-    background: var(--primary);
+.page-btn:hover {
+    border-color: var(--primary-light);
+    color: var(--primary-dark);
+    background: var(--primary-soft);
+}
+
+.page-btn.active {
+    background: var(--primary-gradient);
     color: white;
-    border-color: var(--primary);
+    border-color: transparent;
+    box-shadow: 0 5px 12px -3px rgba(59,130,246,0.5);
 }
 
 /* ======== 个人中心 ======== */
@@ -702,7 +917,8 @@ textarea.form-control {
     height: 100px;
     border-radius: 50%;
     object-fit: cover;
-    border: 3px solid var(--primary-light);
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 3px rgba(147,197,253,0.55), var(--shadow);
 }
 
 .avatar-edit-btn {
@@ -712,7 +928,7 @@ textarea.form-control {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: var(--primary);
+    background: var(--primary-gradient);
     color: white;
     border: 3px solid var(--card-bg);
     cursor: pointer;
@@ -720,6 +936,12 @@ textarea.form-control {
     align-items: center;
     justify-content: center;
     font-size: 0.85rem;
+    box-shadow: 0 4px 10px -3px rgba(59,130,246,0.6);
+    transition: transform 0.2s;
+}
+
+.avatar-edit-btn:hover {
+    transform: scale(1.08);
 }
 
 .profile-tabs {
@@ -739,8 +961,12 @@ textarea.form-control {
     transition: all 0.2s;
 }
 
+.profile-tab:hover {
+    color: var(--primary-dark);
+}
+
 .profile-tab.active {
-    color: var(--primary);
+    color: var(--primary-dark);
     border-bottom-color: var(--primary);
     font-weight: 600;
 }
@@ -750,18 +976,18 @@ textarea.form-control {
     position: fixed;
     top: 20px;
     right: 20px;
-    padding: 14px 24px;
-    border-radius: 8px;
+    padding: 13px 22px;
+    border-radius: 12px;
     color: white;
     font-size: 0.9rem;
     z-index: 9999;
-    animation: slideIn 0.3s ease;
-    box-shadow: var(--shadow-lg);
+    animation: slideIn 0.32s cubic-bezier(0.21, 1.02, 0.73, 1);
+    box-shadow: 0 12px 28px -8px rgba(15,23,42,0.35);
 }
 
-.toast-success { background: var(--success); }
-.toast-error { background: var(--danger); }
-.toast-warning { background: var(--warning); }
+.toast-success { background: linear-gradient(135deg, #34d399, #10b981); }
+.toast-error { background: linear-gradient(135deg, #f87171, #ef4444); }
+.toast-warning { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
 
 @keyframes slideIn {
     from { transform: translateX(100%); opacity: 0; }
@@ -772,7 +998,9 @@ textarea.form-control {
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(15,23,42,0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
     z-index: 5000;
     display: none;
     align-items: center;
@@ -790,11 +1018,13 @@ textarea.form-control {
     max-width: 420px;
     width: 90%;
     box-shadow: var(--shadow-lg);
+    animation: ai-slide-up 0.25s cubic-bezier(0.21, 1.02, 0.73, 1);
 }
 
 .modal-title {
     font-size: 1.2rem;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     margin-bottom: 20px;
 }
 
@@ -823,6 +1053,7 @@ textarea.form-control {
 @media (max-width: 768px) {
     .container {
         grid-template-columns: 1fr;
+        padding: 20px 14px 40px;
     }
     .sidebar {
         position: static;
@@ -844,6 +1075,12 @@ textarea.form-control {
         margin-left: 20px;
         padding-left: 12px;
     }
+    .hero {
+        padding: 28px 22px;
+    }
+    .hero-title {
+        font-size: 1.45rem;
+    }
 }
 
 /* ======== 文章编辑器 ======== */
@@ -859,24 +1096,48 @@ textarea.form-control {
     border-bottom: 2px solid var(--border);
     width: 100%;
     outline: none;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     margin-bottom: 16px;
+    transition: border-color 0.2s;
+    background: transparent;
+    color: var(--text);
+}
+
+.editor-title-input:focus {
+    border-bottom-color: var(--primary);
+}
+
+.editor-title-input::placeholder {
+    color: #94a3b8;
 }
 
 .editor-toolbar {
     display: flex;
     gap: 8px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #f8fafd;
     margin-bottom: 16px;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .editor-toolbar select, .editor-toolbar input {
-    padding: 6px 12px;
+    padding: 7px 12px;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.9rem;
+    font-family: inherit;
+    background: var(--card-bg);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.editor-toolbar select:focus, .editor-toolbar input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
 }
 
 .editor-toolbar input {
@@ -893,6 +1154,13 @@ textarea.form-control {
     font-size: 1rem;
     line-height: 1.8;
     resize: vertical;
+    font-family: inherit;
+    background: transparent;
+    color: var(--text);
+}
+
+.editor-content::placeholder {
+    color: #94a3b8;
 }
 
 .empty-state {

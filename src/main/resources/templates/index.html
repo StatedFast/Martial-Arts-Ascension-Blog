@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">Spring Blog</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/style.css?v=5">
 </head>
 <body>
     <!-- 导航栏 -->
@@ -19,6 +19,13 @@
     <div class="container">
         <!-- 文章列表 -->
         <main class="main-content">
+            <!-- 欢迎横幅 -->
+            <section class="hero">
+                <div class="hero-eyebrow">SPRING AI BLOG</div>
+                <h1 class="hero-title">韩老魔的博客项目</h1>
+                <p class="hero-sub">记录技术成长 · 分享编程心得 · 右下角 AI 助手随时待命</p>
+            </section>
+
             <!-- 搜索栏 -->
             <div class="search-bar">
                 <input type="text" id="searchInput" placeholder="搜索文章..." onkeyup="if(event.key==='Enter') searchArticles()">
