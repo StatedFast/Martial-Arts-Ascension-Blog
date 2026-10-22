@@ -15,6 +15,7 @@ import spring.ai.example.spring_ai_demo.entity.User;
 import spring.ai.example.spring_ai_demo.exception.BusinessException;
 import spring.ai.example.spring_ai_demo.exception.TokenInvalidException;
 import spring.ai.example.spring_ai_demo.mapper.UserMapper;
+import spring.ai.example.spring_ai_demo.service.FileStorageService;
 import spring.ai.example.spring_ai_demo.service.LoginAttemptService;
 import spring.ai.example.spring_ai_demo.service.TokenBlacklistService;
 import spring.ai.example.spring_ai_demo.service.UserService;
@@ -34,15 +35,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final LocalCacheService cacheService;
     private final TokenBlacklistService blacklistService;
     private final LoginAttemptService loginAttemptService;
+    private final FileStorageService fileStorageService;
     private final BCryptPasswordEncoder passwordEncoder;
 
     public UserServiceImpl(JwtUtils jwtUtils, LocalCacheService cacheService,
                            TokenBlacklistService blacklistService,
-                           LoginAttemptService loginAttemptService) {
+                           LoginAttemptService loginAttemptService,
+                           FileStorageService fileStorageService) {
         this.jwtUtils = jwtUtils;
         this.cacheService = cacheService;
         this.blacklistService = blacklistService;
         this.loginAttemptService = loginAttemptService;
+        this.fileStorageService = fileStorageService;
         this.passwordEncoder = new BCryptPasswordEncoder(12); // cost=12，企业级强度
     }
 
@@ -240,12 +244,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional
     public boolean updateAvatar(Long userId, String avatarUrl) {
+        User existing = getById(userId);
+        if (existing == null) {
+            return false;
+        }
         User user = new User();
         user.setId(userId);
         user.setAvatar(avatarUrl);
         boolean updated = updateById(user);
         if (updated) {
             cacheService.delete(USER_CACHE_PREFIX + userId);
+            // 清理旧头像文件（仅删除上传目录下的文件，默认头像/外链自动跳过）
+            if (existing.getAvatar() != null && !existing.getAvatar().equals(avatarUrl)) {
+                fileStorageService.deleteAvatar(existing.getAvatar());
+            }
         }
         return updated;
     }

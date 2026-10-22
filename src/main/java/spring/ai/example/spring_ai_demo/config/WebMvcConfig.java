@@ -1,6 +1,7 @@
 package spring.ai.example.spring_ai_demo.config;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
@@ -10,8 +11,14 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import spring.ai.example.spring_ai_demo.interceptor.JwtInterceptor;
 import spring.ai.example.spring_ai_demo.interceptor.RateLimitInterceptor;
 
+import java.nio.file.Paths;
+
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
+
+    /** 本地上传文件根目录（与 FileStorageService 同一配置） */
+    @Value("${file.upload-dir:uploads}")
+    private String uploadDir;
 
     private final JwtInterceptor jwtInterceptor;
     private final RateLimitInterceptor rateLimitInterceptor;
@@ -59,5 +66,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addResourceLocations("classpath:/static/");
         registry.addResourceHandler("/images/**")
                 .addResourceLocations("classpath:/static/images/");
+        // 用户上传的头像等文件：/uploads/** -> {file.upload-dir}/（磁盘绝对路径，随工作目录解析）
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:" + Paths.get(uploadDir).toAbsolutePath().normalize() + "/");
     }
 }

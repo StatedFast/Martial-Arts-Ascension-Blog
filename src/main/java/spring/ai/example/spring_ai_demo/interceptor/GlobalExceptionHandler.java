@@ -8,6 +8,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import spring.ai.example.spring_ai_demo.common.Result;
@@ -35,6 +36,15 @@ public class GlobalExceptionHandler {
     public Result<?> handleNoResourceFound(NoResourceFoundException e) {
         log.debug("静态资源未找到: {}", e.getMessage());
         return Result.error(404, "资源不存在");
+    }
+
+    /**
+     * 上传文件超过 spring.servlet.multipart 限制（multipart.max-file-size）
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Result<?> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        log.warn("上传文件超过大小限制: {}", e.getMessage());
+        return Result.error(400, "上传文件过大，头像请控制在2MB以内");
     }
 
     /**

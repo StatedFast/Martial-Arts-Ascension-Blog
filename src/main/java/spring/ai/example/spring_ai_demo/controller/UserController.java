@@ -3,11 +3,13 @@ package spring.ai.example.spring_ai_demo.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import spring.ai.example.spring_ai_demo.annotation.NoAuth;
 import spring.ai.example.spring_ai_demo.common.Result;
 import spring.ai.example.spring_ai_demo.dto.LoginDTO;
 import spring.ai.example.spring_ai_demo.dto.RegisterDTO;
 import spring.ai.example.spring_ai_demo.entity.User;
+import spring.ai.example.spring_ai_demo.service.FileStorageService;
 import spring.ai.example.spring_ai_demo.service.UserService;
 import spring.ai.example.spring_ai_demo.utils.IpUtils;
 
@@ -18,9 +20,11 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final FileStorageService fileStorageService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, FileStorageService fileStorageService) {
         this.userService = userService;
+        this.fileStorageService = fileStorageService;
     }
 
     @NoAuth
@@ -77,11 +81,15 @@ public class UserController {
         return updated ? Result.success() : Result.error("更新失败");
     }
 
-    @PutMapping("/avatar")
+    /**
+     * 修改头像：上传本地图片文件，返回头像访问URL
+     */
+    @PostMapping("/avatar")
     public Result<?> updateAvatar(@RequestAttribute("userId") Long userId,
-                                  @RequestParam String avatarUrl) {
+                                  @RequestParam("file") MultipartFile file) {
+        String avatarUrl = fileStorageService.storeAvatar(file, userId);
         boolean updated = userService.updateAvatar(userId, avatarUrl);
-        return updated ? Result.success() : Result.error("头像更新失败");
+        return updated ? Result.success(avatarUrl) : Result.error("头像更新失败");
     }
 
     /**

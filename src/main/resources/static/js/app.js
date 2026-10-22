@@ -14,6 +14,10 @@ const http = {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             ...options.headers
         };
+        // 文件上传（FormData）：不能手动设 Content-Type，交给浏览器生成 multipart boundary
+        if (options.body instanceof FormData) {
+            delete headers['Content-Type'];
+        }
 
         const res = await fetch(API_BASE + url, { ...options, headers });
         const data = await res.json();
@@ -51,6 +55,15 @@ const http = {
 
     delete(url) {
         return this.request(url, { method: 'DELETE' });
+    },
+
+    /**
+     * 文件上传：单个文件以 form-data 提交，返回后端 data
+     */
+    upload(url, file, field = 'file') {
+        const fd = new FormData();
+        fd.append(field, file);
+        return this.request(url, { method: 'POST', body: fd });
     }
 };
 

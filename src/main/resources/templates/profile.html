@@ -92,8 +92,11 @@
         <div class="modal-box">
             <h3 class="modal-title">修改头像</h3>
             <div class="form-group">
-                <label class="form-label">头像URL</label>
-                <input type="text" class="form-control" id="avatarUrl" placeholder="输入头像图片URL">
+                <label class="form-label">选择本地图片</label>
+                <input type="file" id="avatarFile" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp"
+                       style="width:100%; padding:8px; border:1px solid var(--border,#ddd); border-radius:8px;">
+                <div style="margin-top:6px; font-size:12px; opacity:.7;">支持 jpg/png/gif/webp/bmp，不超过 2MB</div>
+                <img id="avatarPreview" alt="预览" style="display:none; width:80px; height:80px; border-radius:50%; object-fit:cover; margin-top:10px;">
             </div>
             <div style="display:flex; gap:12px; justify-content:flex-end;">
                 <button class="btn btn-outline" onclick="closeAvatarModal()">取消</button>
@@ -102,7 +105,7 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=4"></script>
+    <script src="/js/app.js?v=5"></script>
     <script>
         if (!Auth.isLoggedIn()) {
             window.location.href = '/login';
@@ -155,13 +158,17 @@
             }
         }
 
-        // 修改头像
+        // 修改头像：本地图片上传
         async function updateAvatar() {
-            const url = document.getElementById('avatarUrl').value.trim();
-            if (!url) { Toast.show('请输入头像URL', 'warning'); return; }
+            const input = document.getElementById('avatarFile');
+            const file = input.files[0];
+            if (!file) { Toast.show('请选择图片文件', 'warning'); return; }
+            if (!file.type.startsWith('image/')) { Toast.show('只能选择图片文件', 'warning'); return; }
+            if (file.size > 2 * 1024 * 1024) { Toast.show('图片不能超过 2MB', 'warning'); return; }
             try {
-                await http.put(`/user/avatar?avatarUrl=${encodeURIComponent(url)}`);
-                document.getElementById('profileAvatar').src = url;
+                const url = await http.upload('/user/avatar', file);
+                // 加时间戳防浏览器缓存旧图
+                document.getElementById('profileAvatar').src = url + '?t=' + Date.now();
                 closeAvatarModal();
                 Toast.show('头像已更新');
                 // 更新localStorage中的用户信息
@@ -223,8 +230,22 @@
 
         function showAvatarModal() {
             document.getElementById('avatarModal').classList.add('show');
-            document.getElementById('avatarUrl').value = currentUser?.avatar || '';
+            // 每次打开重置选择状态
+            document.getElementById('avatarFile').value = '';
+            document.getElementById('avatarPreview').style.display = 'none';
         }
+
+        // 选择文件后本地预览
+        document.getElementById('avatarFile').addEventListener('change', function() {
+            const file = this.files[0];
+            const preview = document.getElementById('avatarPreview');
+            if (file) {
+                preview.src = URL.createObjectURL(file);
+                preview.style.display = 'inline-block';
+            } else {
+                preview.style.display = 'none';
+            }
+        });
         function closeAvatarModal() {
             document.getElementById('avatarModal').classList.remove('show');
         }
