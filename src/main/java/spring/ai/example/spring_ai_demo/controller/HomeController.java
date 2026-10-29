@@ -4,13 +4,30 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import spring.ai.example.spring_ai_demo.entity.User;
+import spring.ai.example.spring_ai_demo.service.UserService;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Controller
 public class HomeController {
 
+    /** 博主名片兜底文案（管理员资料缺失时使用） */
+    private static final String DEFAULT_AUTHOR_NAME = "博主";
+    private static final String DEFAULT_AUTHOR_AVATAR = "/images/default-avatar.svg";
+    private static final String DEFAULT_AUTHOR_BIO = "记录技术成长 · 分享编程心得";
+
+    private final UserService userService;
+
+    public HomeController(UserService userService) {
+        this.userService = userService;
+    }
+
     @GetMapping("/")
     public String index(Model model) {
         model.addAttribute("title", "Spring Blog - 首页");
+        model.addAttribute("author", loadAuthorCard());
         return "index";
     }
 
@@ -39,5 +56,42 @@ public class HomeController {
     @GetMapping("/write")
     public String write() {
         return "write";
+    }
+
+    /**
+     * 首页博主名片数据：取站点管理员账号，缺失字段回退到默认文案。
+     * 只读单行查询，走主键/角色索引，避免前端再发一次请求。
+     */
+    private Map<String, String> loadAuthorCard() {
+        Map<String, String> card = new HashMap<>();
+        card.put("name", DEFAULT_AUTHOR_NAME);
+        card.put("avatar", DEFAULT_AUTHOR_AVATAR);
+        card.put("bio", DEFAULT_AUTHOR_BIO);
+
+        User admin = userService.lambdaQuery()
+                .eq(User::getRole, "ADMIN")
+                .eq(User::getStatus, 1)
+                .orderByAsc(User::getId)
+                .last("LIMIT 1")
+                .one();
+        if (admin == null) {
+            return card;
+        }
+        if (hasText(admin.getNickname())) {
+            card.put("name", admin.getNickname());
+        } else if (hasText(admin.getUsername())) {
+            card.put("name", admin.getUsername());
+        }
+        if (hasText(admin.getAvatar())) {
+            card.put("avatar", admin.getAvatar());
+        }
+        if (hasText(admin.getBio())) {
+            card.put("bio", admin.getBio());
+        }
+        return card;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

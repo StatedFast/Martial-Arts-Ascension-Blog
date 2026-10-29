@@ -148,27 +148,39 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         Set<LocalCacheService.ZSetEntry> hotSet =
                 cacheService.zReverseRangeWithScores(HOT_ARTICLES_KEY, 0, limit - 1);
 
-        if (hotSet == null || hotSet.isEmpty()) {
-            // 降级：按浏览量从数据库查
+        List<Article> hotList = new ArrayList<>();
+        Set<Long> picked = new HashSet<>();
+
+        if (hotSet != null) {
+            for (LocalCacheService.ZSetEntry entry : hotSet) {
+                Long articleId = Long.valueOf(entry.getValue());
+                Article article = (Article) cacheService.get(ARTICLE_CACHE_PREFIX + articleId);
+                if (article == null) {
+                    article = getById(articleId);
+                    if (article != null) {
+                        cacheService.set(ARTICLE_CACHE_PREFIX + articleId, article, 1, TimeUnit.HOURS);
+                    }
+                }
+                if (article != null) {
+                    hotList.add(article);
+                    picked.add(articleId);
+                }
+            }
+        }
+
+        // 缓存刚预热（只访问过一两篇）时按浏览量兜底补齐，避免榜单只剩一两条
+        if (hotList.size() < limit) {
             LambdaQueryWrapper<Article> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(Article::getStatus, 1)
                     .orderByDesc(Article::getViewCount)
-                    .last("LIMIT " + limit);
-            return list(wrapper);
-        }
-
-        List<Article> hotList = new ArrayList<>();
-        for (LocalCacheService.ZSetEntry entry : hotSet) {
-            Long articleId = Long.valueOf(entry.getValue());
-            Article article = (Article) cacheService.get(ARTICLE_CACHE_PREFIX + articleId);
-            if (article == null) {
-                article = getById(articleId);
-                if (article != null) {
-                    cacheService.set(ARTICLE_CACHE_PREFIX + articleId, article, 1, TimeUnit.HOURS);
+                    .last("LIMIT " + limit * 2);
+            for (Article article : list(wrapper)) {
+                if (hotList.size() >= limit) {
+                    break;
                 }
-            }
-            if (article != null) {
-                hotList.add(article);
+                if (article.getId() != null && picked.add(article.getId())) {
+                    hotList.add(article);
+                }
             }
         }
         return hotList;

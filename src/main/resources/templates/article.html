@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文章详情 - Spring Blog</title>
-    <link rel="stylesheet" href="/css/style.css?v=5">
+    <link rel="stylesheet" href="/css/style.css?v=7">
 </head>
 <body>
     <nav class="navbar">
@@ -41,14 +41,14 @@
         </main>
 
         <aside class="sidebar">
-            <div class="card sidebar-card">
-                <div class="sidebar-title">🔥 热门文章</div>
+            <div class="card side-card">
+                <div class="side-card-title">🔥 热门文章</div>
                 <ul class="hot-list" id="hotList"><li class="loading">加载中...</li></ul>
             </div>
         </aside>
     </div>
 
-    <script src="/js/app.js?v=4"></script>
+    <script src="/js/app.js?v=5"></script>
     <script>
         const articleId = [[${articleId}]];
 
@@ -60,9 +60,9 @@
                     <div class="article-header">
                         <h1>${escapeHtml(article.title)}</h1>
                         <div class="article-meta">
-                            <span>📅 ${formatTime(article.createTime)}</span>
-                            <span>👁 ${article.viewCount || 0} 阅读</span>
-                            <span>💬 ${article.commentCount || 0} 评论</span>
+                            <span>${formatTime(article.createTime)}</span>
+                            <span>${article.viewCount || 0} 阅读</span>
+                            <span>${article.commentCount || 0} 评论</span>
                         </div>
                         <div class="article-tags">
                             ${article.category ? `<span class="category-tag">${escapeHtml(article.category)}</span>` : ''}

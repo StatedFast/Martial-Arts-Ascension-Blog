@@ -4,36 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">Spring Blog</title>
-    <link rel="stylesheet" href="/css/style.css?v=5">
+    <link rel="stylesheet" href="/css/style.css?v=7">
 </head>
-<body>
+<body class="home">
     <!-- 导航栏 -->
     <nav class="navbar">
         <div class="nav-inner">
-            <a href="/" class="nav-brand">📝 韩老魔的博客项目</a>
+            <a href="/" class="nav-brand">📝 凡人修仙博客</a>
             <div class="nav-links" id="navLinks"></div>
         </div>
     </nav>
 
-    <!-- 主内容区 -->
-    <div class="container">
-        <!-- 文章列表 -->
-        <main class="main-content">
-            <!-- 欢迎横幅 -->
-            <section class="hero">
-                <div class="hero-eyebrow">SPRING AI BLOG</div>
-                <h1 class="hero-title">韩老魔的博客项目</h1>
-                <p class="hero-sub">记录技术成长 · 分享编程心得 · 右下角 AI 助手随时待命</p>
-            </section>
-
-            <!-- 搜索栏 -->
-            <div class="search-bar">
-                <input type="text" id="searchInput" placeholder="搜索文章..." onkeyup="if(event.key==='Enter') searchArticles()">
-                <button class="btn btn-primary" onclick="searchArticles()">搜索</button>
+    <!-- 三栏主内容区：左·信息 / 中·文章 / 右·工具 -->
+    <div class="container home-layout">
+        <!-- ==================== 左侧栏 ==================== -->
+        <aside class="col-left">
+            <!-- 博主名片 -->
+            <div class="card profile-card">
+                <div class="profile-cover"></div>
+                <div class="profile-main">
+                    <img class="profile-avatar"
+                         th:src="${author != null ? author.avatar : '/images/default-avatar.svg'}"
+                         src="/images/default-avatar.svg" alt="博主头像"
+                         onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
+                    <div class="profile-name"
+                         th:text="${author != null ? author.name : '博主'}">博主</div>
+                    <div class="profile-desc"
+                         th:text="${author != null ? author.bio : '记录技术成长 · 分享编程心得'}">记录技术成长 · 分享编程心得</div>
+                    <div class="profile-stats">
+                        <div class="profile-stat">
+                            <b id="statArticles">—</b>
+                            <span>文章</span>
+                        </div>
+                        <div class="profile-stat">
+                            <b id="statCategories">—</b>
+                            <span>分类</span>
+                        </div>
+                        <div class="profile-stat">
+                            <b id="statTags">—</b>
+                            <span>标签</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- 文章列表容器 -->
-            <div class="card">
+            <!-- 分类导航 -->
+            <div class="card side-card">
+                <div class="side-card-title">📂 文章分类</div>
+                <nav class="nav-list" id="categoryList">
+                    <a href="#" class="nav-item active" data-category=""
+                       onclick="filterByCategory('');return false;">
+                        <span class="nav-icon">🗂️</span>
+                        <span class="nav-text">全部文章</span>
+                        <span class="nav-count" id="countAll">0</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- 快捷入口 -->
+            <div class="card side-card">
+                <div class="side-card-title">⚡ 快捷入口</div>
+                <div class="quick-links">
+                    <a href="/write" class="quick-link"><span class="quick-icon">✍️</span>写文章</a>
+                    <a href="/profile" class="quick-link"><span class="quick-icon">👤</span>个人中心</a>
+                    <a href="#" class="quick-link" onclick="AiAssistant.toggle();return false;">
+                        <span class="quick-icon">🤖</span>问问 AI 助手
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ==================== 中间：核心文章区 ==================== -->
+        <main class="main-content">
+            <!-- 欢迎横幅：压缩为一行，把首屏空间让给文章 -->
+            <section class="hero">
+                <div class="hero-main">
+                    <div class="hero-eyebrow">SPRING AI BLOG</div>
+                    <h1 class="hero-title">凡人修仙博客</h1>
+                    <p class="hero-sub">记录技术成长 · 分享编程心得</p>
+                </div>
+                <div class="hero-actions">
+                    <a href="#articleList" class="hero-btn hero-btn-light">开始阅读</a>
+                    <button type="button" class="hero-btn" onclick="AiAssistant.toggle()">🤖 问 AI</button>
+                </div>
+            </section>
+
+            <!-- 文章列表 -->
+            <div class="card list-card">
+                <div class="list-head">
+                    <h2 class="list-title">最新文章</h2>
+                    <div class="list-tools">
+                        <span class="filter-chip" id="activeFilter" hidden>
+                            <span id="activeFilterText"></span>
+                            <button type="button" onclick="clearFilters()" title="清除筛选"
+                                    aria-label="清除筛选">✕</button>
+                        </span>
+                        <span class="list-meta" id="listMeta">加载中…</span>
+                    </div>
+                </div>
                 <div id="articleList"></div>
             </div>
 
@@ -41,38 +109,65 @@
             <div class="pagination" id="pagination"></div>
         </main>
 
-        <!-- 侧边栏 -->
-        <aside class="sidebar">
-            <!-- 分类 -->
-            <div class="card sidebar-card">
-                <div class="sidebar-title">📂 文章分类</div>
-                <div class="category-list" id="categoryList">
-                    <a href="#" class="category-item active" onclick="filterByCategory('');return false;">全部</a>
-                    <a href="#" class="category-item" onclick="filterByCategory('Spring');return false;">Spring</a>
-                    <a href="#" class="category-item" onclick="filterByCategory('数据库');return false;">数据库</a>
-                    <a href="#" class="category-item" onclick="filterByCategory('架构');return false;">架构</a>
-                    <a href="#" class="category-item" onclick="filterByCategory('前端');return false;">前端</a>
+        <!-- ==================== 右侧栏 ==================== -->
+        <aside class="col-right">
+            <!-- 搜索 -->
+            <div class="card side-card">
+                <div class="side-card-title">🔍 搜索文章</div>
+                <div class="side-search">
+                    <input type="text" id="searchInput" placeholder="标题或摘要关键词"
+                           aria-label="搜索文章"
+                           onkeyup="if(event.key==='Enter') searchArticles()">
+                    <button type="button" onclick="searchArticles()" title="搜索" aria-label="搜索">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <path d="m20 20-3.5-3.5"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
+            <!-- AI 助手入口：本项目差异点，放到右栏第二位置 -->
+            <div class="card side-card ai-cta">
+                <div class="ai-cta-title">🤖 小博 · AI 助手</div>
+                <div class="ai-cta-desc">找文章 · 看排行 · 总结内容 · 随时答疑</div>
+                <button type="button" class="ai-cta-btn" onclick="AiAssistant.toggle()">立即对话 →</button>
+            </div>
+
             <!-- 热门文章 -->
-            <div class="card sidebar-card">
-                <div class="sidebar-title">🔥 热门文章</div>
+            <div class="card side-card">
+                <div class="side-card-title">🔥 热门文章</div>
                 <ul class="hot-list" id="hotList">
                     <li class="loading">加载中...</li>
                 </ul>
             </div>
+
+            <!-- 标签云 -->
+            <div class="card side-card">
+                <div class="side-card-title">🏷️ 标签云</div>
+                <div class="tag-cloud" id="tagCloud">
+                    <span class="tag-cloud-empty">加载中…</span>
+                </div>
+            </div>
         </aside>
     </div>
 
-    <script src="/js/app.js?v=4"></script>
+    <script src="/js/app.js?v=5"></script>
     <script>
         // ==================== 首页逻辑 ====================
         let currentPage = 1;
         let currentCategory = '';
         let currentKeyword = '';
 
-        // 加载文章列表
+        // 分类图标（未命中时用默认图标）
+        const CATEGORY_ICONS = { 'Spring': '🍃', '数据库': '🗄️', '架构': '🏗️', '前端': '🎨' };
+
+        // 标签展示规则：过长的标签多为摘要被误填（脏数据），统一在展示层过滤
+        const MAX_TAG_LENGTH = 8;
+        const MAX_TAG_COUNT = 20;
+
+        // ==================== 文章列表 ====================
         async function loadArticles(page = 1) {
             currentPage = page;
             const params = { page, size: 10 };
@@ -82,50 +177,81 @@
             try {
                 const data = await http.get('/articles', params);
                 const list = document.getElementById('articleList');
+                const meta = document.getElementById('listMeta');
+                const total = data.total || 0;
+                const filtering = !!(currentCategory || currentKeyword);
+
+                meta.textContent = filtering ? `筛选出 ${total} 篇` : `共 ${total} 篇`;
+                renderActiveFilter();
 
                 if (!data.records || data.records.length === 0) {
-                    list.innerHTML = '<div class="empty-state"><h3>暂无文章</h3><p>还没有发布任何文章</p></div>';
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <h3>没有匹配的文章</h3>
+                            <p>换个关键词，或清除当前筛选条件</p>
+                            ${filtering ? '<button class="btn btn-outline btn-sm" onclick="clearFilters()">清除筛选</button>' : ''}
+                        </div>`;
                     document.getElementById('pagination').innerHTML = '';
                     return;
                 }
 
                 list.innerHTML = data.records.map(article => `
-                    <div class="article-item">
-                        <div class="article-title">
-                            <a href="/article/${article.id}">${article.isTop ? '📌 ' : ''}${escapeHtml(article.title)}</a>
-                        </div>
+                    <article class="article-item">
+                        <h3 class="article-title">
+                            ${article.isTop ? '<span class="top-badge">置顶</span>' : ''}
+                            <a href="/article/${article.id}">${escapeHtml(article.title)}</a>
+                        </h3>
                         <div class="article-meta">
-                            <span>📅 ${formatTime(article.createTime)}</span>
-                            <span>👁 ${article.viewCount || 0} 阅读</span>
-                            <span>💬 ${article.commentCount || 0} 评论</span>
-                            <span>❤ ${article.likeCount || 0} 点赞</span>
+                            <span>${formatTime(article.createTime)}</span>
+                            <span>${article.viewCount || 0} 阅读</span>
+                            <span>${article.commentCount || 0} 评论</span>
+                            <span>${article.likeCount || 0} 点赞</span>
                         </div>
-                        <div class="article-summary">${escapeHtml(article.summary || '')}</div>
+                        <p class="article-summary">${escapeHtml(article.summary || '')}</p>
                         <div class="article-tags">
                             ${article.category ? `<span class="category-tag">${escapeHtml(article.category)}</span>` : ''}
-                            ${(article.tags || '').split(',').filter(t => t).map(t => `<span class="tag">${escapeHtml(t.trim())}</span>`).join('')}
+                            ${(article.tags || '').split(',').map(t => t.trim())
+                                .filter(t => t && t.length <= MAX_TAG_LENGTH)
+                                .map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}
                         </div>
-                    </div>
+                    </article>
                 `).join('');
 
-                // 分页
                 renderPagination(data);
             } catch (e) {
+                document.getElementById('listMeta').textContent = '';
                 document.getElementById('articleList').innerHTML =
                     '<div class="empty-state"><h3>加载失败</h3><p>' + e.message + '</p></div>';
             }
         }
 
+        // 分页：首尾 + 当前页附近，中间省略，避免页码溢出
         function renderPagination(data) {
             const pag = document.getElementById('pagination');
-            if (data.pages <= 1) { pag.innerHTML = ''; return; }
+            const pages = data.pages || 0;
+            if (pages <= 1) { pag.innerHTML = ''; return; }
 
-            let html = '';
-            for (let i = 1; i <= data.pages; i++) {
-                html += `<button class="page-btn ${i === currentPage ? 'active' : ''}"
-                               onclick="loadArticles(${i})">${i}</button>`;
-            }
-            pag.innerHTML = html;
+            const cur = currentPage;
+            const nums = [];
+            [1, cur - 1, cur, cur + 1, pages].forEach(n => {
+                if (n >= 1 && n <= pages && !nums.includes(n)) nums.push(n);
+            });
+            nums.sort((a, b) => a - b);
+
+            let items = '';
+            let prev = 0;
+            nums.forEach(n => {
+                if (prev && n - prev > 1) items += '<span class="page-ellipsis">…</span>';
+                items += `<button class="page-btn ${n === cur ? 'active' : ''}"
+                                  onclick="loadArticles(${n})">${n}</button>`;
+                prev = n;
+            });
+
+            pag.innerHTML = `
+                <button class="page-btn page-nav" onclick="loadArticles(${cur - 1})" ${cur === 1 ? 'disabled' : ''}>上一页</button>
+                ${items}
+                <button class="page-btn page-nav" onclick="loadArticles(${cur + 1})" ${cur === pages ? 'disabled' : ''}>下一页</button>
+            `;
         }
 
         function searchArticles() {
@@ -135,17 +261,57 @@
 
         function filterByCategory(cat) {
             currentCategory = cat;
-            document.querySelectorAll('.category-item').forEach(el => {
-                el.classList.toggle('active', el.textContent.trim() === (cat || '全部'));
+            document.querySelectorAll('#categoryList .nav-item').forEach(el => {
+                el.classList.toggle('active', (el.dataset.category || '') === cat);
             });
             loadArticles(1);
         }
 
-        // 加载热门文章
+        // 当前筛选条件以 chip 形式回显，用户随时可一键清除
+        function renderActiveFilter() {
+            const chip = document.getElementById('activeFilter');
+            const text = document.getElementById('activeFilterText');
+            const parts = [];
+            if (currentCategory) parts.push('分类：' + currentCategory);
+            if (currentKeyword) parts.push('关键词：' + currentKeyword);
+            if (parts.length === 0) {
+                chip.hidden = true;
+                return;
+            }
+            text.textContent = parts.join(' · ');
+            chip.hidden = false;
+        }
+
+        function clearFilters() {
+            currentCategory = '';
+            currentKeyword = '';
+            document.getElementById('searchInput').value = '';
+            document.querySelectorAll('#categoryList .nav-item').forEach(el => {
+                el.classList.toggle('active', (el.dataset.category || '') === '');
+            });
+            loadArticles(1);
+        }
+
+        // 首屏骨架屏：避免白屏与布局跳动
+        function renderSkeleton(count = 3) {
+            document.getElementById('articleList').innerHTML = Array.from({ length: count }, () => `
+                <div class="sk-item">
+                    <div class="skeleton sk-title"></div>
+                    <div class="skeleton sk-meta"></div>
+                    <div class="skeleton sk-line"></div>
+                    <div class="skeleton sk-line sk-w70"></div>
+                </div>`).join('');
+        }
+
+        // ==================== 右侧栏：热门文章 ====================
         async function loadHotArticles() {
             try {
                 const articles = await http.get('/articles/hot', { limit: 5 });
                 const list = document.getElementById('hotList');
+                if (!articles || articles.length === 0) {
+                    list.innerHTML = '<li class="hot-empty">暂无热门文章</li>';
+                    return;
+                }
                 list.innerHTML = articles.map((a, i) => `
                     <li>
                         <span class="hot-rank ${i < 3 ? 'top' : ''}">${i + 1}</span>
@@ -153,8 +319,78 @@
                     </li>
                 `).join('');
             } catch (e) {
-                document.getElementById('hotList').innerHTML = '<li>暂无热门文章</li>';
+                document.getElementById('hotList').innerHTML = '<li class="hot-empty">暂无热门文章</li>';
             }
+        }
+
+        // ==================== 左侧栏 / 右侧栏：分类与标签统计 ====================
+        async function loadSiteStats() {
+            try {
+                // 一次拉取较多文章，用于本地聚合分类与标签（后端带 5 分钟缓存）
+                const data = await http.get('/articles', { page: 1, size: 100 });
+                const records = data.records || [];
+                const catMap = new Map();
+                const tagMap = new Map();
+
+                records.forEach(a => {
+                    if (a.category) catMap.set(a.category, (catMap.get(a.category) || 0) + 1);
+                    (a.tags || '').split(',').forEach(t => {
+                        const tag = t.trim();
+                        if (tag) tagMap.set(tag, (tagMap.get(tag) || 0) + 1);
+                    });
+                });
+
+                const total = data.total || records.length;
+                document.getElementById('statArticles').textContent = total;
+                document.getElementById('countAll').textContent = total;
+                document.getElementById('statCategories').textContent = catMap.size;
+                document.getElementById('statTags').textContent = tagMap.size;
+
+                renderCategories(catMap);
+                renderTags(tagMap);
+            } catch (e) {
+                document.getElementById('statArticles').textContent = '—';
+                document.getElementById('statCategories').textContent = '—';
+                document.getElementById('statTags').textContent = '—';
+                document.getElementById('countAll').textContent = '—';
+            }
+        }
+
+        function renderCategories(catMap) {
+            const nav = document.getElementById('categoryList');
+            const sorted = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1]);
+            nav.insertAdjacentHTML('beforeend', sorted.map(([name, count]) => `
+                <a href="#" class="nav-item" data-category="${escapeHtml(name)}"
+                   onclick="filterByCategory(this.dataset.category);return false;">
+                    <span class="nav-icon">${CATEGORY_ICONS[name] || '📁'}</span>
+                    <span class="nav-text">${escapeHtml(name)}</span>
+                    <span class="nav-count">${count}</span>
+                </a>
+            `).join(''));
+        }
+
+        // 标签云：按热度降序 + 字号分级
+        function renderTags(tagMap) {
+            const box = document.getElementById('tagCloud');
+            const sorted = Array.from(tagMap.entries())
+                .filter(([name]) => name.length <= MAX_TAG_LENGTH)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, MAX_TAG_COUNT);
+
+            if (sorted.length === 0) {
+                box.innerHTML = '<span class="tag-cloud-empty">暂无标签</span>';
+                return;
+            }
+            box.innerHTML = sorted.map(([name, count]) => `
+                <a href="#" class="tag-pill ${count >= 3 ? 'sz3 hot' : count === 2 ? 'sz2 hot' : ''}"
+                   title="按标签搜索" data-tag="${escapeHtml(name)}"
+                   onclick="searchByTag(this.dataset.tag);return false;">${escapeHtml(name)}</a>
+            `).join('');
+        }
+
+        function searchByTag(tag) {
+            document.getElementById('searchInput').value = tag;
+            searchArticles();
         }
 
         function escapeHtml(text) {
@@ -163,9 +399,11 @@
             return div.innerHTML;
         }
 
-        // 初始化
+        // 初始化：先铺骨架屏，再并行拉取数据
+        renderSkeleton();
         loadArticles();
         loadHotArticles();
+        loadSiteStats();
 
         // AI 助手对话框（右下角悬浮按钮）
         AiAssistant.init();

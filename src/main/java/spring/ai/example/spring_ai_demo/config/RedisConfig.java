@@ -24,7 +24,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  * 注意：使用 Lettuce 懒连接，本地未启动 Redis 时应用仍可正常启动，
  * 仅在实际访问 Redis 时才会建立连接。
  */
-@Configuration
+//@Configuration
 public class RedisConfig {
 
     @Bean
