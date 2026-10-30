@@ -38,8 +38,9 @@ public class ArticleController {
                           @RequestParam(defaultValue = "10") int size,
                           @RequestParam(required = false) String category,
                           @RequestParam(required = false) String keyword,
+                          @RequestParam(defaultValue = "latest") String sort,
                           @RequestAttribute(value = "userId", required = false) Long userId) {
-        Page<Article> articlePage = articleService.getArticlePage(page, size, category, keyword, userId);
+        Page<Article> articlePage = articleService.getArticlePage(page, size, category, keyword, userId, sort);
         return Result.success(articlePage);
     }
 

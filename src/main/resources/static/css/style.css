@@ -373,20 +373,22 @@ body {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
+    /* 作者与时间之间原本粘连（作者是 <a>，旧的 span + span 选择器命中不到），用 gap 统一拉开 */
+    gap: 8px;
     color: var(--text-light);
     font-size: 0.8rem;
     margin-bottom: 9px;
 }
 
-.article-meta span {
+.article-meta > * {
     display: inline-flex;
     align-items: center;
 }
 
-/* 元信息用中点分隔，替代风格不统一的 emoji */
-.article-meta span + span::before {
+/* 元信息用中点分隔：作者是 <a>、其余是 <span>，用 * + * 才能同时覆盖两种情况 */
+.article-meta > * + *::before {
     content: '·';
-    margin: 0 8px;
+    margin-right: 8px;
     color: #cbd5e1;
 }
 
@@ -2457,6 +2459,35 @@ textarea.form-control {
     font-size: 0.8rem;
     color: var(--text-light);
     font-variant-numeric: tabular-nums;
+}
+
+/* 时间排序切换：默认最新在前，点一下切到最早在前 */
+.sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--card-bg);
+    color: var(--text-light);
+    font-family: inherit;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.sort-btn:hover {
+    border-color: rgba(147,197,253,0.9);
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+}
+
+.sort-btn .sort-arrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--primary);
 }
 
 .hot-list li.hot-empty {

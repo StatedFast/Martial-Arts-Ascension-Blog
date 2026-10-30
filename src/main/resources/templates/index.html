@@ -6,7 +6,7 @@
     <title th:text="${title}">修仙心得</title>
     <!-- 浏览器标签页图标：用首页 banner 图（原无 favicon，浏览器会显示默认地球图标） -->
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=14">
+    <link rel="stylesheet" href="/css/style.css?v=15">
 </head>
 <body class="home">
     <!-- 顶部封面：导航与 Banner 共用同一张背景图，作为一个整体随页面滚动（图片由 home.banner-image 配置） -->
@@ -14,7 +14,7 @@
         <header class="home-hero">
             <div class="home-hero-inner">
                 <div class="home-hero-copy">
-                    <div class="hero-eyebrow">SPRING AI BLOG</div>
+                    <div class="hero-eyebrow">Ordinary People's Ascension to Immortality</div>
                     <h1 class="hero-title">凡人修仙论坛</h1>
                     <p class="hero-sub">记录平凡故事 · 分享修真心得</p>
                 </div>
@@ -100,6 +100,11 @@
                                     aria-label="清除筛选">✕</button>
                         </span>
                         <span class="list-meta" id="listMeta">加载中…</span>
+                        <!-- 时间排序：默认最新在前，点一下切到最早在前 -->
+                        <button type="button" class="sort-btn" id="sortBtn" onclick="toggleSort()"
+                                title="切换时间排序" aria-pressed="false">
+                            <span class="sort-arrow" id="sortArrow">↓</span><span id="sortLabel">最新</span>
+                        </button>
                     </div>
                 </div>
                 <div id="articleList"></div>
@@ -159,6 +164,8 @@
         let currentPage = 1;
         let currentCategory = '';
         let currentKeyword = '';
+        // 时间排序：latest = 最新在前（默认），earliest = 最早在前
+        let currentSort = 'latest';
 
         // 分类图标（未命中时用默认图标）
         const CATEGORY_ICONS = { 'Spring': '🍃', '数据库': '🗄️', '架构': '🏗️', '前端': '🎨' };
@@ -170,7 +177,7 @@
         // ==================== 文章列表 ====================
         async function loadArticles(page = 1) {
             currentPage = page;
-            const params = { page, size: 10 };
+            const params = { page, size: 10, sort: currentSort };
             if (currentCategory) params.category = currentCategory;
             if (currentKeyword) params.keyword = currentKeyword;
 
@@ -262,6 +269,20 @@
         function searchArticles() {
             currentKeyword = document.getElementById('searchInput').value.trim();
             loadArticles(1);
+        }
+
+        // 时间排序：默认最新在前，再点切到最早在前（置顶文章始终在最前）
+        function toggleSort() {
+            currentSort = currentSort === 'latest' ? 'earliest' : 'latest';
+            renderSortButton();
+            loadArticles(1);
+        }
+
+        function renderSortButton() {
+            const latest = currentSort === 'latest';
+            document.getElementById('sortLabel').textContent = latest ? '最新' : '最早';
+            document.getElementById('sortArrow').textContent = latest ? '↓' : '↑';
+            document.getElementById('sortBtn').setAttribute('aria-pressed', String(!latest));
         }
 
         function filterByCategory(cat) {

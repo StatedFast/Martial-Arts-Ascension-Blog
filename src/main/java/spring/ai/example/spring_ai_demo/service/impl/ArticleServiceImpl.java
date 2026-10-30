@@ -89,12 +89,17 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     }
 
     @Override
-    public Page<Article> getArticlePage(int page, int size, String category, String keyword, Long currentUserId) {
+    public Page<Article> getArticlePage(int page, int size, String category, String keyword,
+                                        Long currentUserId, String sort) {
         // size 必须限幅：缓存 key 含 size，不限制会被构造大量不同 key 把内存撑爆
         int safeSize = Math.max(1, Math.min(size, 100));
+        // 排序归一化：只支持最新/最早两种，其余一律按最新
+        boolean earliest = "earliest".equalsIgnoreCase(sort);
+        String sortKey = earliest ? "earliest" : "latest";
         // 尝试从缓存获取
         String cacheKey = ARTICLE_LIST_CACHE_KEY + page + ":" + safeSize + ":" +
-                (category != null ? category : "all") + ":" + (keyword != null ? keyword : "none");
+                (category != null ? category : "all") + ":" + (keyword != null ? keyword : "none") +
+                ":" + sortKey;
 
         @SuppressWarnings("unchecked")
         Page<Article> cached = (Page<Article>) cacheService.get(cacheKey);
@@ -104,9 +109,15 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         }
 
         LambdaQueryWrapper<Article> wrapper = new LambdaQueryWrapper<>();
+        // 置顶始终在最前；时间排序：latest 最新在前（默认）、earliest 最早在前
         wrapper.eq(Article::getStatus, 1)
-                .orderByDesc(Article::getIsTop)
-                .orderByDesc(Article::getCreateTime);
+                .orderByDesc(Article::getIsTop);
+        if (earliest) {
+            // 补 id 排序：同一秒创建的多篇也有稳定顺序，避免翻页时重复/漏文章
+            wrapper.orderByAsc(Article::getCreateTime).orderByAsc(Article::getId);
+        } else {
+            wrapper.orderByDesc(Article::getCreateTime).orderByDesc(Article::getId);
+        }
 
         if (category != null && !category.isEmpty()) {
             wrapper.eq(Article::getCategory, category);

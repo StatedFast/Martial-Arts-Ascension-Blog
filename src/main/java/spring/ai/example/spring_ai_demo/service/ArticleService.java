@@ -16,8 +16,19 @@ public interface ArticleService extends IService<Article> {
     /** 更新文章 */
     Article updateArticle(Long userId, ArticleDTO dto);
 
-    /** 分页查询文章列表（含缓存），返回已补全作者与当前用户互动状态的视图 */
-    Page<Article> getArticlePage(int page, int size, String category, String keyword, Long currentUserId);
+    /**
+     * 分页查询文章列表（含缓存），返回已补全作者与当前用户互动状态的视图。
+     *
+     * @param sort 时间排序：latest（默认，最新在前）/ earliest（最早在前）；置顶文章始终在最前
+     */
+    Page<Article> getArticlePage(int page, int size, String category, String keyword,
+                                 Long currentUserId, String sort);
+
+    /** 兼容旧调用：不关心排序时按「最新在前」 */
+    default Page<Article> getArticlePage(int page, int size, String category, String keyword,
+                                         Long currentUserId) {
+        return getArticlePage(page, size, category, keyword, currentUserId, null);
+    }
 
     /** 获取文章详情（含浏览量缓存递增），返回已补全互动状态的视图 */
     Article getArticleDetail(Long id, Long currentUserId);
