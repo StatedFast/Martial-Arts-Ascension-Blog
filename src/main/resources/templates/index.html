@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">修仙心得</title>
+    <!-- 浏览器标签页图标：用首页 banner 图（原无 favicon，浏览器会显示默认地球图标） -->
+    <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
     <link rel="stylesheet" href="/css/style.css?v=14">
 </head>
 <body class="home">
@@ -14,7 +16,7 @@
                 <div class="home-hero-copy">
                     <div class="hero-eyebrow">SPRING AI BLOG</div>
                     <h1 class="hero-title">凡人修仙论坛</h1>
-                    <p class="hero-sub">记录技术成长 · 分享编程心得</p>
+                    <p class="hero-sub">记录平凡故事 · 分享修真心得</p>
                 </div>
                 <div class="hero-actions">
                     <a href="#articleList" class="hero-btn hero-btn-light">开始阅读</a>
@@ -41,7 +43,7 @@
                     <div class="profile-name"
                          th:text="${author != null ? author.name : '博主'}">博主</div>
                     <div class="profile-desc"
-                         th:text="${author != null ? author.bio : '记录技术成长 · 分享编程心得'}">记录技术成长 · 分享编程心得</div>
+                         th:text="${author != null ? author.bio : '记录平凡故事 · 分享修真心得'}">记录平凡故事 · 分享修真心得</div>
                     <div class="profile-stats">
                         <div class="profile-stat">
                             <b id="statArticles">—</b>

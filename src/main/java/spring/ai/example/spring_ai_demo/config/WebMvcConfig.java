@@ -8,6 +8,7 @@ import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import spring.ai.example.spring_ai_demo.interceptor.AiQuotaInterceptor;
 import spring.ai.example.spring_ai_demo.interceptor.JwtInterceptor;
 import spring.ai.example.spring_ai_demo.interceptor.RateLimitInterceptor;
 
@@ -22,12 +23,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final JwtInterceptor jwtInterceptor;
     private final RateLimitInterceptor rateLimitInterceptor;
+    private final AiQuotaInterceptor aiQuotaInterceptor;
     private final ThreadPoolTaskExecutor taskExecutor;
 
     public WebMvcConfig(JwtInterceptor jwtInterceptor, RateLimitInterceptor rateLimitInterceptor,
+                        AiQuotaInterceptor aiQuotaInterceptor,
                         @Qualifier("taskExecutor") ThreadPoolTaskExecutor taskExecutor) {
         this.jwtInterceptor = jwtInterceptor;
         this.rateLimitInterceptor = rateLimitInterceptor;
+        this.aiQuotaInterceptor = aiQuotaInterceptor;
         this.taskExecutor = taskExecutor;
     }
 
@@ -58,6 +62,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/error"
                 )
                 .order(2);
+
+        // AI 每日配额：必须排在 JwtInterceptor 之后，否则拿不到 userId/role；管理员不限次
+        registry.addInterceptor(aiQuotaInterceptor)
+                .addPathPatterns("/api/ai/**")
+                .order(3);
     }
 
     @Override
