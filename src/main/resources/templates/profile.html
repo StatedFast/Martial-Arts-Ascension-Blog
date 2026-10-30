@@ -149,11 +149,31 @@
 
         let currentUser = null;
 
+        /**
+         * 把最新资料回写 localStorage 并重绘导航栏。
+         * 导航栏的昵称/头像读的是 localStorage.user，不在登录后重新登录就不会变，
+         * 所以昵称、头像改完必须走这里，否则页面刷新也还是旧的。
+         */
+        function syncAuthUser(patch) {
+            if (!patch || !Auth.isLoggedIn()) return;
+            const merged = Object.assign({}, Auth.getUser() || {}, patch);
+            Auth.saveAuth(localStorage.getItem('token'), merged);
+            renderNavbar();
+        }
+
         // 加载用户信息（后端返回白名单 VO，不再直接暴露 User 实体）
         async function loadProfile() {
             try {
                 const user = await http.get('/user/profile');
                 currentUser = user;
+                // 进去个人中心就顺带纠正本地登录态，避免历史遗留的旧昵称一直卡在导航栏
+                syncAuthUser({
+                    id: user.id,
+                    username: user.username,
+                    nickname: user.nickname,
+                    avatar: user.avatar,
+                    role: user.role
+                });
                 document.getElementById('profileNickname').textContent = user.nickname;
                 document.getElementById('profileBio').textContent = user.bio || '这个人很懒，什么都没写...';
                 document.getElementById('profileAvatar').src = user.avatar || '/images/default-avatar.svg';
@@ -255,12 +275,21 @@
         // 更新个人信息
         async function updateProfile(e) {
             e.preventDefault();
+            const nickname = document.getElementById('editNickname').value.trim();
+            if (!nickname) {
+                Toast.show('昵称不能为空', 'warning');
+                return;
+            }
             try {
                 await http.put('/user/profile?' + new URLSearchParams({
-                    nickname: document.getElementById('editNickname').value,
+                    nickname: nickname,
                     email: document.getElementById('editEmail').value,
                     bio: document.getElementById('editBio').value
                 }).toString());
+                // 先用表单值就地刷新，不等 /user/profile 回读：
+                // 保存后昵称要「立刻」变，回读只是顺带校正统计等其余字段
+                document.getElementById('profileNickname').textContent = nickname;
+                syncAuthUser({ nickname: nickname });
                 Toast.show('个人信息已更新');
                 loadProfile();
             } catch (err) {
@@ -281,9 +310,8 @@
                 document.getElementById('profileAvatar').src = url + '?t=' + Date.now();
                 closeAvatarModal();
                 Toast.show('头像已更新');
-                // 更新localStorage中的用户信息
-                const user = Auth.getUser();
-                if (user) { user.avatar = url; Auth.saveAuth(localStorage.getItem('token'), user); renderNavbar(); }
+                // 同步本地登录态并重绘导航栏头像
+                syncAuthUser({ avatar: url });
             } catch (err) {
                 Toast.show(err.message, 'error');
             }

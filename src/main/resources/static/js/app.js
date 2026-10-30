@@ -312,7 +312,7 @@ const AiAssistant = {
                     <div class="ai-header-info">
                         <div class="ai-header-avatar">🤖<span class="ai-status-dot"></span></div>
                         <div>
-                            <div class="ai-header-title">小博 · AI 助手</div>
+                            <div class="ai-header-title">银月 · AI 助手</div>
                             <div class="ai-header-sub">在线 · 找文章 / 看排行 / 总结内容</div>
                         </div>
                     </div>
@@ -386,7 +386,7 @@ const AiAssistant = {
         el.className = 'ai-welcome';
         el.innerHTML = `
             <div class="ai-welcome-avatar">🤖</div>
-            <div class="ai-welcome-title">你好，我是小博</div>
+            <div class="ai-welcome-title">你好，我是银月</div>
             <div class="ai-welcome-sub">你的博客 AI 助手<br>找文章 · 看排行 · 总结内容 · 答疑</div>
             <div class="ai-chips">
                 ${chips.map(([icon, q]) => `

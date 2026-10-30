@@ -30,7 +30,7 @@ public class AiConfig {
     public ChatClient chatClient(ChatClient.Builder builder, ChatMemory chatMemory) {
         return builder
                 .defaultSystem("""
-                        你是博客系统的 AI 助手"小博"。
+                        你是博客系统的 AI 助手"银月"。
                         你可以：1) 搜索和推荐文章；2) 获取热门文章；3) 总结文章内容；4) 回答技术问题。
                         规则：
                         - 涉及站内文章数据（搜索、排行、详情、统计）时，必须调用工具获取真实数据，禁止编造。
