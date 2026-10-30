@@ -31,7 +31,7 @@ public class HomeController {
 
     @GetMapping("/")
     public String index(Model model) {
-        model.addAttribute("title", "Spring Blog - 首页");
+        model.addAttribute("title", "修仙心得 - 首页");
         model.addAttribute("author", loadAuthorCard());
         // 未配置背景图时不输出 style 属性，页面直接走渐变占位，避免一次 404 请求
         if (hasText(bannerImage)) {
@@ -43,7 +43,7 @@ public class HomeController {
     @GetMapping("/article/{id}")
     public String article(@PathVariable Long id, Model model) {
         model.addAttribute("articleId", id);
-        model.addAttribute("title", "文章详情");
+        model.addAttribute("title", "文章详情 - 修仙心得");
         return "article";
     }
 
@@ -66,14 +66,14 @@ public class HomeController {
     @GetMapping("/user/{id}")
     public String userHome(@PathVariable Long id, Model model) {
         model.addAttribute("userId", id);
-        model.addAttribute("title", "用户主页");
+        model.addAttribute("title", "用户主页 - 修仙心得");
         return "user";
     }
 
     /** 通知中心 */
     @GetMapping("/notifications")
     public String notifications(Model model) {
-        model.addAttribute("title", "通知中心");
+        model.addAttribute("title", "通知中心 - 修仙心得");
         return "notifications";
     }
 
