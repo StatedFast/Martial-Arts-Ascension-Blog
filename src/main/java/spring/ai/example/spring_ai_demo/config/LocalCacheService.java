@@ -64,6 +64,23 @@ public class LocalCacheService {
         return counter.incrementAndGet();
     }
 
+    /**
+     * 带过期时间的计数器（限流窗口用）。
+     *
+     * 不用 increment()：counters 里的计数器永不过期，限流 key 会无限堆积且计数只增不减，
+     * 最终导致接口被永久封禁。这里把计数放在带 TTL 的 cache 里，窗口到期自动从头计数。
+     */
+    public Long incrementWithTtl(String key, long timeout, TimeUnit unit) {
+        CacheEntry entry = cache.compute(key, (k, old) -> {
+            if (old == null || old.isExpired()) {
+                return CacheEntry.withTtl(new AtomicLong(1), unit.toMillis(timeout));
+            }
+            ((AtomicLong) old.getValue()).incrementAndGet();
+            return old;
+        });
+        return ((AtomicLong) entry.getValue()).get();
+    }
+
     // ======== Keys模式匹配 ========
 
     public Set<String> keys(String pattern) {

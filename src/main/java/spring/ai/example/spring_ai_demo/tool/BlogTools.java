@@ -41,7 +41,7 @@ public class BlogTools {
     public String searchArticles(
             @ToolParam(description = "搜索关键词，如 JWT、Spring、缓存") String keyword,
             @ToolParam(description = "文章分类，用户没有指定分类时传空字符串", required = false) String category) {
-        Page<Article> page = articleService.getArticlePage(1, 5, category, keyword);
+        Page<Article> page = articleService.getArticlePage(1, 5, category, keyword, null);
         if (page.getRecords().isEmpty()) {
             return "没有找到匹配的文章（关键词：" + keyword + "）";
         }
@@ -55,7 +55,7 @@ public class BlogTools {
     public String getHotArticles(
             @ToolParam(description = "返回文章数量，默认5，最大10") int limit) {
         int size = Math.max(1, Math.min(limit, 10));
-        List<Article> hot = articleService.getHotArticles(size);
+        List<Article> hot = articleService.getHotArticles(size, null);
         if (hot == null || hot.isEmpty()) {
             return "暂时没有热门文章数据";
         }

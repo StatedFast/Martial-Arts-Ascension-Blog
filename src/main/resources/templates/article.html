@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文章详情 - Spring Blog</title>
-    <link rel="stylesheet" href="/css/style.css?v=7">
+    <link rel="stylesheet" href="/css/style.css?v=13">
 </head>
 <body>
     <nav class="navbar">
@@ -27,7 +27,10 @@
 
                     <!-- 评论输入框 -->
                     <div class="comment-input" id="commentInputBox">
-                        <textarea id="commentText" placeholder="写下你的评论..."></textarea>
+                        <div class="comment-input-wrap">
+                            <textarea id="commentText" placeholder="写下你的评论...（输入 @ 可提及用户）"></textarea>
+                            <div class="mention-box" id="mentionBox" hidden></div>
+                        </div>
                         <button class="btn btn-primary" onclick="submitComment()">发表</button>
                     </div>
                     <div id="loginToComment" style="display:none; text-align:center; padding:20px; color:var(--text-light);">
@@ -36,6 +39,9 @@
 
                     <!-- 评论列表 -->
                     <div id="commentList"></div>
+                    <div style="text-align:center; margin-top:10px;">
+                        <button class="btn btn-outline btn-sm" id="loadMoreComments" hidden onclick="loadComments(false)">加载更多评论</button>
+                    </div>
                 </div>
             </div>
         </main>
@@ -48,18 +54,30 @@
         </aside>
     </div>
 
-    <script src="/js/app.js?v=5"></script>
+    <script src="/js/app.js?v=7"></script>
     <script>
         const articleId = [[${articleId}]];
+        const currentUserId = Auth.getUserId();
 
-        // 加载文章详情
+        let currentArticle = null;
+        let commentPage = 1;
+        let commentPages = 0;
+        let replyParentId = 0;
+        let replyToUserId = null;
+
+        // ==================== 文章详情 ====================
         async function loadArticle() {
             try {
                 const article = await http.get(`/articles/${articleId}`);
+                currentArticle = article;
                 document.getElementById('articleContent').innerHTML = `
                     <div class="article-header">
                         <h1>${escapeHtml(article.title)}</h1>
                         <div class="article-meta">
+                            ${article.authorId ? `<a href="/user/${article.authorId}" class="article-author">
+                                <img src="${escapeAttr(article.authorAvatar || '/images/default-avatar.svg')}" alt=""
+                                     onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
+                                ${escapeHtml(article.authorName || '匿名')}</a>` : ''}
                             <span>${formatTime(article.createTime)}</span>
                             <span>${article.viewCount || 0} 阅读</span>
                             <span>${article.commentCount || 0} 评论</span>
@@ -70,8 +88,11 @@
                         </div>
                     </div>
                     <div class="article-actions">
-                        <button class="action-btn" onclick="likeArticle()" id="likeBtn">
+                        <button class="action-btn ${article.liked ? 'liked' : ''}" id="likeBtn" onclick="toggleLike()">
                             ❤ <span id="likeCount">${article.likeCount || 0}</span> 点赞
+                        </button>
+                        <button class="action-btn ${article.favorited ? 'liked' : ''}" id="favBtn" onclick="toggleFavorite()">
+                            ⭐ <span id="favCount">${article.favoriteCount || 0}</span> 收藏
                         </button>
                     </div>
                     <div class="article-body">
@@ -80,52 +101,216 @@
                 `;
             } catch (e) {
                 document.getElementById('articleContent').innerHTML =
-                    '<div class="empty-state"><h3>文章加载失败</h3><p>' + e.message + '</p></div>';
+                    '<div class="empty-state"><h3>文章加载失败</h3><p>' + escapeHtml(e.message) + '</p></div>';
             }
         }
 
-        // 加载评论
-        async function loadComments() {
+        // ==================== 点赞 / 收藏（可取消） ====================
+        async function toggleLike() {
+            if (!Auth.isLoggedIn()) { Toast.show('请先登录', 'error'); return; }
+            const btn = document.getElementById('likeBtn');
+            const liked = btn.classList.contains('liked');
             try {
-                const comments = await http.get(`/articles/${articleId}/comments`);
-                document.getElementById('commentCount').textContent = comments.length;
+                // 按钮先置灰防连点，请求结束后再恢复
+                btn.disabled = true;
+                const state = liked
+                    ? await http.delete(`/articles/${articleId}/like`)
+                    : await http.post(`/articles/${articleId}/like`);
+                btn.classList.toggle('liked', !!state.liked);
+                document.getElementById('likeCount').textContent = state.likeCount ?? 0;
+                Toast.show(state.liked ? '已点赞' : '已取消点赞');
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
 
-                if (comments.length === 0) {
-                    document.getElementById('commentList').innerHTML =
-                        '<div class="empty-state"><p>暂无评论，快来抢沙发吧~</p></div>';
+        async function toggleFavorite() {
+            if (!Auth.isLoggedIn()) { Toast.show('请先登录', 'error'); return; }
+            const btn = document.getElementById('favBtn');
+            const favorited = btn.classList.contains('liked');
+            try {
+                btn.disabled = true;
+                const state = favorited
+                    ? await http.delete(`/articles/${articleId}/favorite`)
+                    : await http.post(`/articles/${articleId}/favorite`);
+                btn.classList.toggle('liked', !!state.favorited);
+                document.getElementById('favCount').textContent = state.favoriteCount ?? 0;
+                Toast.show(state.favorited ? '已收藏' : '已取消收藏');
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // ==================== 评论分页加载 ====================
+        async function loadComments(reset = true) {
+            if (reset) {
+                commentPage = 1;
+                document.getElementById('commentList').innerHTML = '';
+            }
+            try {
+                const data = await http.get(`/articles/${articleId}/comments`, {
+                    page: commentPage, size: 10
+                });
+                commentPages = data.pages || 0;
+                document.getElementById('commentCount').textContent = data.total || 0;
+
+                const list = document.getElementById('commentList');
+                if (!data.records || data.records.length === 0) {
+                    if (reset) {
+                        list.innerHTML = '<div class="empty-state"><p>暂无评论，快来抢沙发吧~</p></div>';
+                    }
+                    document.getElementById('loadMoreComments').hidden = true;
                     return;
                 }
+                if (reset) list.innerHTML = '';
 
-                document.getElementById('commentList').innerHTML = comments.map(c => `
-                    <div class="comment-item">
-                        <img src="${c.userAvatar || '/images/default-avatar.svg'}" class="comment-avatar"
-                             onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
-                        <div class="comment-body">
-                            <div class="comment-user">
-                                ${escapeHtml(c.username || '匿名')}
-                                <span class="comment-time">${formatTime(c.createTime)}</span>
-                            </div>
-                            <div class="comment-text">
-                                ${c.replyToUsername ? `<span style="color:var(--primary)">@${escapeHtml(c.replyToUsername)}</span> ` : ''}
-                                ${escapeHtml(c.content)}
-                            </div>
-                            <span class="comment-reply" onclick="replyTo(${c.id}, '${escapeHtml(c.username)}')">回复</span>
-                        </div>
-                    </div>
-                `).join('');
+                // 注意：这里用 insertAdjacentHTML 追加，避免每次分页都重建整棵列表
+                list.insertAdjacentHTML('beforeend', data.records.map(renderComment).join(''));
+                document.getElementById('loadMoreComments').hidden = commentPage >= commentPages;
+                commentPage++;
             } catch (e) {
                 document.getElementById('commentList').innerHTML =
                     '<div class="empty-state"><p>评论加载失败</p></div>';
             }
         }
 
-        let replyParentId = 0;
-        let replyToUserId = null;
+        function renderComment(c) {
+            const mine = currentUserId && c.userId === currentUserId;
+            return `
+                <div class="comment-item" id="comment-${c.id}">
+                    <img src="${escapeAttr(c.userAvatar || '/images/default-avatar.svg')}" class="comment-avatar"
+                         onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
+                    <div class="comment-body">
+                        <div class="comment-user">
+                            <a href="/user/${c.userId}">${escapeHtml(c.username || '匿名')}</a>
+                            <span class="comment-time">${formatTime(c.createTime)}</span>
+                        </div>
+                        <div class="comment-text">
+                            ${c.replyToUsername ? `<span style="color:var(--primary)">@${escapeHtml(c.replyToUsername)}</span> ` : ''}
+                            ${escapeHtml(c.content)}
+                        </div>
+                        <div class="comment-actions">
+                            <span class="comment-reply" onclick="replyTo(this)" data-id="${c.id}" data-name="${escapeAttr(c.username)}">回复</span>
+                            <span class="comment-like ${c.liked ? 'liked' : ''}" onclick="toggleCommentLike(this)" data-id="${c.id}">
+                                👍 <span>${c.likeCount || 0}</span>
+                            </span>
+                            ${mine ? `<span class="comment-reply" onclick="removeComment(${c.id})">删除</span>` : ''}
+                        </div>
+                        ${(c.children && c.children.length) ? `<div class="comment-children">
+                            ${c.children.map(child => `
+                                <div class="comment-item" id="comment-${child.id}">
+                                    <img src="${escapeAttr(child.userAvatar || '/images/default-avatar.svg')}" class="comment-avatar"
+                                         onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
+                                    <div class="comment-body">
+                                        <div class="comment-user">
+                                            <a href="/user/${child.userId}">${escapeHtml(child.username || '匿名')}</a>
+                                            <span class="comment-time">${formatTime(child.createTime)}</span>
+                                        </div>
+                                        <div class="comment-text">
+                                            ${child.replyToUsername ? `<span style="color:var(--primary)">@${escapeHtml(child.replyToUsername)}</span> ` : ''}
+                                            ${escapeHtml(child.content)}
+                                        </div>
+                                        <div class="comment-actions">
+                                            <span class="comment-reply" onclick="replyTo(this)" data-id="${child.id}" data-name="${escapeAttr(child.username)}">回复</span>
+                                            <span class="comment-like ${child.liked ? 'liked' : ''}" onclick="toggleCommentLike(this)" data-id="${child.id}">
+                                                👍 <span>${child.likeCount || 0}</span>
+                                            </span>
+                                            ${currentUserId && child.userId === currentUserId
+                                                ? `<span class="comment-reply" onclick="removeComment(${child.id})">删除</span>` : ''}
+                                        </div>
+                                    </div>
+                                </div>`).join('')}
+                        </div>` : ''}
+                    </div>
+                </div>`;
+        }
 
-        function replyTo(parentId, username) {
-            replyParentId = parentId;
-            document.getElementById('commentText').placeholder = `回复 @${username}:`;
+        async function toggleCommentLike(el) {
+            if (!Auth.isLoggedIn()) { Toast.show('请先登录', 'error'); return; }
+            const id = el.dataset.id;
+            const liked = el.classList.contains('liked');
+            try {
+                const count = liked
+                    ? await http.delete(`/articles/comments/${id}/like`)
+                    : await http.post(`/articles/comments/${id}/like`);
+                el.classList.toggle('liked', !liked);
+                el.querySelector('span').textContent = count;
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+
+        async function removeComment(id) {
+            if (!confirm('确定删除这条评论吗？')) return;
+            try {
+                await http.delete(`/articles/comments/${id}`);
+                Toast.show('已删除');
+                loadComments(true);
+                loadArticle();
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+
+        // ==================== 回复与 @提及 ====================
+        function replyTo(el) {
+            replyParentId = Number(el.dataset.id);
+            document.getElementById('commentText').placeholder = `回复 @${el.dataset.name}:`;
             document.getElementById('commentText').focus();
+        }
+
+        const mentionBox = document.getElementById('mentionBox');
+        const commentText = document.getElementById('commentText');
+        let mentionTimer = null;
+
+        commentText.addEventListener('input', function () {
+            const caret = this.selectionStart;
+            const before = this.value.slice(0, caret);
+            const match = before.match(/@([\p{L}\p{N}_]*)$/u);
+            if (!match) {
+                hideMention();
+                return;
+            }
+            clearTimeout(mentionTimer);
+            mentionTimer = setTimeout(() => searchMention(match[1]), 200);
+        });
+
+        async function searchMention(keyword) {
+            try {
+                const users = await http.get('/user/suggest', { keyword: keyword });
+                if (!users || users.length === 0) {
+                    hideMention();
+                    return;
+                }
+                mentionBox.innerHTML = users.map(u => `
+                    <div class="mention-item" onclick="pickMention(this)" data-name="${escapeAttr(u.nickname)}">
+                        <img src="${escapeAttr(u.avatar || '/images/default-avatar.svg')}" alt="">
+                        <span>${escapeHtml(u.nickname)}</span>
+                    </div>`).join('');
+                mentionBox.hidden = false;
+            } catch (e) {
+                hideMention();
+            }
+        }
+
+        function pickMention(el) {
+            const name = el.dataset.name;
+            const caret = commentText.selectionStart;
+            const before = commentText.value.slice(0, caret);
+            const after = commentText.value.slice(caret);
+            const replaced = before.replace(/@([\p{L}\p{N}_]*)$/u, '@' + name + ' ');
+            commentText.value = replaced + after;
+            commentText.focus();
+            hideMention();
+        }
+
+        function hideMention() {
+            mentionBox.hidden = true;
+            mentionBox.innerHTML = '';
         }
 
         async function submitComment() {
@@ -133,7 +318,7 @@
                 Toast.show('请先登录', 'error');
                 return;
             }
-            const content = document.getElementById('commentText').value.trim();
+            const content = commentText.value.trim();
             if (!content) {
                 Toast.show('请输入评论内容', 'warning');
                 return;
@@ -141,24 +326,17 @@
             try {
                 await http.post(`/articles/${articleId}/comments`, {
                     content: content,
-                    parentId: replyParentId
+                    parentId: replyParentId,
+                    replyToUserId: replyToUserId
                 });
-                document.getElementById('commentText').value = '';
-                document.getElementById('commentText').placeholder = '写下你的评论...';
+                commentText.value = '';
+                commentText.placeholder = '写下你的评论...（输入 @ 可提及用户）';
                 replyParentId = 0;
+                replyToUserId = null;
+                hideMention();
                 Toast.show('评论发表成功！');
-                loadComments();
-            } catch (e) {
-                Toast.show(e.message, 'error');
-            }
-        }
-
-        async function likeArticle() {
-            try {
-                await http.post(`/articles/${articleId}/like`);
-                const likeEl = document.getElementById('likeCount');
-                likeEl.textContent = parseInt(likeEl.textContent) + 1;
-                Toast.show('点赞成功！');
+                loadComments(true);
+                loadArticle();
             } catch (e) {
                 Toast.show(e.message, 'error');
             }
@@ -188,14 +366,8 @@
             } catch (e) {}
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text || '';
-            return div.innerHTML;
-        }
-
         loadArticle();
-        loadComments();
+        loadComments(true);
         loadHotArticles();
         updateCommentUI();
     </script>

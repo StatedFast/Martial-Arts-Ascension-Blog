@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">通知中心 - Spring Blog</title>
+    <link rel="stylesheet" href="/css/style.css?v=13">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 Spring Blog</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="card">
+                <div class="profile-tabs">
+                    <div class="profile-tab active" data-filter="all" onclick="switchFilter(this, false)">全部通知</div>
+                    <div class="profile-tab" data-filter="unread" onclick="switchFilter(this, true)">未读</div>
+                    <div style="margin-left:auto; padding-right:16px; display:flex; align-items:center;">
+                        <button class="btn btn-outline btn-sm" onclick="markAllRead()">全部标为已读</button>
+                    </div>
+                </div>
+
+                <div style="padding:8px 20px 20px;">
+                    <div id="notificationList"><div class="loading">加载中...</div></div>
+                    <div class="pager" id="pager"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=7"></script>
+    <script>
+        if (!Auth.isLoggedIn()) {
+            window.location.href = '/login';
+        }
+
+        let unreadOnly = false;
+        let page = 1;
+        let totalPages = 0;
+
+        const TYPE_TEXT = {
+            LIKE: '点赞', FAVORITE: '收藏', COMMENT: '评论', REPLY: '回复', MENTION: '@提及', SYSTEM: '系统'
+        };
+
+        function switchFilter(el, onlyUnread) {
+            document.querySelectorAll('.profile-tab[data-filter]').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            unreadOnly = onlyUnread;
+            load(1);
+        }
+
+        async function load(p) {
+            page = p;
+            try {
+                const data = await http.get('/notifications', {
+                    page: p, size: 15, unreadOnly: unreadOnly
+                });
+                totalPages = data.pages || 0;
+                const list = document.getElementById('notificationList');
+                if (!data.records || data.records.length === 0) {
+                    list.innerHTML = `<div class="empty-state"><h3>${unreadOnly ? '没有未读通知' : '还没有收到通知'}</h3></div>`;
+                    document.getElementById('pager').innerHTML = '';
+                    return;
+                }
+                list.innerHTML = data.records.map(n => `
+                    <div class="notify-item ${n.isRead ? '' : 'unread'}" onclick="openNotification(${n.id}, '${n.articleId || ''}', '${n.commentId || ''}')">
+                        <img class="notify-avatar" src="${escapeAttr(n.senderAvatar || '/images/default-avatar.svg')}" alt=""
+                             onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
+                        <div class="notify-body">
+                            <div class="notify-content">${escapeHtml(n.content || '')}</div>
+                            <div class="notify-meta">
+                                <span class="notify-type">${TYPE_TEXT[n.type] || n.type}</span>
+                                <span>${formatTime(n.createTime)}</span>
+                            </div>
+                        </div>
+                        ${n.isRead ? '' : '<span class="notify-dot"></span>'}
+                    </div>`).join('');
+
+                document.getElementById('pager').innerHTML = totalPages > 1 ? `
+                    <button class="page-btn page-nav" ${page === 1 ? 'disabled' : ''} onclick="load(${page - 1})">上一页</button>
+                    <span class="page-info">${page} / ${totalPages}</span>
+                    <button class="page-btn page-nav" ${page === totalPages ? 'disabled' : ''} onclick="load(${page + 1})">下一页</button>
+                ` : '';
+            } catch (e) {
+                document.getElementById('notificationList').innerHTML =
+                    '<div class="empty-state"><h3>加载失败</h3><p>' + escapeHtml(e.message) + '</p></div>';
+            }
+        }
+
+        async function openNotification(id, articleId, commentId) {
+            try {
+                await http.post(`/notifications/${id}/read`);
+            } catch (e) {
+                // 已读失败不影响跳转
+            }
+            if (articleId) {
+                window.location.href = '/article/' + articleId + (commentId ? '#comment-' + commentId : '');
+            } else {
+                load(page);
+                NotificationCenter.refresh();
+            }
+        }
+
+        async function markAllRead() {
+            try {
+                await http.post('/notifications/read-all');
+                Toast.show('已全部标记为已读');
+                NotificationCenter.refresh();
+                load(1);
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+
+        load(1);
+        NotificationCenter.refresh();
+    </script>
+</body>
+</html>

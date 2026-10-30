@@ -23,7 +23,6 @@ public class ScheduledTasks {
     }
 
     private static final String VIEW_COUNT_PREFIX = "blog:article:view:";
-    private static final String LIKE_COUNT_PREFIX = "blog:article:like_count:";
 
     @Scheduled(fixedRate = 300000)
     public void syncViewCounts() {
@@ -48,28 +47,9 @@ public class ScheduledTasks {
         }
     }
 
-    @Scheduled(fixedRate = 600000)
-    public void syncLikeCounts() {
-        try {
-            Set<String> keys = cacheService.keys(LIKE_COUNT_PREFIX + "*");
-            if (keys == null || keys.isEmpty()) return;
-
-            for (String key : keys) {
-                Long articleId = Long.valueOf(key.replace(LIKE_COUNT_PREFIX, ""));
-                Object val = cacheService.get(key);
-                if (val != null) {
-                    Long likeCount = Long.valueOf(val.toString());
-                    Article article = new Article();
-                    article.setId(articleId);
-                    article.setLikeCount(likeCount);
-                    articleService.updateById(article);
-                }
-            }
-            log.debug("点赞数同步完成，同步了 {} 篇文章", keys.size());
-        } catch (Exception e) {
-            log.error("同步点赞数失败: {}", e.getMessage());
-        }
-    }
+    // 说明：原 syncLikeCounts 定时任务已删除。
+    // 点赞数改为由 blog_article_like 唯一关系表作为唯一事实来源，
+    // 点赞/取消点赞时用原子 SQL 直接增减 like_count，不再需要异步覆盖式同步。
 
     @Scheduled(fixedRate = 3600000)
     public void cleanHotArticles() {

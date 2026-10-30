@@ -12,6 +12,7 @@ import spring.ai.example.spring_ai_demo.config.LocalCacheService;
 import spring.ai.example.spring_ai_demo.dto.ArticleDTO;
 import spring.ai.example.spring_ai_demo.entity.Article;
 import spring.ai.example.spring_ai_demo.mapper.ArticleMapper;
+import spring.ai.example.spring_ai_demo.service.ArticleAssembler;
 import spring.ai.example.spring_ai_demo.service.ArticleService;
 
 import java.time.LocalDateTime;
@@ -24,9 +25,11 @@ import java.util.stream.Collectors;
 public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> implements ArticleService {
 
     private final LocalCacheService cacheService;
+    private final ArticleAssembler articleAssembler;
 
-    public ArticleServiceImpl(LocalCacheService cacheService) {
+    public ArticleServiceImpl(LocalCacheService cacheService, ArticleAssembler articleAssembler) {
         this.cacheService = cacheService;
+        this.articleAssembler = articleAssembler;
     }
 
     private static final String ARTICLE_CACHE_PREFIX = "blog:article:";
@@ -86,15 +89,18 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     }
 
     @Override
-    public Page<Article> getArticlePage(int page, int size, String category, String keyword) {
+    public Page<Article> getArticlePage(int page, int size, String category, String keyword, Long currentUserId) {
+        // size 必须限幅：缓存 key 含 size，不限制会被构造大量不同 key 把内存撑爆
+        int safeSize = Math.max(1, Math.min(size, 100));
         // 尝试从缓存获取
-        String cacheKey = ARTICLE_LIST_CACHE_KEY + page + ":" + size + ":" +
+        String cacheKey = ARTICLE_LIST_CACHE_KEY + page + ":" + safeSize + ":" +
                 (category != null ? category : "all") + ":" + (keyword != null ? keyword : "none");
 
         @SuppressWarnings("unchecked")
         Page<Article> cached = (Page<Article>) cacheService.get(cacheKey);
         if (cached != null) {
-            return cached;
+            // 缓存里是公共数据，装饰时统一复制一份，避免把「已赞」状态写回缓存骨架
+            return articleAssembler.decoratePage(cached, currentUserId);
         }
 
         LambdaQueryWrapper<Article> wrapper = new LambdaQueryWrapper<>();
@@ -110,21 +116,21 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                     .or().like(Article::getSummary, keyword));
         }
 
-        Page<Article> result = page(new Page<>(page, size), wrapper);
+        Page<Article> result = page(new Page<>(page, safeSize), wrapper);
 
         // 缓存5分钟
         cacheService.set(cacheKey, result, 5, TimeUnit.MINUTES);
-        return result;
+        return articleAssembler.decoratePage(result, currentUserId);
     }
 
     @Override
-    public Article getArticleDetail(Long id) {
+    public Article getArticleDetail(Long id, Long currentUserId) {
         String cacheKey = ARTICLE_CACHE_PREFIX + id;
         Article cached = (Article) cacheService.get(cacheKey);
         if (cached != null) {
             // 异步增加浏览量
             incrementViewCount(id);
-            return cached;
+            return articleAssembler.decorateSingle(cached, currentUserId);
         }
 
         Article article = getById(id);
@@ -139,14 +145,15 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         cacheService.zIncrementScore(HOT_ARTICLES_KEY, id.toString(), 1);
 
         incrementViewCount(id);
-        return article;
+        return articleAssembler.decorateSingle(article, currentUserId);
     }
 
     @Override
-    public List<Article> getHotArticles(int limit) {
+    public List<Article> getHotArticles(int limit, Long currentUserId) {
+        int safeLimit = Math.max(1, Math.min(limit, 20));
         // 从缓存有序集合获取热门文章
         Set<LocalCacheService.ZSetEntry> hotSet =
-                cacheService.zReverseRangeWithScores(HOT_ARTICLES_KEY, 0, limit - 1);
+                cacheService.zReverseRangeWithScores(HOT_ARTICLES_KEY, 0, safeLimit - 1);
 
         List<Article> hotList = new ArrayList<>();
         Set<Long> picked = new HashSet<>();
@@ -169,13 +176,13 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         }
 
         // 缓存刚预热（只访问过一两篇）时按浏览量兜底补齐，避免榜单只剩一两条
-        if (hotList.size() < limit) {
+        if (hotList.size() < safeLimit) {
             LambdaQueryWrapper<Article> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(Article::getStatus, 1)
                     .orderByDesc(Article::getViewCount)
-                    .last("LIMIT " + limit * 2);
+                    .last("LIMIT " + safeLimit * 2);
             for (Article article : list(wrapper)) {
-                if (hotList.size() >= limit) {
+                if (hotList.size() >= safeLimit) {
                     break;
                 }
                 if (article.getId() != null && picked.add(article.getId())) {
@@ -183,7 +190,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                 }
             }
         }
-        return hotList;
+        return articleAssembler.decorateList(hotList, currentUserId);
     }
 
     @Override
@@ -231,12 +238,30 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     }
 
     @Override
-    public boolean likeArticle(Long articleId) {
-        String likeKey = "blog:article:like:" + articleId;
-        cacheService.sIsMember(likeKey, "liked");
-        // 简单版：本地计数器
-        cacheService.increment("blog:article:like_count:" + articleId);
-        return true;
+    public Page<Article> getAuthorArticles(Long authorId, int page, int size, Long currentUserId) {
+        int safeSize = Math.max(1, Math.min(size, 50));
+        Page<Article> result = page(new Page<>(page, safeSize), new LambdaQueryWrapper<Article>()
+                .eq(Article::getAuthorId, authorId)
+                .eq(Article::getStatus, 1)
+                .orderByDesc(Article::getIsTop)
+                .orderByDesc(Article::getCreateTime));
+        return articleAssembler.decoratePage(result, currentUserId);
+    }
+
+    @Override
+    public Page<Article> getMyArticles(Long userId, int page, int size, Integer status) {
+        int safeSize = Math.max(1, Math.min(size, 50));
+        Page<Article> result = page(new Page<>(page, safeSize), new LambdaQueryWrapper<Article>()
+                .eq(Article::getAuthorId, userId)
+                .eq(status != null, Article::getStatus, status)
+                .orderByDesc(Article::getCreateTime));
+        return articleAssembler.decoratePage(result, userId);
+    }
+
+    @Override
+    public void invalidateCache(Long articleId) {
+        cacheService.delete(ARTICLE_CACHE_PREFIX + articleId);
+        clearListCache();
     }
 
     @Override

@@ -1,5 +1,6 @@
 package spring.ai.example.spring_ai_demo.controller;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +21,10 @@ public class HomeController {
 
     private final UserService userService;
 
+    /** 首页顶部封面背景图（/images/xxx.jpg）；留空则用默认渐变占位 */
+    @Value("${home.banner-image:}")
+    private String bannerImage;
+
     public HomeController(UserService userService) {
         this.userService = userService;
     }
@@ -28,6 +33,10 @@ public class HomeController {
     public String index(Model model) {
         model.addAttribute("title", "Spring Blog - 首页");
         model.addAttribute("author", loadAuthorCard());
+        // 未配置背景图时不输出 style 属性，页面直接走渐变占位，避免一次 404 请求
+        if (hasText(bannerImage)) {
+            model.addAttribute("bannerStyle", "--home-banner: url('" + bannerImage.trim() + "');");
+        }
         return "index";
     }
 
@@ -51,6 +60,21 @@ public class HomeController {
     @GetMapping("/profile")
     public String profile() {
         return "profile";
+    }
+
+    /** 他人主页：/user/{id} */
+    @GetMapping("/user/{id}")
+    public String userHome(@PathVariable Long id, Model model) {
+        model.addAttribute("userId", id);
+        model.addAttribute("title", "用户主页");
+        return "user";
+    }
+
+    /** 通知中心 */
+    @GetMapping("/notifications")
+    public String notifications(Model model) {
+        model.addAttribute("title", "通知中心");
+        return "notifications";
     }
 
     @GetMapping("/write")

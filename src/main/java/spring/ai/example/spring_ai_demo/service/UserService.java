@@ -5,6 +5,7 @@ import spring.ai.example.spring_ai_demo.dto.LoginDTO;
 import spring.ai.example.spring_ai_demo.dto.RegisterDTO;
 import spring.ai.example.spring_ai_demo.entity.User;
 
+import java.util.List;
 import java.util.Map;
 
 public interface UserService extends IService<User> {
@@ -35,4 +36,13 @@ public interface UserService extends IService<User> {
 
     /** 修改密码（同时吊销当前Token） */
     boolean changePassword(Long userId, String oldPassword, String newPassword, String currentToken);
+
+    /**
+     * 公开主页信息（他人主页）。
+     * 只返回白名单字段，绝不能把 User 实体直接序列化出去（会泄露 BCrypt 密码哈希）。
+     */
+    Map<String, Object> getPublicProfile(Long userId);
+
+    /** @提及、@自动补全用：按昵称/用户名前缀模糊匹配 */
+    List<User> searchUsers(String keyword, int limit);
 }

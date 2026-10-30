@@ -18,8 +18,20 @@ public class Article {
     private Long viewCount;
     private Long commentCount;
     private Long likeCount;
+    private Long favoriteCount;
     private Integer status;
     private Integer isTop;
+
+    // ======== 当前登录用户的互动状态（非数据库列） ========
+    @TableField(exist = false)
+    private Boolean liked;
+    @TableField(exist = false)
+    private Boolean favorited;
+    // ======== 作者展示字段（列表/收藏页避免额外查询） ========
+    @TableField(exist = false)
+    private String authorName;
+    @TableField(exist = false)
+    private String authorAvatar;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
@@ -52,6 +64,16 @@ public class Article {
     public void setCommentCount(Long commentCount) { this.commentCount = commentCount; }
     public Long getLikeCount() { return likeCount; }
     public void setLikeCount(Long likeCount) { this.likeCount = likeCount; }
+    public Long getFavoriteCount() { return favoriteCount; }
+    public void setFavoriteCount(Long favoriteCount) { this.favoriteCount = favoriteCount; }
+    public Boolean getLiked() { return liked; }
+    public void setLiked(Boolean liked) { this.liked = liked; }
+    public Boolean getFavorited() { return favorited; }
+    public void setFavorited(Boolean favorited) { this.favorited = favorited; }
+    public String getAuthorName() { return authorName; }
+    public void setAuthorName(String authorName) { this.authorName = authorName; }
+    public String getAuthorAvatar() { return authorAvatar; }
+    public void setAuthorAvatar(String authorAvatar) { this.authorAvatar = authorAvatar; }
     public Integer getStatus() { return status; }
     public void setStatus(Integer status) { this.status = status; }
     public Integer getIsTop() { return isTop; }

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  日志落盘配置（部署到服务器后按此规则滚动）
+
+  目录与命名：
+    ${log.home}/app/2026-10-31-0-log.log          应用运行日志
+    ${log.home}/operation/2026-10-31-0-log.log    核心接口操作日志（LogAspect 独占）
+
+  滚动规则（由 Logback 在每次写入时判断，无需定时任务）：
+    1) 跨天自动新建文件：日期部分取 %d{yyyy-MM-dd}
+    2) 当天文件超过 1MB 自动新建：%i 序列号 0、1、2 ……
+    3) 保留 30 天，总量上限 2GB，超出按时间从旧到新删除
+
+  为什么不额外写定时任务：
+    SizeAndTimeBasedRollingPolicy 在「每次写日志」时同步判断大小，
+    能精确做到「写满 1MB 立刻切换」；定时任务轮询反而会漏掉两次轮询之间的突发写入，
+    并且多实例部署时多个进程同时 rename 同一文件会产生竞争。由 Appender 内部完成滚动最可靠。
+-->
+<configuration>
+
+    <!-- 日志根目录与滚动参数：均可用 application.properties / 环境变量覆盖 -->
+    <springProperty scope="context" name="LOG_HOME" source="log.home" defaultValue="logs"/>
+    <springProperty scope="context" name="MAX_FILE_SIZE" source="log.max-file-size" defaultValue="1MB"/>
+    <springProperty scope="context" name="MAX_HISTORY" source="log.max-history" defaultValue="30"/>
+    <springProperty scope="context" name="TOTAL_SIZE_CAP" source="log.total-size-cap" defaultValue="2GB"/>
+
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{requestId}] %-5level %logger{40} - %msg%n"/>
+
+    <!-- ==================== 控制台 ==================== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ==================== 应用运行日志 ==================== -->
+    <!-- 不指定 <file>，活动文件名直接由 fileNamePattern 决定，命名与滚动文件保持一致 -->
+    <appender name="APP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/app/%d{yyyy-MM-dd}-%i-log.log</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ==================== 核心接口操作日志（独立文件） ==================== -->
+    <!-- 由 LogAspect 中的 OPERATION_LOG 记录器写入，additivity=false 避免重复落到 APP_FILE -->
+    <appender name="OPERATION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/operation/%d{yyyy-MM-dd}-%i-log.log</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 核心接口操作日志：只走独立文件，不进入应用日志 -->
+    <logger name="OPERATION_LOG" level="INFO" additivity="false">
+        <appender-ref ref="OPERATION_FILE"/>
+    </logger>
+
+    <!-- MyBatis SQL 日志默认关闭（应用包为 DEBUG，Mapper 包单独压到 INFO，避免刷爆日志文件） -->
+    <logger name="spring.ai.example.spring_ai_demo.mapper" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+    </root>
+
+</configuration>

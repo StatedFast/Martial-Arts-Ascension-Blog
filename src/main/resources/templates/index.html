@@ -4,16 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">Spring Blog</title>
-    <link rel="stylesheet" href="/css/style.css?v=7">
+    <link rel="stylesheet" href="/css/style.css?v=13">
 </head>
 <body class="home">
-    <!-- 导航栏 -->
-    <nav class="navbar">
-        <div class="nav-inner">
-            <a href="/" class="nav-brand">📝 凡人修仙博客</a>
-            <div class="nav-links" id="navLinks"></div>
-        </div>
-    </nav>
+    <!-- 顶部封面：导航与 Banner 共用同一张背景图，作为一个整体随页面滚动（图片由 home.banner-image 配置） -->
+    <div class="home-cover" th:style="${bannerStyle}">
+        <header class="home-hero">
+            <div class="home-hero-inner">
+                <div class="home-hero-copy">
+                    <div class="hero-eyebrow">SPRING AI BLOG</div>
+                    <h1 class="hero-title">凡人修仙论坛</h1>
+                    <p class="hero-sub">记录技术成长 · 分享编程心得</p>
+                </div>
+                <div class="hero-actions">
+                    <a href="#articleList" class="hero-btn hero-btn-light">开始阅读</a>
+                    <button type="button" class="hero-btn" onclick="AiAssistant.toggle()">🤖 问 AI</button>
+                    <!-- 导航链接（首页 / 写文章 / 通知 / 用户菜单）与上面两个按钮同排 -->
+                    <div class="nav-links hero-nav" id="navLinks"></div>
+                </div>
+            </div>
+        </header>
+    </div>
 
     <!-- 三栏主内容区：左·信息 / 中·文章 / 右·工具 -->
     <div class="container home-layout">
@@ -76,19 +87,6 @@
 
         <!-- ==================== 中间：核心文章区 ==================== -->
         <main class="main-content">
-            <!-- 欢迎横幅：压缩为一行，把首屏空间让给文章 -->
-            <section class="hero">
-                <div class="hero-main">
-                    <div class="hero-eyebrow">SPRING AI BLOG</div>
-                    <h1 class="hero-title">凡人修仙博客</h1>
-                    <p class="hero-sub">记录技术成长 · 分享编程心得</p>
-                </div>
-                <div class="hero-actions">
-                    <a href="#articleList" class="hero-btn hero-btn-light">开始阅读</a>
-                    <button type="button" class="hero-btn" onclick="AiAssistant.toggle()">🤖 问 AI</button>
-                </div>
-            </section>
-
             <!-- 文章列表 -->
             <div class="card list-card">
                 <div class="list-head">
@@ -153,7 +151,7 @@
         </aside>
     </div>
 
-    <script src="/js/app.js?v=5"></script>
+    <script src="/js/app.js?v=7"></script>
     <script>
         // ==================== 首页逻辑 ====================
         let currentPage = 1;
@@ -202,10 +200,15 @@
                             <a href="/article/${article.id}">${escapeHtml(article.title)}</a>
                         </h3>
                         <div class="article-meta">
+                            ${article.authorId ? `<a href="/user/${article.authorId}" class="article-author">
+                                <img src="${escapeAttr(article.authorAvatar || '/images/default-avatar.svg')}" alt=""
+                                     onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
+                                ${escapeHtml(article.authorName || '匿名')}</a>` : ''}
                             <span>${formatTime(article.createTime)}</span>
                             <span>${article.viewCount || 0} 阅读</span>
                             <span>${article.commentCount || 0} 评论</span>
                             <span>${article.likeCount || 0} 点赞</span>
+                            <span>${article.favoriteCount || 0} 收藏</span>
                         </div>
                         <p class="article-summary">${escapeHtml(article.summary || '')}</p>
                         <div class="article-tags">
@@ -393,11 +396,7 @@
             searchArticles();
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text || '';
-            return div.innerHTML;
-        }
+        // escapeHtml / formatTime 由 app.js 统一提供，页面内不再重复定义
 
         // 初始化：先铺骨架屏，再并行拉取数据
         renderSkeleton();

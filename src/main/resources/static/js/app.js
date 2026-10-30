@@ -119,16 +119,21 @@ function renderNavbar() {
         navLinks.innerHTML = `
             <a href="/">首页</a>
             <a href="/write" class="btn-write">写文章</a>
+            <a href="/notifications" class="nav-bell" title="通知中心">
+                🔔<span class="nav-bell-badge" id="navBellBadge" hidden>0</span>
+            </a>
             <div class="user-menu" onclick="toggleUserMenu()">
                 <img src="${user.avatar || '/images/default-avatar.svg'}" alt="头像" class="user-avatar"
                      onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
-                <span>${user.nickname || user.username}</span>
+                <span>${escapeHtml(user.nickname || user.username)}</span>
                 <div class="user-dropdown" id="userDropdown">
                     <a href="/profile">个人中心</a>
+                    <a href="/notifications">通知中心</a>
                     <a href="#" class="logout" onclick="Auth.logout();return false;">退出登录</a>
                 </div>
             </div>
         `;
+        NotificationCenter.start();
     } else {
         navLinks.innerHTML = `
             <a href="/">首页</a>
@@ -153,6 +158,109 @@ document.addEventListener('click', function(e) {
         if (dropdown) dropdown.classList.remove('show');
     }
 });
+
+// ==================== HTML 转义（统一工具） ====================
+/**
+ * 所有插入 innerHTML 的用户内容都必须先过这里。
+ * 注意：escapeHtml 只处理文本节点风险，不能用于属性值里的单引号拼接（旧版回复按钮的 XSS 就是这样来的）。
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+}
+
+/** 属性值安全化：在模板里用 data-* 传参，避免把昵称直接拼进 onclick */
+function escapeAttr(text) {
+    return escapeHtml(text).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ==================== 站内通知（铃铛 + 未读红点 + SSE） ====================
+/**
+ * 实时通知：
+ * - 登录后拉一次未读数，并订阅 /api/notifications/stream
+ * - EventSource 不支持自定义请求头，所以用 fetch + ReadableStream 手动解析 SSE
+ * - 断线 5 秒后自动重连，同时保留 60 秒轮询兜底
+ */
+const NotificationCenter = {
+    started: false,
+
+    start() {
+        if (this.started || !Auth.isLoggedIn()) return;
+        this.started = true;
+        this.refresh();
+        this.connect();
+        setInterval(() => this.refresh(), 60000);
+    },
+
+    async refresh() {
+        if (!Auth.isLoggedIn()) return;
+        try {
+            const data = await http.get('/notifications/unread-count');
+            this.render(data ? data.count : 0);
+        } catch (e) {
+            // 静默失败：红点不是关键路径，网络抖动时下一轮轮询会补上
+        }
+    },
+
+    render(count) {
+        const badge = document.getElementById('navBellBadge');
+        if (!badge) return;
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.hidden = false;
+        } else {
+            badge.hidden = true;
+        }
+    },
+
+    async connect() {
+        while (Auth.isLoggedIn()) {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_BASE + '/notifications/stream', {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                });
+                if (!res.ok || !res.body) throw new Error('stream closed');
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    let idx;
+                    while ((idx = buffer.indexOf('\n\n')) >= 0) {
+                        const event = buffer.slice(0, idx);
+                        buffer = buffer.slice(idx + 2);
+                        this.handleEvent(event);
+                    }
+                }
+            } catch (e) {
+                // 连接异常：走下方重连
+            }
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+    },
+
+    handleEvent(raw) {
+        // 心跳是注释行（: ping），没有 data 前缀，直接忽略
+        const dataLine = raw.split('\n').find(line => line.startsWith('data:'));
+        if (!dataLine) return;
+        try {
+            const payload = JSON.parse(dataLine.slice(5).trim());
+            if (typeof payload.count === 'number') {
+                this.render(payload.count);
+            }
+            if (payload.type) {
+                Toast.show(payload.content || '你有一条新通知');
+            }
+        } catch (e) {
+            // 非法帧忽略
+        }
+    }
+};
 
 // ==================== 时间格式化 ====================
 function formatTime(dateStr) {

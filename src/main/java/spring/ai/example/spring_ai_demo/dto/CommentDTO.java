@@ -2,11 +2,14 @@ package spring.ai.example.spring_ai_demo.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CommentDTO {
 
     private Long id;
     private Long articleId;
+    private Long userId;
 
     @NotBlank(message = "评论内容不能为空")
     private String content;
@@ -20,10 +23,19 @@ public class CommentDTO {
     private String replyToUsername;
     private LocalDateTime createTime;
 
+    /** 当前登录用户是否已点赞该评论 */
+    private Boolean liked;
+    /** 子回复（楼中楼）：一级评论分页后批量装配 */
+    private List<CommentDTO> children = new ArrayList<>();
+    /** 我的评论列表展示所属文章标题 */
+    private String articleTitle;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getArticleId() { return articleId; }
     public void setArticleId(Long articleId) { this.articleId = articleId; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
     public Long getParentId() { return parentId; }
@@ -40,4 +52,10 @@ public class CommentDTO {
     public void setReplyToUsername(String replyToUsername) { this.replyToUsername = replyToUsername; }
     public LocalDateTime getCreateTime() { return createTime; }
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+    public Boolean getLiked() { return liked; }
+    public void setLiked(Boolean liked) { this.liked = liked; }
+    public List<CommentDTO> getChildren() { return children; }
+    public void setChildren(List<CommentDTO> children) { this.children = children; }
+    public String getArticleTitle() { return articleTitle; }
+    public void setArticleTitle(String articleTitle) { this.articleTitle = articleTitle; }
 }

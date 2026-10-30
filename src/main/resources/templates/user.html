@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">用户主页 - Spring Blog</title>
+    <link rel="stylesheet" href="/css/style.css?v=13">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 Spring Blog</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="card profile-header" id="userHeader">
+                <div class="loading"><div class="spinner"></div>加载中...</div>
+            </div>
+
+            <div class="card">
+                <div class="profile-tabs">
+                    <div class="profile-tab active">发布的文章</div>
+                </div>
+                <div style="padding:20px;">
+                    <div id="articleList"><div class="loading">加载中...</div></div>
+                    <div class="pager" id="pager"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=7"></script>
+    <script>
+        const targetUserId = [[${userId}]];
+        let page = 1;
+        let totalPages = 0;
+
+        async function loadProfile() {
+            try {
+                const user = await http.get(`/user/${targetUserId}/profile`);
+                const isSelf = Auth.getUserId() === user.id;
+                document.getElementById('userHeader').innerHTML = `
+                    <div class="profile-avatar-container">
+                        <img src="${escapeAttr(user.avatar || '/images/default-avatar.svg')}" class="profile-avatar" alt="头像"
+                             onerror="this.onerror=null;this.src='/images/default-avatar.svg'">
+                    </div>
+                    <h2>${escapeHtml(user.nickname)}
+                        ${user.role === 'ADMIN' ? '<span class="draft-badge">管理员</span>' : ''}
+                    </h2>
+                    <p style="color:var(--text-light)">${escapeHtml(user.bio || '这个人很懒，什么都没写...')}</p>
+                    <div class="author-stats">
+                        <div class="stat-item"><div class="stat-num">${user.articleCount ?? 0}</div><div class="stat-label">文章</div></div>
+                        <div class="stat-item"><div class="stat-num">${user.commentCount ?? 0}</div><div class="stat-label">评论</div></div>
+                        <div class="stat-item"><div class="stat-num">${user.likeCount ?? 0}</div><div class="stat-label">获赞</div></div>
+                        <div class="stat-item"><div class="stat-num">${user.viewCount ?? 0}</div><div class="stat-label">阅读</div></div>
+                    </div>
+                    ${isSelf ? '<a class="btn btn-outline btn-sm" href="/profile" style="margin-top:12px;">编辑我的资料</a>' : ''}
+                `;
+            } catch (e) {
+                document.getElementById('userHeader').innerHTML =
+                    '<div class="empty-state"><h3>用户不存在</h3><p>' + escapeHtml(e.message) + '</p></div>';
+            }
+        }
+
+        async function loadArticles(p) {
+            page = p;
+            try {
+                const data = await http.get(`/user/${targetUserId}/articles`, { page: p, size: 10 });
+                totalPages = data.pages || 0;
+                const list = document.getElementById('articleList');
+                if (!data.records || data.records.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><h3>还没有发布文章</h3></div>';
+                    document.getElementById('pager').innerHTML = '';
+                    return;
+                }
+                list.innerHTML = data.records.map(a => `
+                    <div class="article-item">
+                        <div class="article-title"><a href="/article/${a.id}">${escapeHtml(a.title)}</a></div>
+                        <p class="article-summary">${escapeHtml(a.summary || '')}</p>
+                        <div class="article-meta">
+                            <span>${formatTime(a.createTime)}</span>
+                            <span>${a.viewCount || 0} 阅读</span>
+                            <span>${a.commentCount || 0} 评论</span>
+                            <span>${a.likeCount || 0} 点赞</span>
+                        </div>
+                    </div>`).join('');
+
+                document.getElementById('pager').innerHTML = totalPages > 1 ? `
+                    <button class="page-btn page-nav" ${page === 1 ? 'disabled' : ''} onclick="loadArticles(${page - 1})">上一页</button>
+                    <span class="page-info">${page} / ${totalPages}</span>
+                    <button class="page-btn page-nav" ${page === totalPages ? 'disabled' : ''} onclick="loadArticles(${page + 1})">下一页</button>
+                ` : '';
+            } catch (e) {
+                document.getElementById('articleList').innerHTML =
+                    '<div class="empty-state"><h3>加载失败</h3></div>';
+            }
+        }
+
+        loadProfile();
+        loadArticles(1);
+    </script>
+</body>
+</html>

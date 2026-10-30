@@ -14,6 +14,8 @@ import spring.ai.example.spring_ai_demo.dto.RegisterDTO;
 import spring.ai.example.spring_ai_demo.entity.User;
 import spring.ai.example.spring_ai_demo.exception.BusinessException;
 import spring.ai.example.spring_ai_demo.exception.TokenInvalidException;
+import spring.ai.example.spring_ai_demo.mapper.ArticleMapper;
+import spring.ai.example.spring_ai_demo.mapper.CommentMapper;
 import spring.ai.example.spring_ai_demo.mapper.UserMapper;
 import spring.ai.example.spring_ai_demo.service.FileStorageService;
 import spring.ai.example.spring_ai_demo.service.LoginAttemptService;
@@ -23,6 +25,7 @@ import spring.ai.example.spring_ai_demo.utils.JwtUtils;
 import spring.ai.example.spring_ai_demo.utils.PasswordValidator;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -37,16 +40,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final LoginAttemptService loginAttemptService;
     private final FileStorageService fileStorageService;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final ArticleMapper articleMapper;
+    private final CommentMapper commentMapper;
 
     public UserServiceImpl(JwtUtils jwtUtils, LocalCacheService cacheService,
                            TokenBlacklistService blacklistService,
                            LoginAttemptService loginAttemptService,
-                           FileStorageService fileStorageService) {
+                           FileStorageService fileStorageService,
+                           ArticleMapper articleMapper, CommentMapper commentMapper) {
         this.jwtUtils = jwtUtils;
         this.cacheService = cacheService;
         this.blacklistService = blacklistService;
         this.loginAttemptService = loginAttemptService;
         this.fileStorageService = fileStorageService;
+        this.articleMapper = articleMapper;
+        this.commentMapper = commentMapper;
         this.passwordEncoder = new BCryptPasswordEncoder(12); // cost=12，企业级强度
     }
 
@@ -299,6 +307,50 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private void cacheUser(User user) {
         cacheService.set(USER_CACHE_PREFIX + user.getId(), user, 1, TimeUnit.HOURS);
+    }
+
+    @Override
+    public Map<String, Object> getPublicProfile(Long userId) {
+        User user = getUserById(userId);
+        if (user == null || user.getStatus() == null || user.getStatus() != 1) {
+            throw new BusinessException(404, "用户不存在");
+        }
+
+        // 白名单字段：禁止把 password / email / deleted 等内部字段带给前端
+        Map<String, Object> vo = new HashMap<>();
+        vo.put("id", user.getId());
+        vo.put("username", user.getUsername());
+        vo.put("nickname", user.getNickname() != null && !user.getNickname().isBlank()
+                ? user.getNickname() : user.getUsername());
+        vo.put("avatar", user.getAvatar());
+        vo.put("bio", user.getBio());
+        vo.put("role", user.getRole());
+        vo.put("createTime", user.getCreateTime());
+
+        // 统计：文章数/评论数走 count，获赞与阅读量走聚合，均命中对应索引
+        vo.put("articleCount", articleMapper.selectCount(
+                new LambdaQueryWrapper<spring.ai.example.spring_ai_demo.entity.Article>()
+                        .eq(spring.ai.example.spring_ai_demo.entity.Article::getAuthorId, userId)
+                        .eq(spring.ai.example.spring_ai_demo.entity.Article::getStatus, 1)));
+        vo.put("commentCount", commentMapper.selectCount(
+                new LambdaQueryWrapper<spring.ai.example.spring_ai_demo.entity.Comment>()
+                        .eq(spring.ai.example.spring_ai_demo.entity.Comment::getUserId, userId)
+                        .eq(spring.ai.example.spring_ai_demo.entity.Comment::getStatus, 1)));
+        vo.put("likeCount", articleMapper.sumLikeCountByAuthor(userId));
+        vo.put("viewCount", articleMapper.sumViewCountByAuthor(userId));
+        return vo;
+    }
+
+    @Override
+    public List<User> searchUsers(String keyword, int limit) {
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        String kw = keyword.trim();
+        return list(new LambdaQueryWrapper<User>()
+                .eq(User::getStatus, 1)
+                .and(w -> w.likeRight(User::getNickname, kw).or().likeRight(User::getUsername, kw))
+                .last("LIMIT " + Math.max(1, Math.min(limit, 10))));
     }
 
     private Map<String, Object> buildUserVO(User user) {
