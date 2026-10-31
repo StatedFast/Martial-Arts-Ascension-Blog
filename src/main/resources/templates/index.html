@@ -6,6 +6,9 @@
     <title th:text="${title}">修仙心得</title>
     <!-- 浏览器标签页图标：用首页 banner 图（原无 favicon，浏览器会显示默认地球图标） -->
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
+    <!-- 首屏封面图预加载：与 .home-cover 背景图共用同一 URL，只下载一次，后续 30 天走浏览器本地缓存 -->
+    <link rel="preload" as="image" href="/images/home-songyu.jpg"
+          th:if="${bannerUrl != null}" th:href="${bannerUrl}">
     <link rel="stylesheet" href="/css/style.css?v=15">
 </head>
 <body class="home">
@@ -20,7 +23,7 @@
                 </div>
                 <div class="hero-actions">
                     <a href="#articleList" class="hero-btn hero-btn-light">开始阅读</a>
-                    <button type="button" class="hero-btn" onclick="AiAssistant.toggle()">🤖 问 AI</button>
+                    <button type="button" class="hero-btn" onclick="AiAssistant.toggle()">🤖 问 银月I</button>
                     <!-- 导航链接（首页 / 写文章 / 通知 / 用户菜单）与上面两个按钮同排 -->
                     <div class="nav-links hero-nav" id="navLinks"></div>
                 </div>

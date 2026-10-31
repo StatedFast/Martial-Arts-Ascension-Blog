@@ -3,6 +3,7 @@ package spring.ai.example.spring_ai_demo.config;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.CacheControl;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -13,6 +14,7 @@ import spring.ai.example.spring_ai_demo.interceptor.JwtInterceptor;
 import spring.ai.example.spring_ai_demo.interceptor.RateLimitInterceptor;
 
 import java.nio.file.Paths;
+import java.time.Duration;
 
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
@@ -73,8 +75,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/static/**")
                 .addResourceLocations("classpath:/static/");
+        // 图片（首页 banner / 默认头像）：站点里体积最大的静态资源，
+        // 首次加载后让浏览器直接缓存 30 天，之后完全不再发请求。
+        // 注意：换图请改文件名（如 home-songyu-2.jpg）并同步 home.banner-image，
+        // 同名替换会让老用户在缓存过期前一直看到旧图。
         registry.addResourceHandler("/images/**")
-                .addResourceLocations("classpath:/static/images/");
+                .addResourceLocations("classpath:/static/images/")
+                .setCacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic());
         // 用户上传的头像等文件：/uploads/** -> {file.upload-dir}/（磁盘绝对路径，随工作目录解析）
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:" + Paths.get(uploadDir).toAbsolutePath().normalize() + "/");

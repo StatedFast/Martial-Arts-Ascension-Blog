@@ -6,7 +6,7 @@
     <title>写文章 - 修仙心得</title>
     <!-- 浏览器标签页图标：用首页 banner 图（原无 favicon，浏览器会显示默认地球图标） -->
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=15">
+    <link rel="stylesheet" href="/css/style.css?v=17">
 </head>
 <body>
     <nav class="navbar">
@@ -21,6 +21,21 @@
             <div class="editor-container">
                 <h2 id="editorMode">✍️ 写文章</h2>
                 <input type="text" class="editor-title-input" id="articleTitle" placeholder="输入文章标题...">
+
+                <!-- AI 写作助手：按钮只负责收集上下文，结果统一在右下角面板确认后再落地 -->
+                <div class="ai-write-bar">
+                    <div class="ai-write-bar-title"><span>✨</span> AI 写作助手</div>
+                    <div class="ai-write-bar-actions">
+                        <button type="button" class="ai-write-btn ai-write-btn-primary" data-action="draft">标题写正文</button>
+                        <button type="button" class="ai-write-btn" data-action="outline">生成大纲</button>
+                        <button type="button" class="ai-write-btn" data-action="continue">续写</button>
+                        <button type="button" class="ai-write-btn" data-action="polish">润色选中</button>
+                        <button type="button" class="ai-write-btn" data-action="title">起标题</button>
+                        <button type="button" class="ai-write-btn" data-action="summary">写摘要</button>
+                        <button type="button" class="ai-write-btn" data-action="tags">推荐标签</button>
+                    </div>
+                    <div class="ai-write-bar-tip">在正文中选中文字可润色；AI 输出可确认后再插入</div>
+                </div>
 
                 <div class="editor-toolbar">
                     <select id="articleCategory">
@@ -43,8 +58,23 @@
                 </div>
 
                 <textarea class="editor-content" id="articleContent" placeholder="在这里书写你的文章内容...&#10;&#10;支持Markdown格式"></textarea>
+
+                <div class="editor-summary">
+                    <label for="articleSummary">文章摘要 <span>留空则自动截取正文前 200 字</span></label>
+                    <textarea id="articleSummary" rows="2" placeholder="一句话说清这篇文章讲了什么，AI 可代写"></textarea>
+                </div>
             </div>
         </div>
+    </div>
+
+    <!-- AI 写作结果面板：不同动作提供不同的落地方式（插入 / 替换 / 填入表单） -->
+    <div class="ai-write-panel" id="aiWritePanel">
+        <div class="ai-write-panel-head">
+            <span class="ai-write-panel-title" id="aiWritePanelTitle">✨ AI 输出</span>
+            <button type="button" class="ai-write-panel-close" id="aiWriteClose" title="关闭">✕</button>
+        </div>
+        <div class="ai-write-panel-body" id="aiWriteBody"></div>
+        <div class="ai-write-panel-foot" id="aiWriteFoot"></div>
     </div>
 
     <script src="/js/app.js?v=7"></script>
@@ -69,6 +99,7 @@
                 document.getElementById('articleContent').value = article.content;
                 document.getElementById('articleCategory').value = article.category || '';
                 document.getElementById('articleTags').value = article.tags || '';
+                document.getElementById('articleSummary').value = article.summary || '';
                 document.getElementById('isPublished').checked = article.status === 1;
             } catch (e) {
                 Toast.show('加载文章失败: ' + e.message, 'error');
@@ -85,7 +116,7 @@
             const data = {
                 title: title,
                 content: content,
-                summary: content.substring(0, 200),
+                summary: document.getElementById('articleSummary').value.trim() || content.substring(0, 200),
                 category: document.getElementById('articleCategory').value,
                 tags: document.getElementById('articleTags').value,
                 status: document.getElementById('isPublished').checked ? 1 : 0
@@ -105,6 +136,230 @@
                 Toast.show(e.message, 'error');
             }
         }
+
+        // ==================== AI 写作助手 ====================
+        /**
+         * 三步：取编辑器上下文 → 调 /api/ai/writing → 用户确认后落地。
+         * 不自动改正文：模型输出直接覆盖会把用户正在写的内容冲掉。
+         */
+        const AiWriting = {
+            busy: false,
+            action: null,
+            result: '',
+            selection: '',
+            rangeStart: 0,
+            rangeEnd: 0,
+
+            labels: {
+                draft: '正文初稿',
+                outline: '文章大纲',
+                continue: '续写内容',
+                polish: '润色结果',
+                title: '标题候选',
+                summary: '文章摘要',
+                tags: '标签建议'
+            },
+
+            init() {
+                document.querySelectorAll('.ai-write-btn').forEach(btn => {
+                    btn.addEventListener('click', () => this.run(btn.dataset.action, btn));
+                });
+                document.getElementById('aiWriteClose').addEventListener('click', () => this.close());
+                document.getElementById('aiWriteBody').addEventListener('click', (e) => {
+                    const chip = e.target.closest('.ai-write-chip');
+                    if (!chip) return;
+                    if (this.action === 'title') {
+                        document.getElementById('articleTitle').value = chip.dataset.value;
+                        Toast.show('标题已填入');
+                    } else if (this.action === 'tags') {
+                        chip.classList.toggle('active');
+                    }
+                });
+                document.getElementById('aiWriteFoot').addEventListener('click', (e) => {
+                    const btn = e.target.closest('button[data-apply]');
+                    if (btn) this.apply(btn.dataset.apply);
+                });
+            },
+
+            /** 前置校验：正文不够时直接提示，省一次 AI 配额 */
+            validate(action, title, content, selection) {
+                if (action === 'draft') return title ? '' : '请先填写文章标题，AI 才能围绕标题写正文';
+                if (action === 'polish') return selection ? '' : '请先在正文中选中要润色的段落';
+                if (action === 'continue') return content ? '' : '请先写几行内容，AI 才能接着往下写';
+                if (action === 'outline') return (title || content) ? '' : '请先填写标题或写一点内容';
+                return content.length >= 20 ? '' : '正文太短了，多写几行再让 AI 生成' + this.labels[action];
+            },
+
+            async run(action, btn) {
+                if (this.busy) return;
+                const ta = document.getElementById('articleContent');
+                const title = document.getElementById('articleTitle').value.trim();
+                const content = ta.value.trim();
+                const selection = ta.value.substring(ta.selectionStart, ta.selectionEnd).trim();
+
+                const error = this.validate(action, title, content, selection);
+                if (error) { Toast.show(error, 'warning'); return; }
+
+                // 选区位置必须在请求前记录：请求返回时 textarea 可能已失去焦点
+                this.rangeStart = ta.selectionStart;
+                this.rangeEnd = ta.selectionEnd;
+                this.selection = selection;
+
+                this.busy = true;
+                document.querySelectorAll('.ai-write-btn').forEach(b => b.disabled = true);
+                btn.classList.add('loading');
+                // 初稿要写上千字，耗时明显长于其他动作，先告知用户不要急着关页面
+                const waiting = action === 'draft'
+                    ? '<div class="ai-write-hint">正在围绕标题生成初稿，通常需要 20-40 秒…</div>'
+                    : '';
+                this.open(action, '<span class="ai-write-loading"><i></i><i></i><i></i></span>' + waiting);
+
+                try {
+                    const data = await http.post('/ai/writing', {
+                        action,
+                        title,
+                        content,
+                        selection,
+                        category: document.getElementById('articleCategory').value
+                    });
+                    this.render(action, data.result || '');
+                } catch (e) {
+                    this.close();
+                    Toast.show(e.message, 'error');
+                } finally {
+                    this.busy = false;
+                    btn.classList.remove('loading');
+                    document.querySelectorAll('.ai-write-btn').forEach(b => b.disabled = false);
+                }
+            },
+
+            open(action, html) {
+                this.action = action;
+                document.getElementById('aiWritePanelTitle').textContent = '✨ ' + (this.labels[action] || 'AI 输出');
+                document.getElementById('aiWriteBody').innerHTML = html;
+                document.getElementById('aiWriteFoot').innerHTML = '';
+                document.getElementById('aiWritePanel').classList.add('show');
+            },
+
+            close() {
+                document.getElementById('aiWritePanel').classList.remove('show');
+            },
+
+            /** 渲染结果：标题/标签是可选清单，其余是纯文本 */
+            render(action, text) {
+                this.action = action;
+                this.result = text;
+                const body = document.getElementById('aiWriteBody');
+                const foot = document.getElementById('aiWriteFoot');
+                body.innerHTML = '';
+                foot.innerHTML = '';
+
+                if (!text) {
+                    body.innerHTML = '<div class="ai-write-empty">AI 没有返回内容，请稍后重试</div>';
+                    return;
+                }
+
+                if (action === 'title' || action === 'tags') {
+                    const values = (action === 'title' ? text.split('\n') : text.split(',')).filter(Boolean);
+                    const wrap = document.createElement('div');
+                    wrap.className = 'ai-write-chips';
+                    values.forEach(value => {
+                        const chip = document.createElement('button');
+                        chip.type = 'button';
+                        chip.className = 'ai-write-chip';
+                        chip.dataset.value = value;
+                        chip.textContent = value;
+                        wrap.appendChild(chip);
+                    });
+                    body.appendChild(wrap);
+                    body.insertAdjacentHTML('beforeend', action === 'title'
+                        ? '<div class="ai-write-hint">点标题可直接填入上方输入框</div>'
+                        : '<div class="ai-write-hint">点选要保留的标签，再点「填入标签」</div>');
+                    foot.innerHTML = action === 'title'
+                        ? '<button type="button" class="ai-write-apply" data-apply="copy">复制全部</button>'
+                        : '<button type="button" class="ai-write-apply" data-apply="tags">填入标签</button>';
+                    return;
+                }
+
+                const pre = document.createElement('div');
+                pre.className = 'ai-write-text';
+                pre.textContent = text;
+                body.appendChild(pre);
+
+                const buttons = [];
+                if (action === 'summary') {
+                    buttons.push('<button type="button" class="ai-write-apply" data-apply="summary">填入摘要</button>');
+                } else if (action === 'polish') {
+                    buttons.push('<button type="button" class="ai-write-apply" data-apply="replace">替换选中</button>');
+                } else {
+                    buttons.push('<button type="button" class="ai-write-apply" data-apply="insert">插入正文</button>');
+                }
+                buttons.push('<button type="button" class="ai-write-apply ai-write-apply-ghost" data-apply="copy">复制</button>');
+                foot.innerHTML = buttons.join('');
+            },
+
+            /** 落地：所有写入都经过这里，保证只改用户确认过的内容 */
+            apply(kind) {
+                const ta = document.getElementById('articleContent');
+
+                if (kind === 'copy') {
+                    this.copy(this.result);
+                    return;
+                }
+                if (kind === 'summary') {
+                    document.getElementById('articleSummary').value = this.result.replace(/\s*\n+\s*/g, ' ').trim();
+                    Toast.show('摘要已填入');
+                } else if (kind === 'tags') {
+                    this.applyTags();
+                } else if (kind === 'replace') {
+                    // 等待期间用户可能改了正文，位置失效就重来，避免替换错地方
+                    if (ta.value.substring(this.rangeStart, this.rangeEnd).trim() !== this.selection) {
+                        Toast.show('正文已改动，请重新选中后再试', 'warning');
+                        return;
+                    }
+                    this.splice(ta, this.rangeStart, this.rangeEnd, this.result);
+                    Toast.show('已替换选中内容');
+                } else if (kind === 'insert') {
+                    const pos = ta.selectionEnd;
+                    const text = ta.value.trim() ? '\n\n' + this.result : this.result;
+                    this.splice(ta, pos, pos, text);
+                    Toast.show('已插入正文');
+                }
+                this.close();
+            },
+
+            applyTags() {
+                const picked = Array.from(document.querySelectorAll('#aiWriteBody .ai-write-chip.active'))
+                    .map(chip => chip.dataset.value);
+                const values = (picked.length ? picked : this.result.split(',')).filter(Boolean);
+                const input = document.getElementById('articleTags');
+                const existing = input.value.split(/[,，]/).map(t => t.trim()).filter(Boolean);
+                input.value = Array.from(new Set(existing.concat(values))).join(',');
+                Toast.show('标签已填入');
+            },
+
+            /** 替换/插入后把光标放到新内容末尾，方便接着写 */
+            splice(ta, start, end, text) {
+                const before = ta.value.slice(0, start);
+                const after = ta.value.slice(end);
+                ta.value = before + text + after;
+                ta.focus();
+                const pos = before.length + text.length;
+                ta.setSelectionRange(pos, pos);
+            },
+
+            copy(text) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text)
+                        .then(() => Toast.show('已复制'))
+                        .catch(() => Toast.show('复制失败，请手动选择文本', 'error'));
+                } else {
+                    Toast.show('当前浏览器不支持自动复制', 'warning');
+                }
+            }
+        };
+
+        AiWriting.init();
     </script>
 </body>
 </html>

@@ -34,8 +34,11 @@ public class HomeController {
         model.addAttribute("title", "修仙心得 - 首页");
         model.addAttribute("author", loadAuthorCard());
         // 未配置背景图时不输出 style 属性，页面直接走渐变占位，避免一次 404 请求
-        if (hasText(bannerImage)) {
-            model.addAttribute("bannerStyle", "--home-banner: url('" + bannerImage.trim() + "');");
+        String bannerUrl = hasText(bannerImage) ? bannerImage.trim() : null;
+        if (bannerUrl != null) {
+            // bannerUrl 用于 head 里的 preload，与 CSS 变量里的地址保持一致才能命中同一份缓存
+            model.addAttribute("bannerUrl", bannerUrl);
+            model.addAttribute("bannerStyle", "--home-banner: url('" + bannerUrl + "');");
         }
         return "index";
     }
