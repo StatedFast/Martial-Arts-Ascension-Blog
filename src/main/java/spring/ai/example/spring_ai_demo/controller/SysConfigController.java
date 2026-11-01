@@ -13,8 +13,10 @@ import spring.ai.example.spring_ai_demo.config.LeakSimulator;
 import spring.ai.example.spring_ai_demo.entity.SysConfig;
 import spring.ai.example.spring_ai_demo.service.SysConfigService;
 
+import java.io.File;
 import java.lang.management.BufferPoolMXBean;
 import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -92,12 +94,29 @@ public class SysConfigController {
             }
         }
 
+        // CPU：com.sun.management 扩展口径（HotSpot 自带），取「进程」CPU 占用率；首个采样窗口返回 -1，按 0 处理
+        long cpuUsagePercent = 0;
+        if (ManagementFactory.getOperatingSystemMXBean() instanceof com.sun.management.OperatingSystemMXBean os) {
+            double load = os.getProcessCpuLoad();
+            if (load >= 0) {
+                cpuUsagePercent = Math.round(load * 100);
+            }
+        }
+
+        // 磁盘：取应用运行所在分区（user.dir 对应盘），(总-可用)/总
+        File store = new File(System.getProperty("user.dir"));
+        long diskTotal = store.getTotalSpace();
+        long diskUsagePercent = diskTotal <= 0 ? 0
+                : Math.round((diskTotal - store.getUsableSpace()) * 100.0 / diskTotal);
+
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("heapUsedMb", heapUsedMb);
         data.put("heapMaxMb", heapMaxMb);
         data.put("nonHeapUsedMb", nonHeapUsedMb);
         data.put("directUsedMb", directUsedMb);
         data.put("directMaxMb", resolveMaxDirectMb());
+        data.put("cpuUsagePercent", cpuUsagePercent);
+        data.put("diskUsagePercent", diskUsagePercent);
         data.put("faultEnabled", sysConfigService.getBoolean(SysConfigService.FAULT_ENABLED));
         data.put("faultType", sysConfigService.getFaultType());
         data.put("faultFixed", sysConfigService.getBoolean(SysConfigService.FAULT_FIXED));
@@ -107,6 +126,60 @@ public class SysConfigController {
         // 刷新间隔随响应下发：配置中心改完后，前端下一轮自动按新间隔重排定时器
         data.put("pollIntervalSeconds", sysConfigService.getPollIntervalSeconds());
         return Result.success(data);
+    }
+
+    /**
+     * JVM 核心参数（只读，仅管理员）。
+     * 演练时的「边界常量速查」：-Xmx / MaxDirectMemorySize / GC 等就是各种 OOM 会撞的墙。
+     * 全部来自运行时真实值而非 blog_sys_config 表，前端渲染成不可编辑的展示行。
+     */
+    @GetMapping("/jvm")
+    public Result<?> jvmInfo(@RequestAttribute("role") String role) {
+        if (!isAdmin(role)) {
+            return Result.forbidden("仅管理员可访问配置中心");
+        }
+        Runtime rt = Runtime.getRuntime();
+        String xms = findVmArg("-Xms");
+        String xmx = findVmArg("-Xmx");
+        StringBuilder gcNames = new StringBuilder();
+        ManagementFactory.getGarbageCollectorMXBeans()
+                .forEach(bean -> gcNames.append(bean.getName()).append("  "));
+        String allXArgs = String.join("  ", ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
+                .filter(a -> a.startsWith("-X")).toList());
+
+        List<Map<String, String>> info = new ArrayList<>();
+        info.add(roRow("-Xms", "堆初始化大小（未设则为动态值）", xms == null ? "未设置" : xms));
+        info.add(roRow("-Xmx", "堆最大 —— heap 演练撞的墙", xmx == null
+                ? rt.maxMemory() / (1024 * 1024) + " MB" : xmx));
+        info.add(roRow("-XX:MaxDirectMemorySize", "直接内存上限 —— direct 演练撞的墙（未显式设置时默认≈Xmx）",
+                resolveMaxDirectMb() + " MB"));
+        info.add(roRow("GarbageCollector", "垃圾收集器（GC 日志/曲线解读的基础）", gcNames.toString().trim()));
+        info.add(roRow("java.version", "JDK 版本", System.getProperty("java.version")
+                + " (" + System.getProperty("java.vm.name") + ", " + System.getProperty("java.vendor") + ")"));
+        info.add(roRow("os.name / os.arch", "运行操作系统", System.getProperty("os.name") + " " + System.getProperty("os.arch")));
+        info.add(roRow("availableProcessors", "JVM 可见 CPU 核数", String.valueOf(rt.availableProcessors())));
+        info.add(roRow("启动 -X 参数全集", "当前进程实际生效的全部内存/GC 参数",
+                allXArgs.isEmpty() ? "（无 -X 参数，全部默认）" : allXArgs));
+        return Result.success(info);
+    }
+
+    /** JVM 只读参数行：{key, desc, value}，与前端表格列一一对应 */
+    private Map<String, String> roRow(String key, String desc, String value) {
+        Map<String, String> row = new LinkedHashMap<>();
+        row.put("key", key);
+        row.put("desc", desc);
+        row.put("value", value);
+        return row;
+    }
+
+    /** 在 JVM 启动参数里找指定前缀的参数（如 -Xms256m），找不到返回 null */
+    private String findVmArg(String prefix) {
+        for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+            if (arg.startsWith(prefix)) {
+                return arg;
+            }
+        }
+        return null;
     }
 
     private boolean isAdmin(String role) {

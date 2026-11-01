@@ -13,6 +13,8 @@
         .cfg-legend { font-weight: 600; }
         .cfg-legend-heap { color: #f44336; }
         .cfg-legend-direct { color: #2196f3; }
+        .cfg-legend-cpu { color: #4caf50; }
+        .cfg-legend-disk { color: #ff9800; }
         .cfg-mem-info { display: flex; gap: 24px; font-size: 13px; color: #666; flex-wrap: wrap; }
         .cfg-badge { padding: 2px 10px; border-radius: 12px; font-size: 12px; }
         .cfg-on { background: #ffebee; color: #c62828; }
@@ -21,6 +23,8 @@
         table.cfg-table th, table.cfg-table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; vertical-align: middle; }
         table.cfg-table td.cfg-desc { color: #888; font-size: 13px; }
         table.cfg-table input.cfg-val { width: 120px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; }
+        table.cfg-table .btn { white-space: nowrap; }
+        table.cfg-table td.cfg-ro { color: #1976d2; font-weight: 600; word-break: break-all; font-size: 13px; }
         .cfg-actions { display: flex; gap: 24px; flex-wrap: wrap; padding: 16px; align-items: center; }
         .cfg-ctl { display: flex; align-items: center; gap: 8px; }
         .cfg-ctl-label { font-size: 14px; color: #333; font-weight: 600; }
@@ -58,6 +62,8 @@
                 <div class="cfg-mem-info">
                     <span class="cfg-legend cfg-legend-heap">— 堆内存：<b id="heapText">--</b></span>
                     <span class="cfg-legend cfg-legend-direct">— 堆外(direct)：<b id="directText">--</b></span>
+                    <span class="cfg-legend cfg-legend-cpu">— CPU：<b id="cpuText">--</b></span>
+                    <span class="cfg-legend cfg-legend-disk">— 磁盘：<b id="diskText">--</b></span>
                     <span>非堆(元空间等)：<b id="nonHeapText">--</b></span>
                     <span>故障类型：<b id="faultTypeText">--</b></span>
                     <span>刷新间隔：<b id="intervalText">--</b></span>
@@ -82,16 +88,18 @@
                     </div>
                     <div class="cfg-ctl">
                         <span class="cfg-ctl-label">修复模式</span>
-                        <div class="cfg-switch cfg-switch-blue" id="swFixed" onclick="toggleSwitch('swFixed','fault.oom.fixed','修复已开启（停止新增，存量不降）','修复已关闭（恢复泄漏注入）')"><div class="cfg-switch-knob"></div></div>
+                        <div class="cfg-switch cfg-switch-blue" id="swFixed" onclick="toggleSwitch('swFixed','fault.oom.fixed','修复已开启（停止新增，存量不降）','修复已关闭（恢复泄漏注入）','修复模式')"><div class="cfg-switch-knob"></div></div>
                         <span class="cfg-ctl-state" id="swFixedText">--</span>
                     </div>
                     <button class="btn btn-outline btn-sm" onclick="recover()">↺ 回收泄漏内存（堆内+堆外）</button>
                 </div>
             </div>
 
-            <!-- 配置表格 -->
+            <!-- JVM 核心参数（只读）+ 配置表格 -->
             <div class="card">
-                <div style="padding:16px 20px;font-weight:600;border-bottom:1px solid #f0f0f0;">配置项（k-v）</div>
+                <div style="padding:16px 20px;font-weight:600;border-bottom:1px solid #f0f0f0;">JVM 核心参数 <span style="font-size:12px;color:#999;font-weight:400;">（来自运行时真实值，只读不可修改）</span></div>
+                <div id="jvmList"><div class="loading">加载中...</div></div>
+                <div style="padding:16px 20px;font-weight:600;border-top:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;">配置项（k-v）</div>
                 <div id="configList"><div class="loading">加载中...</div></div>
             </div>
         </div>
@@ -138,7 +146,29 @@
                 </table>`;
         }
 
+        // ======== JVM 核心参数（只读展示，无保存按钮，后端 /jvm 接口来自运行时真实值） ========
+        async function loadJvm() {
+            try {
+                const list = await http.get('/admin/config/jvm');
+                const rows = list.map(r => `
+                    <tr>
+                        <td><code>${escapeHtml(r.key)}</code></td>
+                        <td class="cfg-desc">${escapeHtml(r.desc)}</td>
+                        <td class="cfg-ro">${escapeHtml(r.value)}</td>
+                    </tr>`).join('');
+                document.getElementById('jvmList').innerHTML = `
+                    <table class="cfg-table">
+                        <thead><tr><th style="width:230px;">参数</th><th style="width:340px;">说明</th><th>值</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+            } catch (e) {
+                document.getElementById('jvmList').innerHTML =
+                    '<div class="empty-state"><h3>加载失败</h3><p>' + escapeHtml(e.message) + '</p></div>';
+            }
+        }
+
         async function saveOne(id, key) {
+            if (!confirm('确定保存配置项 ' + key + ' 吗？')) return;
             const input = document.getElementById('val_' + id);
             try {
                 await http.put('/admin/config', { configKey: key, configValue: input.value });
@@ -164,12 +194,15 @@
         // 防抖：一个写请求在飞时忽略其他点击，失败下轮轮询会用后端真值把 UI 纠正回来
         let ctlBusy = false;
 
-        function toggleSwitch(id, key, onMsg, offMsg) {
+        // confirmLabel 非空则弹二次确认；故障演练开关不传（随时可止血，不该拦路），其余控件都传
+        function toggleSwitch(id, key, onMsg, offMsg, confirmLabel) {
             if (ctlBusy) return;
+            const el = document.getElementById(id);
+            const curOn = el.classList.contains('on');
+            if (confirmLabel && !confirm('确定将「' + confirmLabel + '」切换为' + (curOn ? '关闭' : '开启') + '吗？')) return;
             // 乐观更新：先本地翻转开关动画，再提交；后端是最终裁判
-            document.getElementById(id).classList.toggle('on');
-            const on = document.getElementById(id).classList.contains('on');
-            setFault(key, on ? 'true' : 'false', on ? onMsg : offMsg);
+            el.classList.toggle('on');
+            setFault(key, curOn ? 'false' : 'true', curOn ? offMsg : onMsg);
         }
 
         async function setFault(key, value, okMsg) {
@@ -189,6 +222,8 @@
 
         async function setType(type) {
             if (ctlBusy) return;
+            const label = type === 'heap' ? '堆内泄漏(heap)' : '堆外泄漏(direct)';
+            if (!confirm('确定将泄漏类型切换为「' + label + '」吗？\n（若演练进行中，下一轮注入立即按新类型执行）')) return;
             ctlBusy = true;
             try {
                 await http.put('/admin/config', { configKey: 'fault.oom.type', configValue: type });
@@ -204,6 +239,7 @@
 
         // 回收已泄漏内存（修复模式只能「不再新增」，已泄漏的需显式摘引用 + GC 才降得下来）
         async function recover() {
+            if (!confirm('确定回收已泄漏内存吗？\n（将摘除泄漏引用并触发一次 GC，会短暂 STW，演练专用）')) return;
             try {
                 const msg = await http.post('/admin/config/recover');
                 Toast.show(typeof msg === 'string' ? msg : '已触发回收');
@@ -211,20 +247,20 @@
             } catch (e) { Toast.show(e.message, 'error'); }
         }
 
-        // ======== 内存趋势曲线：本地保留最近 120 个采样点（2s 轮询 ≈ 4 分钟窗口），原生 canvas 双线 ========
+        // ======== 内存/CPU/磁盘趋势曲线：本地保留最近 120 个采样点，原生 canvas 四线 + 坐标轴 ========
         const HIST_CAP = 120;
-        const heapHist = [], directHist = [];
+        const heapHist = [], directHist = [], cpuHist = [], diskHist = [];
 
         function pushHist(arr, v) {
             arr.push(v);
             if (arr.length > HIST_CAP) arr.shift();
         }
 
-        function drawSmoothLine(ctx, arr, w, h, color) {
+        function drawSmoothLine(ctx, arr, x0, y0, pw, ph, color) {
             if (arr.length < 2) return;
             const pts = arr.map((v, i) => ({
-                x: i / (HIST_CAP - 1) * w,
-                y: h - (v / 100) * (h - 8) - 4
+                x: x0 + i / (HIST_CAP - 1) * pw,
+                y: y0 + ph - (v / 100) * ph
             }));
             ctx.strokeStyle = color;
             ctx.lineWidth = 2;
@@ -241,6 +277,13 @@
             ctx.stroke();
         }
 
+        // 坐标轴留白：左侧放 Y 轴百分比刻度，底部放时间刻度
+        const PAD_L = 38, PAD_R = 10, PAD_T = 8, PAD_B = 20;
+
+        function fmtAgo(sec) {
+            return sec >= 60 ? (sec / 60).toFixed(sec % 60 === 0 ? 0 : 1) + '分' : sec + '秒';
+        }
+
         function drawChart() {
             const canvas = document.getElementById('memChart');
             const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -248,17 +291,42 @@
             if (canvas.height !== h) canvas.height = h;
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, w, h);
+            const x0 = PAD_L, y0 = PAD_T, pw = w - PAD_L - PAD_R, ph = h - PAD_T - PAD_B;
+            // Y 轴：0-100%，每 20% 一条网格线 + 刻度文字（四条线统一百分比口径，共用一根轴）
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#999';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.strokeStyle = '#f0f0f0';
+            for (let p = 0; p <= 100; p += 20) {
+                const y = y0 + ph - p / 100 * ph;
+                ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + pw, y); ctx.stroke();
+                ctx.fillText(p + '%', x0 - 5, y);
+            }
             // 80% 告警参考线：越过它就该准备抓证据/止血了
-            ctx.strokeStyle = '#e0e0e0';
+            ctx.strokeStyle = '#ffcc80';
             ctx.setLineDash([4, 4]);
-            ctx.beginPath();
-            const y80 = h - 0.8 * (h - 8) - 4;
-            ctx.moveTo(0, y80);
-            ctx.lineTo(w, y80);
-            ctx.stroke();
+            const y80 = y0 + ph - 0.8 * ph;
+            ctx.beginPath(); ctx.moveTo(x0, y80); ctx.lineTo(x0 + pw, y80); ctx.stroke();
             ctx.setLineDash([]);
-            drawSmoothLine(ctx, heapHist, w, h, '#f44336');
-            drawSmoothLine(ctx, directHist, w, h, '#2196f3');
+            // X 轴：相对时间刻度（窗口 = 120 点 × 当前刷新间隔，随配置动态变化）
+            const winSec = Math.round(HIST_CAP * pollMs / 1000);
+            ctx.fillStyle = '#999';
+            ctx.textAlign = 'center';
+            ctx.fillText('-' + fmtAgo(winSec), x0 + 18, y0 + ph + 10);
+            ctx.fillText('-' + fmtAgo(Math.round(winSec / 2)), x0 + pw / 2, y0 + ph + 10);
+            ctx.textAlign = 'right';
+            ctx.fillText('现在', x0 + pw, y0 + ph + 10);
+            // 坐标轴主线
+            ctx.strokeStyle = '#ddd';
+            ctx.beginPath();
+            ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + ph); ctx.lineTo(x0 + pw, y0 + ph);
+            ctx.stroke();
+            // 四条曲线：颜色与图例一一对应
+            drawSmoothLine(ctx, heapHist, x0, y0, pw, ph, '#f44336');
+            drawSmoothLine(ctx, directHist, x0, y0, pw, ph, '#2196f3');
+            drawSmoothLine(ctx, cpuHist, x0, y0, pw, ph, '#4caf50');
+            drawSmoothLine(ctx, diskHist, x0, y0, pw, ph, '#ff9800');
         }
 
         // ======== 刷新节奏：默认 3 秒，间隔存 blog_sys_config（monitor.poll-interval-seconds），
@@ -283,11 +351,17 @@
                 const dpct = m.directMaxMb > 0 ? Math.min(100, Math.round(m.directUsedMb / m.directMaxMb * 100)) : 0;
                 document.getElementById('heapText').textContent = m.heapUsedMb + ' / ' + m.heapMaxMb + ' MB (' + pct + '%)';
                 document.getElementById('directText').textContent = m.directUsedMb + ' / ' + m.directMaxMb + ' MB (' + dpct + '%)';
+                const cpu = m.cpuUsagePercent || 0;
+                const disk = m.diskUsagePercent || 0;
+                document.getElementById('cpuText').textContent = cpu + '%';
+                document.getElementById('diskText').textContent = disk + '%';
                 const sec = m.pollIntervalSeconds || 3;
                 document.getElementById('intervalText').textContent = sec + ' 秒';
                 schedulePoll(sec * 1000);
                 pushHist(heapHist, pct);
                 pushHist(directHist, dpct);
+                pushHist(cpuHist, cpu);
+                pushHist(diskHist, disk);
                 drawChart();
                 document.getElementById('nonHeapText').textContent = m.nonHeapUsedMb + ' MB';
                 document.getElementById('faultTypeText').textContent = m.faultType;
@@ -307,6 +381,7 @@
 
         if (isAdmin(me)) {
             loadConfigs();
+            loadJvm();
             pollMemory();
             pollTimer = setInterval(pollMemory, pollMs);
         }
