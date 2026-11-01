@@ -92,6 +92,20 @@ public class HomeController {
         return "config";
     }
 
+    /** 渡劫看板：全站公开入口（数据走 @NoAuth 的 /api/monitor/**），游客也能看内存曲线 */
+    @GetMapping("/monitor")
+    public String monitor(Model model) {
+        model.addAttribute("title", "JVM 渡劫看板 - 修仙心得");
+        return "monitor";
+    }
+
+    /** 配置项（k-v 全表，仅管理员）：从看板里拆出来，避免监控台和改配置混在同一屏 */
+    @GetMapping("/settings")
+    public String settings(Model model) {
+        model.addAttribute("title", "配置项 - 修仙心得");
+        return "settings";
+    }
+
     /**
      * 首页博主名片数据：取站点管理员账号，缺失字段回退到默认文案。
      * 只读单行查询，走主键/角色索引，避免前端再发一次请求。

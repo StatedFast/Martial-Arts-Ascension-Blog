@@ -68,6 +68,22 @@ public class LocalCacheService {
         return before - cache.size();
     }
 
+    /**
+     * 按前缀统计条目数（只读）。
+     * 供故障演练面板展示「当前还攥着多少条泄漏对象」。
+     * 这里刻意不用 keys() 那套 stream 收集：演练后期缓存可能有上万条，
+     * 每 3 秒物化一个 Set 反而会给堆添乱，直接遍历 keySet 计数即可。
+     */
+    public int countByPrefix(String prefix) {
+        int count = 0;
+        for (String key : cache.keySet()) {
+            if (key.startsWith(prefix)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     // ======== 计数器操作 ========
 
     public Long increment(String key) {

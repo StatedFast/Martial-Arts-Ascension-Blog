@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>JVM 渡劫看板片段</title></head>
+<body>
+<!--
+  ~ JVM 渡劫看板（可复用片段）
+  ~ 被两处引用：/monitor（所有人可见的独立看板页）、/config（管理员配置中心的左栏）。
+  ~ 数据走公开的 /api/monitor/**，所以配置中心里看到的曲线和看板完全一致（同一口径、同一接口）。
+  ~
+  ~ 宿主页面约定：
+  ~   1) 提供 #metaXmx / #metaDirect / #metaGc / #metaPoll 四个横幅槽位（缺失则跳过，不报错）；
+  ~   2) 管理员页面可设 window.onJvmSample = fn 挂钩每轮样本（用于刷新操控台控件状态）；
+  ~   3) 越线那一刻会回调 window.onBoardWarn(who)；
+  ~   4) 本页 app.js 加载完后调一次 initBoard()（片段自带脚本不自动跑，
+  ~      因为 http / escapeHtml / ConfirmDialog 都在 app.js 里，提前执行会 ReferenceError）。
+-->
+<div th:fragment="board">
+    <style>
+        /* ==================== 看板样式（片段自带，宿主页面零依赖） ====================
+           刻意不复用全局 .container：那是「正文 + 300px 右栏」的博客栅格，
+           看板是宽表格式内容，套进去会在两侧留下大片空白、曲线被压扁。 */
+        .cfg-shell { max-width: 1720px; margin: 0 auto; padding: 0 28px; }
+
+        .cfg-hero {
+            background:
+                radial-gradient(760px 300px at 88% -30%, rgba(129,140,248,0.42), transparent 62%),
+                radial-gradient(620px 260px at 6% 130%, rgba(56,189,248,0.28), transparent 60%),
+                linear-gradient(118deg, #101830 0%, #1b2547 46%, #2b2352 100%);
+            color: #eef2ff;
+            padding: 30px 0 26px;
+            margin-bottom: 22px;
+        }
+        .cfg-hero-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+        .cfg-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(199,210,254,0.72); margin-bottom: 8px; }
+        .cfg-title { font-size: 27px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 12px; }
+        .cfg-sub { margin-top: 8px; font-size: 13px; color: rgba(203,213,255,0.75); max-width: 760px; line-height: 1.75; }
+        .cfg-hero-meta { display: flex; gap: 26px; flex-wrap: wrap; }
+        .cfg-meta { min-width: 96px; }
+        .cfg-meta span { display: block; font-size: 11px; color: rgba(199,210,254,0.6); letter-spacing: .04em; }
+        .cfg-meta b { display: block; font-size: 15px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+        .cfg-badge { padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid transparent; }
+        .cfg-badge-safe { background: rgba(16,185,129,0.16); color: #6ee7b7; border-color: rgba(16,185,129,0.35); }
+        .cfg-badge-warn { background: rgba(244,67,54,0.18); color: #fca5a5; border-color: rgba(244,67,54,0.42); }
+        .cfg-badge-fix { background: rgba(59,130,246,0.18); color: #93c5fd; border-color: rgba(59,130,246,0.42); }
+
+        .cfg-card {
+            background: var(--card-bg); border: 1px solid rgba(226,232,240,0.8);
+            border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 18px; overflow: hidden;
+        }
+        .cfg-card-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eef1f7; flex-wrap: wrap; }
+        .cfg-card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .cfg-card-title small { font-size: 12px; font-weight: 400; color: var(--text-light); }
+        .cfg-card-body { padding: 16px 18px; }
+
+        /* ---- 曲线：高度由宿主用 --board-h 调节（看板页给得更舒展） ---- */
+        #memChart { display: block; width: 100%; height: var(--board-h, 268px); }
+
+        /* ---- 指标读数条：曲线是什么就是什么，全部指标直接标在图上方动态刷新 ---- */
+        .cfg-legend { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .cfg-chip {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+            padding: 4px 11px; border-radius: 999px; border: 1px solid var(--bd, #ddd);
+            background: #fff; color: var(--fg, #666); cursor: pointer; user-select: none; transition: all .18s;
+        }
+        .cfg-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--fg); display: inline-block; flex-shrink: 0; }
+        .cfg-chip.off { opacity: .42; filter: grayscale(1); }
+        .cfg-chip b { font-variant-numeric: tabular-nums; }
+        .cfg-chip em { font-style: normal; font-weight: 400; opacity: .72; font-variant-numeric: tabular-nums; }
+        /* 越线的读数：底色翻红并轻微呼吸，扫一眼就知道该不该动手 */
+        .cfg-chip.hot { background: var(--fg); color: #fff; animation: cfgPulse 1.6s ease-in-out infinite; }
+        .cfg-chip.hot em { opacity: .85; }
+        @keyframes cfgPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(244,67,54,.35); } 50% { box-shadow: 0 0 0 5px rgba(244,67,54,0); } }
+        /* 非曲线指标（累计量）：不可点选，只做读数 */
+        .cfg-chip-plain { cursor: default; background: #fafbfe; color: #475569; border-color: #e6eaf2; font-weight: 500; }
+        .cfg-chip-plain i { background: #94a3b8; }
+        .cfg-chip-plain b { color: #1e293b; }
+        .cfg-chip-clear { cursor: pointer; background: #fff; color: #94a3b8; border-color: #e6eaf2; font-weight: 600; }
+        .cfg-chip-clear:hover { color: #b91c1c; border-color: #fecaca; background: #fff5f5; }
+
+        /* ---- 看板的权限边界：非管理员只能「看」 ----
+           图例开关只切换显示、不改任何数据，所以所有人可用；
+           一切会改状态的动作都挂上 .cfg-act-admin，由 applyBoardAcl() 按角色收起（服务端还会再卡一道）。 */
+        .cfg-chip-lock { cursor: default; background: #f8fafc; color: #94a3b8; border-color: #e6eaf2; font-weight: 500; }
+        .cfg-chip-lock i { background: #94a3b8; }
+        body.is-admin .cfg-chip-lock { display: none; }
+        body:not(.is-admin) .cfg-act-admin { display: none; }
+
+        .cfg-alert {
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 18px;
+            border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 600;
+            background: #fff5f5; border: 1px solid #fecaca; color: #b91c1c;
+        }
+        .cfg-alert button { margin-left: auto; }
+
+        table.cfg-table { width: 100%; border-collapse: collapse; }
+        table.cfg-table th, table.cfg-table td { text-align: left; padding: 11px 16px; border-bottom: 1px solid #f0f2f7; font-size: 13.5px; vertical-align: middle; }
+        table.cfg-table th { background: #fafbfe; color: var(--text-light); font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+        table.cfg-table tr:last-child td { border-bottom: none; }
+        table.cfg-table tbody tr:hover { background: #fafbff; }
+        table.cfg-table code { background: #f1f5f9; padding: 2px 7px; border-radius: 6px; font-size: 12.5px; color: #334155; }
+        table.cfg-table td.cfg-desc { color: #8892a6; font-size: 12.5px; }
+        table.cfg-table td.cfg-ro { color: var(--primary-dark); font-weight: 700; word-break: break-all; font-size: 13px; }
+
+        @media (max-width: 1240px) { .cfg-shell { padding: 0 18px; } }
+    </style>
+
+    <!-- ==================== 灵气盈亏曲线：读数直接标在图上方 ==================== -->
+    <section class="cfg-card">
+        <div class="cfg-card-head">
+            <div class="cfg-card-title">灵气盈亏曲线 <small id="chartHint">百分比同轴 · 点击图例可隐藏某条线</small></div>
+            <div class="cfg-legend">
+                <span class="cfg-chip" style="--fg:#f44336;--bd:#f7c9c5;" data-series="heap" onclick="toggleSeries(this)">
+                    <i></i>堆 <b id="lgHeap">--</b><em id="lgHeapAbs"></em></span>
+                <span class="cfg-chip" style="--fg:#2196f3;--bd:#c3ddf7;" data-series="direct" onclick="toggleSeries(this)">
+                    <i></i>堆外 <b id="lgDirect">--</b><em id="lgDirectAbs"></em></span>
+                <span class="cfg-chip" style="--fg:#4caf50;--bd:#cbe7cd;" data-series="cpu" onclick="toggleSeries(this)">
+                    <i></i>CPU <b id="lgCpu">--</b></span>
+                <span class="cfg-chip" style="--fg:#ff9800;--bd:#f7ddc0;" data-series="disk" onclick="toggleSeries(this)">
+                    <i></i>磁盘 <b id="lgDisk">--</b></span>
+                <span class="cfg-chip cfg-chip-plain"><i></i>非堆 <b id="lgNonHeap">--</b></span>
+                <span class="cfg-chip cfg-chip-plain"><i></i>累计注入 <b id="lgInject">--</b></span>
+                <span class="cfg-chip cfg-chip-plain"><i></i>GC <b id="lgGc">--</b></span>
+                <span class="cfg-chip cfg-chip-plain"><i></i>泄漏存量 <b id="lgLeak">--</b></span>
+                <span class="cfg-chip cfg-chip-lock" title="曲线与读数随便看；能改状态的操作（注入泄漏、改配置、止血）只在配置中心，且仅管理员可用"><i></i>🔒 只读</span>
+                <span class="cfg-chip cfg-chip-clear cfg-act-admin" onclick="clearBoard()" title="清空本地曲线历史，重新开始累计">✕ 清空曲线</span>
+            </div>
+        </div>
+        <div class="cfg-card-body"><canvas id="memChart"></canvas></div>
+    </section>
+
+    <!-- ==================== JVM 核心参数（只读） ==================== -->
+    <section class="cfg-card">
+        <div class="cfg-card-head">
+            <div class="cfg-card-title">JVM 核心参数 <small>运行时真实值，只读不可改 —— 渡劫要撞的就是这几堵墙</small></div>
+        </div>
+        <div id="jvmList"><div class="loading">加载中...</div></div>
+    </section>
+
+    <script>
+        // ======== 看板内核：曲线 + 读数 + 本地累计 ========
+        const BOARD_HIST_CAP = 120;
+        // 越过该占用率即告警（与曲线上的橙色虚线同一口径）
+        const WARN_PERCENT = 80;
+        const BOARD_STORE_KEY = 'jvmBoard.v1';
+
+        const board = {
+            heap: [], direct: [], cpu: [], disk: [],
+            seriesOn: { heap: true, direct: true, cpu: true, disk: true },
+            pollMs: 3000, timer: null, samples: 0, restored: 0
+        };
+        const SERIES_COLOR = { heap: '#f44336', direct: '#2196f3', cpu: '#4caf50', disk: '#ff9800' };
+
+        /* ---- 曲线历史落 localStorage：刷新页面不该把「第一次进来看到的累计」清零 ----
+           曲线本身是进程实时值，但观测窗口是会话资产：管理员挂着看板改配置、
+           F5 一下曲线就空成一条直线，等于每次都要重新等 6 分钟才有判断依据。 */
+        function restoreBoard() {
+            try {
+                const raw = localStorage.getItem(BOARD_STORE_KEY);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                if (!saved || !Array.isArray(saved.heap)) return;
+                ['heap', 'direct', 'cpu', 'disk'].forEach(k => {
+                    board[k] = (saved[k] || []).slice(-BOARD_HIST_CAP).map(v => Number(v) || 0);
+                });
+                board.restored = board.heap.length;
+            } catch (e) { /* 存储被禁用/数据损坏都不该影响看板可用 */ }
+        }
+
+        function persistBoard() {
+            try {
+                localStorage.setItem(BOARD_STORE_KEY, JSON.stringify({
+                    savedAt: Date.now(), heap: board.heap, direct: board.direct, cpu: board.cpu, disk: board.disk
+                }));
+            } catch (e) { /* 配额满就放弃持久化，曲线照常工作 */ }
+        }
+
+        async function clearBoard() {
+            if (!(await ConfirmDialog.show('确定清空曲线历史吗？\n（只清本地累计的采样点，不影响 JVM 真实状态和演练配置）'))) return;
+            ['heap', 'direct', 'cpu', 'disk'].forEach(k => board[k] = []);
+            board.restored = 0;
+            board.samples = 0;
+            localStorage.removeItem(BOARD_STORE_KEY);
+            drawChart();
+            Toast.show('曲线已清空，重新开始累计');
+        }
+
+        function boardPush(arr, v) {
+            arr.push(v);
+            if (arr.length > BOARD_HIST_CAP) arr.shift();
+        }
+
+        function toggleSeries(chip) {
+            const key = chip.dataset.series;
+            board.seriesOn[key] = !board.seriesOn[key];
+            chip.classList.toggle('off', !board.seriesOn[key]);
+            drawChart();
+        }
+
+        function setChipText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+
+        // ======== 读写边界 ========
+        /* 看板对所有人开放，但“开放”只到看为止：
+           非管理员页面上不出现任何可改状态的东西，同时 JVM 参数也只走公开接口（不含环境指纹）。
+           真正的闸门在后端 —— /api/admin/config/** 每个方法都二次校验 role=ADMIN，这里只是不让界面说瞎话。 */
+        function boardIsAdmin() {
+            return typeof isAdmin === 'function' && typeof Auth !== 'undefined' && isAdmin(Auth.getUser());
+        }
+
+        function applyBoardAcl() {
+            document.body.classList.toggle('is-admin', boardIsAdmin());
+        }
+
+        // 越线的读数翻红：不靠告警条也不至于看不出来
+        function setChipHot(key, hot) {
+            const chip = document.querySelector('.cfg-chip[data-series="' + key + '"]');
+            if (chip) chip.classList.toggle('hot', !!hot);
+        }
+
+        function drawSmoothLine(ctx, arr, x0, y0, pw, ph, color) {
+            if (arr.length < 2) return;
+            const pts = arr.map((v, i) => ({
+                x: x0 + i / (BOARD_HIST_CAP - 1) * pw,
+                y: y0 + ph - (v / 100) * ph
+            }));
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            // 中点二次贝塞尔：以上一点为控制点、与下一点的中点为终点，曲线平滑穿过采样趋势
+            for (let i = 1; i < pts.length - 1; i++) {
+                const mx = (pts[i].x + pts[i + 1].x) / 2;
+                const my = (pts[i].y + pts[i + 1].y) / 2;
+                ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+            }
+            const last = pts[pts.length - 1];
+            ctx.lineTo(last.x, last.y);
+            ctx.stroke();
+            // 末端亮点：数值就停在曲线上，不用回头去对图例
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, 2.6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 坐标轴留白：左侧放 Y 轴百分比刻度，底部放时间刻度
+        const PAD_L = 38, PAD_R = 14, PAD_T = 12, PAD_B = 22;
+
+        function fmtAgo(sec) {
+            return sec >= 60 ? (sec / 60).toFixed(sec % 60 === 0 ? 0 : 1) + '分' : sec + '秒';
+        }
+
+        function drawChart() {
+            const canvas = document.getElementById('memChart');
+            if (!canvas) return;
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            if (!w || !h) return;
+            // 按设备像素比放大画布，高分屏上线条和刻度文字不会发虚
+            const dpr = window.devicePixelRatio || 1;
+            if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+                canvas.width = Math.round(w * dpr);
+                canvas.height = Math.round(h * dpr);
+            }
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            const x0 = PAD_L, y0 = PAD_T, pw = w - PAD_L - PAD_R, ph = h - PAD_T - PAD_B;
+            // Y 轴：0-100%，每 20% 一条网格线 + 刻度文字（四条线统一百分比口径，共用一根轴）
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#9aa3b2';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.strokeStyle = '#f0f2f7';
+            for (let p = 0; p <= 100; p += 20) {
+                const y = y0 + ph - p / 100 * ph;
+                ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + pw, y); ctx.stroke();
+                ctx.fillText(p + '%', x0 - 5, y);
+            }
+            // 告警参考线：越过它就该准备抓证据/止血了
+            ctx.strokeStyle = '#fdba74';
+            ctx.setLineDash([4, 4]);
+            const yWarn = y0 + ph - WARN_PERCENT / 100 * ph;
+            ctx.beginPath(); ctx.moveTo(x0, yWarn); ctx.lineTo(x0 + pw, yWarn); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#f59e0b';
+            ctx.textAlign = 'left';
+            ctx.fillText(WARN_PERCENT + '% 警戒', x0 + 6, yWarn - 7);
+            // X 轴：相对时间刻度（窗口 = 120 点 × 当前刷新间隔，随配置动态变化）
+            const winSec = Math.round(BOARD_HIST_CAP * board.pollMs / 1000);
+            ctx.fillStyle = '#9aa3b2';
+            ctx.textAlign = 'center';
+            ctx.fillText('-' + fmtAgo(winSec), x0 + 22, y0 + ph + 11);
+            ctx.fillText('-' + fmtAgo(Math.round(winSec / 2)), x0 + pw / 2, y0 + ph + 11);
+            ctx.textAlign = 'right';
+            ctx.fillText('现在', x0 + pw, y0 + ph + 11);
+            // 坐标轴主线
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.beginPath();
+            ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + ph); ctx.lineTo(x0 + pw, y0 + ph);
+            ctx.stroke();
+            // 四条曲线：颜色与图例一一对应，被点掉的图例不画
+            Object.keys(SERIES_COLOR).forEach(k => {
+                if (board.seriesOn[k]) drawSmoothLine(ctx, board[k], x0, y0, pw, ph, SERIES_COLOR[k]);
+            });
+            const carried = board.restored ? ' · 含上次会话 ' + Math.min(board.restored, BOARD_HIST_CAP) + ' 点' : '';
+            setChipText('chartHint', '窗口 ' + fmtAgo(winSec) + ' · ' + board.heap.length + '/' + BOARD_HIST_CAP
+                + ' 个采样点 · 百分比同轴' + carried);
+        }
+
+        function scheduleBoardPoll(ms) {
+            if (ms === board.pollMs && board.timer) return;
+            board.pollMs = ms;
+            if (board.timer) clearInterval(board.timer);
+            board.timer = setInterval(pollBoard, board.pollMs);
+        }
+
+        function stopBoard() {
+            if (board.timer) { clearInterval(board.timer); board.timer = null; }
+        }
+
+        // ======== 每轮采样：读数 + 曲线 + 告警 ========
+        let wasOverWarn = false;
+
+        async function pollBoard() {
+            try {
+                const m = await http.get('/monitor/memory');
+                const pct = Math.min(100, Math.round(m.heapUsedMb / m.heapMaxMb * 100));
+                const dpct = m.directMaxMb > 0 ? Math.min(100, Math.round(m.directUsedMb / m.directMaxMb * 100)) : 0;
+                const cpu = m.cpuUsagePercent || 0;
+                const disk = m.diskUsagePercent || 0;
+                const sec = m.pollIntervalSeconds || 3;
+
+                setChipText('lgHeap', pct + '%');
+                setChipText('lgHeapAbs', m.heapUsedMb + '/' + m.heapMaxMb + 'MB');
+                setChipText('lgDirect', dpct + '%');
+                setChipText('lgDirectAbs', m.directUsedMb + '/' + m.directMaxMb + 'MB');
+                setChipText('lgCpu', cpu + '%');
+                setChipText('lgDisk', disk + '%');
+                setChipText('lgNonHeap', m.nonHeapUsedMb + 'MB');
+                setChipText('lgInject', (m.injectedMbTotal || 0) + 'MB');
+                const gcMs = m.gcTimeMs || 0;
+                setChipText('lgGc', (m.gcCount || 0) + ' 次 / '
+                    + (gcMs >= 1000 ? (gcMs / 1000).toFixed(1) + 's' : gcMs + 'ms'));
+                setChipText('lgLeak', '堆 ' + (m.leakEntries || 0) + ' 条 · 堆外 ' + (m.directBuffers || 0) + ' 个');
+                setChipHot('heap', pct >= WARN_PERCENT);
+                setChipHot('direct', dpct >= WARN_PERCENT);
+                setChipText('metaXmx', m.heapMaxMb + ' MB');
+                setChipText('metaDirect', m.directMaxMb + ' MB');
+                setChipText('metaPoll', sec + ' 秒');
+
+                const badge = document.getElementById('faultBadge');
+                if (badge) {
+                    if (m.faultEnabled && m.faultFixed) { badge.textContent = '✓ 修复模式（内存应走平）'; badge.className = 'cfg-badge cfg-badge-fix'; }
+                    else if (m.faultEnabled) { badge.textContent = '⚠ 泄漏演练中 · ' + m.faultType; badge.className = 'cfg-badge cfg-badge-warn'; }
+                    else { badge.textContent = '演练关闭'; badge.className = 'cfg-badge cfg-badge-safe'; }
+                }
+
+                const over = pct >= WARN_PERCENT || dpct >= WARN_PERCENT;
+                const alertBar = document.getElementById('alertBar');
+                if (alertBar) {
+                    if (over) {
+                        const who = pct >= WARN_PERCENT && dpct >= WARN_PERCENT ? '堆内存与堆外内存'
+                            : (pct >= WARN_PERCENT ? '堆内存' : '堆外内存');
+                        document.getElementById('alertText').textContent =
+                            '⚠ ' + who + '已越过 ' + WARN_PERCENT + '% 警戒线，随时可能 OOM —— 管理员可抓证据（jmap / dump）或止血。';
+                        alertBar.hidden = false;
+                    } else {
+                        alertBar.hidden = true;
+                    }
+                    if (over && !wasOverWarn && typeof window.onBoardWarn === 'function') {
+                        window.onBoardWarn(who);
+                    }
+                }
+                wasOverWarn = over;
+
+                boardPush(board.heap, pct);
+                boardPush(board.direct, dpct);
+                boardPush(board.cpu, cpu);
+                boardPush(board.disk, disk);
+                board.samples++;
+                persistBoard();
+                drawChart();
+                scheduleBoardPoll(sec * 1000);
+                // 宿主页面（配置中心）在这里刷新开关/滑杆等控件
+                if (typeof window.onJvmSample === 'function') window.onJvmSample(m);
+            } catch (e) { /* 静默：网络抖动下轮自愈，401 由 http 统一处理 */ }
+        }
+
+        // ======== JVM 只读参数 ========
+        async function loadJvm() {
+            const box = document.getElementById('jvmList');
+            if (!box) return;
+            try {
+                /* 管理员走 /admin/config/jvm（多两行 JDK / OS 环境信息），其余人走公开的 /monitor/jvm。
+                   公开接口刻意隐去环境指纹：游客用不上，而对旁人来说这是可直接比对 CVE 的版本信息。
+                   admin 的 token 一旦过期，401 会自动降级到公开接口，不让整块表变成一堆“加载失败”。 */
+                let list;
+                const adminMode = boardIsAdmin();
+                try {
+                    list = await http.get(adminMode ? '/admin/config/jvm' : '/monitor/jvm');
+                } catch (e) {
+                    if (!adminMode) throw e;
+                    list = await http.get('/monitor/jvm');
+                }
+                // 收集器运行期不变，顺手取一次填顶部横幅，省一个请求
+                const gc = list.find(r => r.key === 'GarbageCollector');
+                if (gc) setChipText('metaGc', gc.value.replace(/\s+/g, ' · '));
+                const rows = list.map(r => `
+                    <tr>
+                        <td><code>${escapeHtml(r.key)}</code></td>
+                        <td class="cfg-desc">${escapeHtml(r.desc)}</td>
+                        <td class="cfg-ro">${escapeHtml(r.value)}</td>
+                    </tr>`).join('');
+                box.innerHTML = `
+                    <table class="cfg-table">
+                        <thead><tr><th style="width:230px;">参数</th><th style="width:340px;">说明</th><th>值</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+            } catch (e) {
+                box.innerHTML = '<div class="empty-state"><h3>加载失败</h3><p>' + escapeHtml(e.message) + '</p></div>';
+            }
+        }
+
+        // ======== 启动（由宿主页面在 app.js 之后调用，保证 http / escapeHtml 已就绪）========
+        function initBoard() {
+            applyBoardAcl();
+            restoreBoard();
+            drawChart();
+            loadJvm();
+            pollBoard();
+            board.timer = setInterval(pollBoard, board.pollMs);
+            window.addEventListener('resize', drawChart);
+        }
+    </script>
+</div>
+</body>
+</html>

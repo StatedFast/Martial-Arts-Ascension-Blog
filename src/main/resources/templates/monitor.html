@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">JVM 渡劫看板 - 修仙心得</title>
+    <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
+    <link rel="stylesheet" href="/css/style.css?v=15">
+    <style>
+        /* 看板页专属样式；曲线/卡片/表格等公共部分由 fragments/board 自带 */
+        .cfg-page { background: var(--bg); }
+
+        /* ---- 灵气境界：把冷冰冰的占用率翻译成修仙世界的话 ---- */
+        .cfg-realm { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 18px; }
+        .cfg-realm-badge {
+            width: 58px; height: 58px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; font-weight: 800; letter-spacing: .04em; color: #fff;
+            background: linear-gradient(140deg, #34d399, #0d9488);
+            box-shadow: 0 6px 16px rgba(13,148,136,.28); transition: all .4s ease;
+        }
+        .cfg-realm-main { flex: 1; min-width: 240px; }
+        .cfg-realm-name { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .cfg-realm-name small { font-size: 12px; font-weight: 400; color: var(--text-light); }
+        .cfg-realm-bar { margin-top: 9px; height: 10px; border-radius: 999px; background: #eef1f7; overflow: hidden; display: flex; }
+        .cfg-realm-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #34d399, #fbbf24, #f44336); transition: width .5s ease; }
+        .cfg-realm-steps { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: #94a3b8; }
+        .cfg-realm-tip { font-size: 12.5px; color: var(--text-light); line-height: 1.7; max-width: 320px; }
+
+        /* ---- 说明区：两栏 ---- */
+        .cfg-notes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+        .cfg-note-list { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 2.05; color: #475569; }
+        .cfg-note-list li::marker { color: var(--primary); font-weight: 700; }
+        .cfg-note-list b { color: var(--text); }
+        .cfg-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+        .cfg-kv div { background: #fafbfe; border: 1px solid #eef1f7; border-radius: 10px; padding: 11px 13px; }
+        .cfg-kv span { display: block; font-size: 11.5px; color: var(--text-light); }
+        .cfg-kv b { display: block; font-size: 15px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+        /* 管理员才看得到的一键直达 */
+        #adminShortcuts { display: none; gap: 10px; flex-wrap: wrap; }
+        body.is-admin #adminShortcuts { display: flex; }
+
+        @media (max-width: 1080px) { .cfg-notes { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body class="cfg-page">
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 修仙心得</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <!-- ==================== 顶部：观星台 ==================== -->
+    <div class="cfg-hero">
+        <div class="cfg-shell cfg-hero-row">
+            <div>
+                <div class="cfg-eyebrow">JVM Observatory · 渡劫看板</div>
+                <h1 class="cfg-title">
+                    JVM 渡劫看板
+                    <span id="faultBadge" class="cfg-badge cfg-badge-safe">演练关闭</span>
+                </h1>
+                <p class="cfg-sub">
+                    本站把 <code>-Xmx</code> 与 <code>MaxDirectMemorySize</code> 刻意设得很小，管理员随时会在「配置中心」里
+                    往 JVM 注入堆内 / 堆外泄漏，让 OOM 真实发生一次。这块看板对所有人开放 ——
+                    灵气（内存）何时盈亏、何时渡劫，道友一同见证。
+                </p>
+                <div id="adminShortcuts">
+                    <a href="/config" class="btn btn-primary btn-sm">⚡ 进入配置中心 · 渡劫操控台</a>
+                    <a href="/settings" class="btn btn-outline btn-sm" style="color:#c7d2fe;border-color:rgba(199,210,254,.4);">配置项（k-v）</a>
+                </div>
+            </div>
+            <div class="cfg-hero-meta">
+                <div class="cfg-meta"><span>堆上限 -Xmx</span><b id="metaXmx">--</b></div>
+                <div class="cfg-meta"><span>堆外上限</span><b id="metaDirect">--</b></div>
+                <div class="cfg-meta"><span>收集器</span><b id="metaGc">--</b></div>
+                <div class="cfg-meta"><span>刷新间隔</span><b id="metaPoll">--</b></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cfg-shell">
+        <!-- 越线告警：看板页只提示，不带止血按钮（改状态是管理员在配置中心做的事） -->
+        <div class="cfg-alert" id="alertBar" hidden>
+            <span id="alertText"></span>
+            <a href="/config" class="btn btn-danger btn-sm" id="alertGo" style="display:none;">前往止血</a>
+        </div>
+
+        <!-- 曲线 + JVM 参数（复用片段）：用 th:insert 而非 th:replace，
+             否则宿主标签被整体换掉，--board-h 这个高度变量就传不进去了 -->
+        <div style="--board-h:340px;" th:insert="~{fragments/board :: board}"></div>
+
+        <!-- ==================== 灵气境界：占用率的修仙化读数 ==================== -->
+        <section class="cfg-card">
+            <div class="cfg-realm">
+                <div class="cfg-realm-badge" id="realmBadge">炼气</div>
+                <div class="cfg-realm-main">
+                    <div class="cfg-realm-name">
+                        当前境界：<span id="realmName">炼气期</span>
+                        <small id="realmWhy">堆内存尚浅，灵气来去自如</small>
+                    </div>
+                    <div class="cfg-realm-bar"><i id="realmFill"></i></div>
+                    <div class="cfg-realm-steps">
+                        <span>炼气</span><span>筑基</span><span>金丹</span><span>元婴</span><span>化神</span><span>渡劫</span>
+                    </div>
+                </div>
+                <div class="cfg-realm-tip" id="realmTip">
+                    境界按<strong>堆内存占用率</strong>划分。越过 80%（化神）就是警戒区，
+                    再往上便是渡劫 —— 渡不过去就是 OOM。
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 说明 ==================== -->
+        <div class="cfg-notes">
+            <section class="cfg-card">
+                <div class="cfg-card-head">
+                    <div class="cfg-card-title">这块看板想证明什么</div>
+                </div>
+                <div class="cfg-card-body">
+                    <ol class="cfg-note-list">
+                        <li><b>堆内与堆外是两堵不同的墙</b>：heap 撞 <code>-Xmx</code> 抛 OutOfMemoryError: Java heap space；
+                            direct 撞 <code>MaxDirectMemorySize</code> 抛 OOM: Direct buffer memory，
+                            而 <code>-Xmx</code> 再大也拦不住后者。</li>
+                        <li><b>「内存没涨」不等于「没泄漏」</b>：堆外内存 MemoryMXBean 照不到，
+                            得看 BufferPoolMXBean —— 曲线里那条蓝线。</li>
+                        <li><b>修复的本质是「有界」</b>：把无界缓存换成有界 LRU，曲线立刻走平，
+                            代价是命中率下降，不是免费的。</li>
+                        <li><b>GC 是前兆不是判决</b>：泄漏后期真正先尖起来的是 GC 次数与停顿耗时，
+                            而不是占用率本身。</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="cfg-card">
+                <div class="cfg-card-head">
+                    <div class="cfg-card-title">撞墙时按这六步查</div>
+                </div>
+                <div class="cfg-card-body">
+                    <ol class="cfg-note-list">
+                        <li>看异常文案：heap space / Direct buffer memory / metaspace —— 先确定是哪堵墙。</li>
+                        <li>对齐时间轴：OOM 前 5 分钟的曲线形状（阶梯上涨 = 泄漏，尖刺 = 突发大对象）。</li>
+                        <li>查 GC 日志：Full GC 频繁且回收量小 → 存在强引用链，不是「GC 没干活」。</li>
+                        <li>堆内用 <code>jmap -histo:live</code> 看 Top 对象；堆外用 NMT / <code>MaxDirectMemorySize</code> 反推。</li>
+                        <li>找持有者：MAT 看 GC Roots 引用链，定位到具体缓存 / 集合字段。</li>
+                        <li>改法只有两类：<b>限制生命周期</b>（有界缓存、WeakReference、及时 release），或<b>放大边界</b>（调参数，治标）。</li>
+                    </ol>
+                    <div class="cfg-kv" style="margin-top:14px;">
+                        <div><span>堆注入节奏</span><b>每 5 秒一轮</b></div>
+                        <div><span>曲线窗口</span><b>120 个采样点</b></div>
+                        <div><span>数据口径</span><b>JMX 运行时真实值</b></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=9"></script>
+    <script>
+        // 境界划分：直接复用看板的占用率口径，不自己再算一遍，避免两处数字打架
+        const REALMS = [
+            { max: 20, name: '炼气期', bg: 'linear-gradient(140deg,#6ee7b7,#0d9488)', why: '堆内存尚浅，灵气来去自如' },
+            { max: 40, name: '筑基期', bg: 'linear-gradient(140deg,#7dd3fc,#0369a1)', why: '已见根基，仍在稳步积累' },
+            { max: 60, name: '金丹期', bg: 'linear-gradient(140deg,#fcd34d,#b45309)', why: '金丹初成，占用开始需要留意' },
+            { max: 80, name: '元婴期', bg: 'linear-gradient(140deg,#fdba74,#c2410c)', why: '元婴出窍，再涨就要惊动 GC 了' },
+            { max: 95, name: '化神期', bg: 'linear-gradient(140deg,#fca5a5,#b91c1c)', why: '化神之上，已越 80% 警戒线' },
+            { max: 101, name: '渡劫期', bg: 'linear-gradient(140deg,#f87171,#7f1d1d)', why: '渡劫中！下一次分配可能就是 OOM' }
+        ];
+
+        function renderRealm(pct) {
+            const realm = REALMS.find(r => pct < r.max) || REALMS[REALMS.length - 1];
+            const badge = document.getElementById('realmBadge');
+            badge.textContent = realm.name.slice(0, 2);
+            badge.style.background = realm.bg;
+            document.getElementById('realmName').textContent = realm.name;
+            document.getElementById('realmWhy').textContent = realm.why;
+            document.getElementById('realmFill').style.width = Math.min(100, pct) + '%';
+        }
+
+        // 挂到看板片段的每轮采样钩子上：曲线刷新即境界刷新
+        window.onJvmSample = function (m) {
+            const pct = Math.min(100, Math.round(m.heapUsedMb / m.heapMaxMb * 100));
+            renderRealm(pct);
+            // 越线告警里的「前往止血」只给管理员看（游客没有写权限，给了也点不动）
+            const go = document.getElementById('alertGo');
+            if (go) go.style.display = isAdmin(Auth.getUser()) ? 'inline-block' : 'none';
+        };
+
+        // 看板对所有人开放，游客也能看，因此这里不跳登录；导航与 Logo 由 app.js 在 DOMContentLoaded 统一渲染
+        if (isAdmin(Auth.getUser())) document.body.classList.add('is-admin');
+
+        // 启动看板片段（曲线 + 读数 + JVM 参数）
+        initBoard();
+    </script>
+</body>
+</html>

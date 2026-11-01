@@ -176,6 +176,36 @@ function isAdmin(user) {
     return !!user && typeof user.role === 'string' && user.role.trim().toUpperCase() === 'ADMIN';
 }
 
+/* ==================== 站点 Logo ====================
+ * 全站导航栏的品牌标识统一在这里注入：一处改动即全站生效，
+ * 不必在 8 个模板里各改一遍、再逐个对缓存版本号。
+ * 图形尺寸、渐变全部写在 SVG 属性里，不依赖 style.css，
+ * 首页导航浮在深色封面上时也不会被 .nav-brand 的渐变文字规则影响。 */
+const BRAND_MARK = `
+    <svg class="brand-mark" viewBox="0 0 36 36" width="27" height="27" style="flex-shrink:0" aria-hidden="true">
+        <defs>
+            <linearGradient id="brandMarkBg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#6366f1"/>
+                <stop offset="0.55" stop-color="#3b82f6"/>
+                <stop offset="1" stop-color="#06b6d4"/>
+            </linearGradient>
+        </defs>
+        <rect x="1" y="1" width="34" height="34" rx="11" fill="url(#brandMarkBg)"/>
+        <rect x="1.75" y="1.75" width="32.5" height="32.5" rx="10.4" fill="none" stroke="rgba(255,255,255,0.38)" stroke-width="1.5"/>
+        <path d="M5.5 28 L14 13.5 L19.5 23.5 L22.5 18.5 L30.5 28 Z" fill="#fff" opacity="0.94"/>
+        <circle cx="25" cy="10" r="3.6" fill="#fff" opacity="0.96"/>
+        <circle cx="26.4" cy="9" r="2.9" fill="url(#brandMarkBg)"/>
+    </svg>`;
+
+function renderBrand() {
+    document.querySelectorAll('.nav-brand').forEach(brand => {
+        if (brand.dataset.branded) return;
+        brand.dataset.branded = '1';
+        const text = brand.textContent.trim() || '修仙心得';
+        brand.innerHTML = BRAND_MARK + '<span>' + escapeHtml(text) + '</span>';
+    });
+}
+
 function renderNavbar() {
     const navLinks = document.getElementById('navLinks');
     if (!navLinks) return;
@@ -184,6 +214,7 @@ function renderNavbar() {
     if (Auth.isLoggedIn() && user) {
         navLinks.innerHTML = `
             <a href="/">首页</a>
+            <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
             <a href="/write" class="btn-write">写文章</a>
             <a href="/notifications" class="nav-bell" title="通知中心">
                 🔔<span class="nav-bell-badge" id="navBellBadge" hidden>0</span>
@@ -196,14 +227,17 @@ function renderNavbar() {
                     <a href="/profile">个人中心</a>
                     <a href="/notifications">通知中心</a>
                     ${isAdmin(user) ? '<a href="/config">配置中心</a>' : ''}
+                    ${isAdmin(user) ? '<a href="/settings">配置项</a>' : ''}
                     <a href="#" class="logout" onclick="Auth.logout();return false;">退出登录</a>
                 </div>
             </div>
         `;
         NotificationCenter.start();
     } else {
+        // 看板是公开页（接口 @NoAuth），游客也进得去，所以两个分支都要给入口
         navLinks.innerHTML = `
             <a href="/">首页</a>
+            <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
             <a href="/login">登录</a>
             <a href="/register" class="btn btn-primary btn-sm">注册</a>
         `;
@@ -351,6 +385,7 @@ function formatTime(dateStr) {
 
 // ==================== 页面初始化 ====================
 document.addEventListener('DOMContentLoaded', () => {
+    renderBrand();
     renderNavbar();
 });
 

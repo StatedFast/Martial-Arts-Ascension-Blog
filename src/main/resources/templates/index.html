@@ -10,6 +10,26 @@
     <link rel="preload" as="image" href="/images/home-songyu.jpg"
           th:if="${bannerUrl != null}" th:href="${bannerUrl}">
     <link rel="stylesheet" href="/css/style.css?v=15">
+    <style>
+        /* 首页专属：顶部「洞中灵气」实时条（样式其余额外加 .home 作用域，避免影响其他页面） */
+        .home .hero-live {
+            display: inline-flex; align-items: center; gap: 12px; margin-top: 18px;
+            padding: 9px 16px; border-radius: 999px; font-size: 13px; text-decoration: none;
+            color: #fff; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.3);
+            backdrop-filter: blur(8px); transition: all .2s;
+        }
+        .home .hero-live:hover { background: rgba(255,255,255,.26); transform: translateY(-1px); }
+        .home .hero-live-label { opacity: .78; letter-spacing: .04em; }
+        .home .hero-live b { font-variant-numeric: tabular-nums; }
+        .home .hero-live-dot {
+            width: 8px; height: 8px; border-radius: 50%; background: #4ade80; flex-shrink: 0;
+            box-shadow: 0 0 0 4px rgba(74,222,128,.25); animation: heroLivePulse 1.8s infinite;
+        }
+        @keyframes heroLivePulse { 50% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } }
+        .home .hero-live.warning .hero-live-dot { background: #fbbf24; }
+        .home .hero-live.danger .hero-live-dot { background: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,.32); }
+        .home .hero-live-cta { padding-left: 12px; border-left: 1px solid rgba(255,255,255,.28); font-weight: 600; }
+    </style>
 </head>
 <body class="home">
     <!-- 顶部封面：导航与 Banner 共用同一张背景图，作为一个整体随页面滚动（图片由 home.banner-image 配置） -->
@@ -20,11 +40,22 @@
                     <div class="hero-eyebrow">Ordinary People's Ascension to Immortality</div>
                     <h1 class="hero-title">凡人修仙论坛</h1>
                     <p class="hero-sub">记录平凡故事 · 分享修真心得</p>
+                    <!-- 洞中灵气：把公开的后端监控接口当成首页氛围条用，
+                         顺便给「JVM 渡劫看板」一个不占导航位的入口（接口 @NoAuth，游客可看） -->
+                    <a class="hero-live" href="/monitor" id="heroLive" hidden>
+                        <span class="hero-live-dot"></span>
+                        <span class="hero-live-label">洞中灵气</span>
+                        <span>堆 <b id="liveHeap">--</b></span>
+                        <span>堆外 <b id="liveDirect">--</b></span>
+                        <span>境界 <b id="liveRealm">--</b></span>
+                        <span class="hero-live-cta">渡劫看板 →</span>
+                    </a>
                 </div>
                 <div class="hero-actions">
-                    <a href="#articleList" class="hero-btn hero-btn-light">开始阅读</a>
-                    <button type="button" class="hero-btn" onclick="AiAssistant.toggle()">🤖 问 银月I</button>
-                    <!-- 导航链接（首页 / 写文章 / 通知 / 用户菜单）与上面两个按钮同排 -->
+                    <button type="button" class="hero-btn" onclick="AiAssistant.toggle()">🤖 问 银月</button>
+                    <!-- 导航链接（首页 / 写文章 / 通知 / 用户菜单）与上面按钮同排；
+                         原「开始阅读」按钮已去掉：论坛是持续流动的帖子流，不是一篇要「读完」的书，
+                         文章列表本身就在首屏可见，锚点跳转反而多一次无意义点击 -->
                     <div class="nav-links hero-nav" id="navLinks"></div>
                 </div>
             </div>
@@ -82,6 +113,7 @@
                 <div class="side-card-title">⚡ 快捷入口</div>
                 <div class="quick-links">
                     <a href="/write" class="quick-link"><span class="quick-icon">✍️</span>写文章</a>
+                    <a href="/monitor" class="quick-link"><span class="quick-icon">⚡</span>渡劫看板</a>
                     <a href="/profile" class="quick-link"><span class="quick-icon">👤</span>个人中心</a>
                     <a href="#" class="quick-link" onclick="AiAssistant.toggle();return false;">
                         <span class="quick-icon">🤖</span>问问 AI 助手
@@ -161,7 +193,7 @@
         </aside>
     </div>
 
-    <script src="/js/app.js?v=7"></script>
+    <script src="/js/app.js?v=9"></script>
     <script>
         // ==================== 首页逻辑 ====================
         let currentPage = 1;
@@ -170,8 +202,12 @@
         // 时间排序：latest = 最新在前（默认），earliest = 最早在前
         let currentSort = 'latest';
 
-        // 分类图标（未命中时用默认图标）
-        const CATEGORY_ICONS = { 'Spring': '🍃', '数据库': '🗄️', '架构': '🏗️', '前端': '🎨' };
+        // 分类图标（未命中时用默认图标）：技术分类 + 修仙功法分类并存
+        const CATEGORY_ICONS = {
+            'Spring': '🍃', '数据库': '🗄️', '架构': '🏗️', '前端': '🎨',
+            '功法': '📜', '法宝': '⚔️', '丹药': '💊', '灵植': '🌿',
+            '宗门': '🏯', '见闻': '🗺️', '双修': '☯️', '神通': '✨'
+        };
 
         // 标签展示规则：过长的标签多为摘要被误填（脏数据），统一在展示层过滤
         const MAX_TAG_LENGTH = 8;
@@ -424,11 +460,42 @@
 
         // escapeHtml / formatTime 由 app.js 统一提供，页面内不再重复定义
 
+        // ==================== 洞中灵气（首页实时条） ====================
+        /* 与看板页用同一套境界划分、同一个接口：首页只取个概览，
+           10 秒一次足够 —— 首页是入口不是监控大屏，刷得太勤反而给服务器添活。
+           写法记一笔：境界表必须用对象数组，不能写成「中括号套中括号」的数组 ——
+           Thymeleaf 会对 script 做 JS 内联，双层中括号会被当内联表达式解析，整页直接 500。 */
+        const HERO_REALMS = [
+            { under: 20, name: '炼气' }, { under: 40, name: '筑基' }, { under: 60, name: '金丹' },
+            { under: 80, name: '元婴' }, { under: 95, name: '化神' }, { under: 101, name: '渡劫' }
+        ];
+
+        async function loadHeroLive() {
+            try {
+                const m = await http.get('/monitor/memory');
+                const pct = Math.min(100, Math.round(m.heapUsedMb / m.heapMaxMb * 100));
+                const dpct = m.directMaxMb > 0 ? Math.min(100, Math.round(m.directUsedMb / m.directMaxMb * 100)) : 0;
+                const realm = (HERO_REALMS.find(r => pct < r.under) || HERO_REALMS[HERO_REALMS.length - 1]).name;
+                document.getElementById('liveHeap').textContent = pct + '%';
+                document.getElementById('liveDirect').textContent = dpct + '%';
+                document.getElementById('liveRealm').textContent = realm + '期';
+                const bar = document.getElementById('heroLive');
+                bar.hidden = false;
+                bar.classList.toggle('danger', pct >= 80 || dpct >= 80);
+                bar.classList.toggle('warning', !bar.classList.contains('danger') && m.faultEnabled);
+            } catch (e) {
+                // 拉不到就整条隐藏：首页不该出现一排 --
+                document.getElementById('heroLive').hidden = true;
+            }
+        }
+
         // 初始化：先铺骨架屏，再并行拉取数据
         renderSkeleton();
         loadArticles();
         loadHotArticles();
         loadSiteStats();
+        loadHeroLive();
+        setInterval(loadHeroLive, 10000);
 
         // AI 助手对话框（右下角悬浮按钮）
         AiAssistant.init();

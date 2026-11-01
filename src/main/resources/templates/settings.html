@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">配置项 - 修仙心得</title>
+    <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
+    <link rel="stylesheet" href="/css/style.css?v=15">
+    <style>
+        /* 配置项页：从看板里拆出来的纯表格页，不再混监控内容 */
+        .cfg-page { background: var(--bg); }
+        .cfg-shell { max-width: 1240px; margin: 0 auto; padding: 0 28px 40px; }
+
+        .cfg-hero {
+            background:
+                radial-gradient(700px 280px at 82% -30%, rgba(129,140,248,0.4), transparent 62%),
+                linear-gradient(118deg, #101830 0%, #1b2547 52%, #24304f 100%);
+            color: #eef2ff; padding: 28px 0 24px; margin-bottom: 20px;
+        }
+        .cfg-hero-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+        .cfg-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(199,210,254,0.72); margin-bottom: 8px; }
+        .cfg-title { font-size: 25px; font-weight: 800; letter-spacing: -0.02em; }
+        .cfg-sub { margin-top: 8px; font-size: 13px; color: rgba(203,213,255,0.75); max-width: 720px; line-height: 1.75; }
+
+        /* 三页互跳：看板（公开）/ 配置中心（操控台）/ 配置项（本表） */
+        .cfg-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+        .cfg-tabs a {
+            padding: 7px 15px; border-radius: 999px; font-size: 13px; text-decoration: none;
+            color: rgba(203,213,255,0.85); border: 1px solid rgba(199,210,254,0.28); transition: all .18s;
+        }
+        .cfg-tabs a:hover { background: rgba(199,210,254,0.14); color: #fff; }
+        .cfg-tabs a.active { background: #fff; color: #1e293b; border-color: #fff; font-weight: 600; }
+
+        .cfg-card {
+            background: var(--card-bg); border: 1px solid rgba(226,232,240,0.8);
+            border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+        }
+        .cfg-card-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eef1f7; flex-wrap: wrap; }
+        .cfg-card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .cfg-card-title small { font-size: 12px; font-weight: 400; color: var(--text-light); }
+
+        table.cfg-table { width: 100%; border-collapse: collapse; }
+        table.cfg-table th, table.cfg-table td { text-align: left; padding: 11px 16px; border-bottom: 1px solid #f0f2f7; font-size: 13.5px; vertical-align: middle; }
+        table.cfg-table th { background: #fafbfe; color: var(--text-light); font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+        table.cfg-table tr:last-child td { border-bottom: none; }
+        table.cfg-table tbody tr:hover { background: #fafbff; }
+        table.cfg-table code { background: #f1f5f9; padding: 2px 7px; border-radius: 6px; font-size: 12.5px; color: #334155; }
+        table.cfg-table td.cfg-desc { color: #8892a6; font-size: 12.5px; }
+        table.cfg-table input.cfg-val { width: 160px; padding: 6px 9px; border: 1px solid #dfe4ee; border-radius: 8px; font-size: 13px; }
+        table.cfg-table input.cfg-val:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
+        table.cfg-table .btn { white-space: nowrap; }
+
+        @media (max-width: 900px) { .cfg-shell { padding: 0 18px 32px; } }
+    </style>
+</head>
+<body class="cfg-page">
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 修仙心得</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <div class="cfg-hero">
+        <div class="cfg-shell cfg-hero-row" style="padding:0;">
+            <div>
+                <div class="cfg-eyebrow">Site Config · 配置项</div>
+                <h1 class="cfg-title">配置项（k-v）</h1>
+                <p class="cfg-sub">
+                    存在 blog_sys_config 表，改完即生效、无需重启 —— 演练开关、注入速率、看板刷新间隔都在这里。
+                    带默认值钳制：越界的数值会被后端按边界收敛后再落库。
+                </p>
+            </div>
+            <div class="cfg-tabs">
+                <a href="/monitor">JVM 渡劫看板</a>
+                <a href="/config">配置中心 · 操控台</a>
+                <a href="/settings" class="active">配置项</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="cfg-shell" id="cfgBody">
+        <section class="cfg-card">
+            <div class="cfg-card-head">
+                <div class="cfg-card-title">全部配置项 <small id="cfgCount"></small></div>
+                <button class="btn btn-outline btn-sm" onclick="loadConfigs()">↻ 重新拉取</button>
+            </div>
+            <div id="configList"><div class="loading">加载中...</div></div>
+        </section>
+    </div>
+
+    <script src="/js/app.js?v=9"></script>
+    <script>
+        if (!Auth.isLoggedIn()) {
+            window.location.href = '/login';
+        }
+        if (!isAdmin(Auth.getUser())) {
+            document.getElementById('cfgBody').innerHTML =
+                '<div class="empty-state"><h3>无权限</h3><p>配置项仅管理员可访问</p></div>';
+        }
+
+        async function loadConfigs() {
+            try {
+                const list = await http.get('/admin/config');
+                renderConfigs(list);
+            } catch (e) {
+                document.getElementById('configList').innerHTML =
+                    '<div class="empty-state"><h3>加载失败</h3><p>' + escapeHtml(e.message) + '</p></div>';
+            }
+        }
+
+        function renderConfigs(list) {
+            if (!list || !list.length) {
+                document.getElementById('configList').innerHTML = '<div class="empty-state"><h3>暂无配置项</h3></div>';
+                return;
+            }
+            document.getElementById('cfgCount').textContent = '共 ' + list.length + ' 项';
+            const rows = list.map(c => `
+                <tr>
+                    <td><code>${escapeHtml(c.configKey)}</code></td>
+                    <td class="cfg-desc">${escapeHtml(c.description || '')}</td>
+                    <td><input class="cfg-val" id="val_${c.id}" value="${escapeAttr(c.configValue || '')}"></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="saveOne(${c.id}, '${escapeAttr(c.configKey)}')">保存</button></td>
+                </tr>`).join('');
+            document.getElementById('configList').innerHTML = `
+                <table class="cfg-table">
+                    <thead><tr><th style="width:250px;">键</th><th>说明</th><th style="width:190px;">值</th><th style="width:76px;"></th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+        }
+
+        async function saveOne(id, key) {
+            const input = document.getElementById('val_' + id);
+            if (!(await ConfirmDialog.show('确定保存配置项 ' + key + ' 吗？\n新值：' + input.value))) return;
+            try {
+                await http.put('/admin/config', { configKey: key, configValue: input.value });
+                Toast.show('已保存：' + key);
+                loadConfigs();
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+
+        if (isAdmin(Auth.getUser())) loadConfigs();
+    </script>
+</body>
+</html>

@@ -7,42 +7,61 @@
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
     <link rel="stylesheet" href="/css/style.css?v=15">
     <style>
-        .cfg-mem-card { padding: 20px; }
-        .cfg-mem-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
-        #memChart { width: 100%; height: 140px; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 8px; margin: 4px 0 10px; }
-        .cfg-legend { font-weight: 600; }
-        .cfg-legend-heap { color: #f44336; }
-        .cfg-legend-direct { color: #2196f3; }
-        .cfg-legend-cpu { color: #4caf50; }
-        .cfg-legend-disk { color: #ff9800; }
-        .cfg-mem-info { display: flex; gap: 24px; font-size: 13px; color: #666; flex-wrap: wrap; }
-        .cfg-badge { padding: 2px 10px; border-radius: 12px; font-size: 12px; }
-        .cfg-on { background: #ffebee; color: #c62828; }
-        .cfg-off { background: #e8f5e9; color: #2e7d32; }
-        table.cfg-table { width: 100%; border-collapse: collapse; }
-        table.cfg-table th, table.cfg-table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; vertical-align: middle; }
-        table.cfg-table td.cfg-desc { color: #888; font-size: 13px; }
-        table.cfg-table input.cfg-val { width: 120px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; }
-        table.cfg-table .btn { white-space: nowrap; }
-        table.cfg-table td.cfg-ro { color: #1976d2; font-weight: 600; word-break: break-all; font-size: 13px; }
-        .cfg-actions { display: flex; gap: 24px; flex-wrap: wrap; padding: 16px; align-items: center; }
-        .cfg-ctl { display: flex; align-items: center; gap: 8px; }
-        .cfg-ctl-label { font-size: 14px; color: #333; font-weight: 600; }
-        .cfg-ctl-state { font-size: 12px; color: #999; min-width: 42px; }
-        /* 微信式滑块开关：点一下滑右变色=开，再点滑左=关 */
-        .cfg-switch { width: 46px; height: 26px; border-radius: 13px; background: #ddd; position: relative; cursor: pointer; transition: background .25s; flex-shrink: 0; }
+        /* 配置中心专属：曲线、卡片、表格等公共部分由 fragments/board 自带 */
+        .cfg-page { background: var(--bg); }
+        .cfg-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        /* 主体两栏：左观测（看板片段）/ 右操控 */
+        .cfg-main { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
+
+        /* ---- 操控台 ---- */
+        .cfg-ctl { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px dashed #eef1f7; }
+        .cfg-ctl:last-child { border-bottom: none; }
+        .cfg-ctl-label { font-size: 13.5px; font-weight: 600; }
+        .cfg-ctl-hint { font-size: 11.5px; color: var(--text-light); margin-top: 2px; font-weight: 400; }
+        .cfg-ctl-state { font-size: 12px; color: var(--text-light); min-width: 52px; text-align: right; }
+        /* 微信式滑块开关 */
+        .cfg-switch { width: 46px; height: 26px; border-radius: 13px; background: #d7dce6; position: relative; cursor: pointer; transition: background .25s; flex-shrink: 0; }
         .cfg-switch-knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .25s; }
         .cfg-switch.on { background: #07c160; }
         .cfg-switch.on .cfg-switch-knob { left: 23px; }
-        .cfg-switch-blue.on { background: #1976d2; }
-        /* 分段选择器：选中项填充与趋势曲线同色，颜色语义对齐 */
-        .cfg-seg { display: flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
-        .cfg-seg button { border: none; background: #fff; padding: 6px 14px; font-size: 13px; cursor: pointer; color: #666; transition: background .2s, color .2s; }
+        .cfg-switch-blue.on { background: var(--primary); }
+        /* 分段选择器：选中项填充与曲线同色，语义对齐 */
+        .cfg-seg { display: flex; border: 1px solid #dfe4ee; border-radius: 9px; overflow: hidden; }
+        .cfg-seg button { border: none; background: #fff; padding: 5px 13px; font-size: 12.5px; cursor: pointer; color: #666; transition: background .2s, color .2s; }
         .cfg-seg button.active-heap { background: #f44336; color: #fff; }
         .cfg-seg button.active-direct { background: #2196f3; color: #fff; }
+        /* 注入速率滑杆 */
+        .cfg-range { display: flex; align-items: center; gap: 10px; }
+        .cfg-range input { width: 132px; accent-color: var(--primary); }
+        .cfg-range b { font-size: 12.5px; font-variant-numeric: tabular-nums; min-width: 58px; }
+        /* 一键剧本 */
+        .cfg-scripts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+        .cfg-script {
+            border: 1px solid #dfe4ee; background: #fbfcfe; border-radius: 10px; padding: 9px 10px;
+            font-size: 12.5px; font-weight: 600; color: var(--text); cursor: pointer; text-align: left;
+            transition: all .18s; line-height: 1.4;
+        }
+        .cfg-script:hover { border-color: var(--primary-light); background: var(--primary-soft); transform: translateY(-1px); }
+        .cfg-script em { display: block; font-style: normal; font-size: 11px; font-weight: 400; color: var(--text-light); margin-top: 2px; }
+        .cfg-script-stop { grid-column: 1 / -1; border-color: #a7f3d0; background: #f0fdf4; color: #047857; }
+        .cfg-script-stop:hover { border-color: #34d399; background: #dcfce7; }
+
+        /* ---- 演练日志 ---- */
+        .cfg-log { list-style: none; max-height: 268px; overflow-y: auto; }
+        .cfg-log li { display: flex; gap: 10px; padding: 7px 0; font-size: 12.5px; border-bottom: 1px dashed #f1f3f8; }
+        .cfg-log li:last-child { border-bottom: none; }
+        .cfg-log time { color: #94a3b8; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+        .cfg-log .lv-warn { color: #b45309; }
+        .cfg-log .lv-danger { color: #b91c1c; font-weight: 600; }
+        .cfg-log .lv-ok { color: #047857; }
+
+        @media (max-width: 1240px) {
+            .cfg-main { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
-<body>
+<body class="cfg-page">
     <nav class="navbar">
         <div class="nav-inner">
             <a href="/" class="nav-brand">📝 修仙心得</a>
@@ -50,138 +69,171 @@
         </div>
     </nav>
 
-    <div class="container">
-        <div class="main-content">
-            <!-- 实时内存 -->
-            <div class="card cfg-mem-card" style="margin-bottom:16px;">
-                <div class="cfg-mem-title">
-                    JVM 实时内存
-                    <span id="faultBadge" class="cfg-badge cfg-off">演练关闭</span>
-                </div>
-                <canvas id="memChart"></canvas>
-                <div class="cfg-mem-info">
-                    <span class="cfg-legend cfg-legend-heap">— 堆内存：<b id="heapText">--</b></span>
-                    <span class="cfg-legend cfg-legend-direct">— 堆外(direct)：<b id="directText">--</b></span>
-                    <span class="cfg-legend cfg-legend-cpu">— CPU：<b id="cpuText">--</b></span>
-                    <span class="cfg-legend cfg-legend-disk">— 磁盘：<b id="diskText">--</b></span>
-                    <span>非堆(元空间等)：<b id="nonHeapText">--</b></span>
-                    <span>故障类型：<b id="faultTypeText">--</b></span>
-                    <span>刷新间隔：<b id="intervalText">--</b></span>
-                    <span id="boundedText" style="display:none;">有界缓存：<b>--</b></span>
-                </div>
+    <!-- ==================== 顶部：管理员操作台横幅 ==================== -->
+    <div class="cfg-hero">
+        <div class="cfg-shell cfg-hero-row">
+            <div>
+                <div class="cfg-eyebrow">Admin Console · 配置中心</div>
+                <h1 class="cfg-title">
+                    配置中心
+                    <span id="faultBadge" class="cfg-badge cfg-badge-safe">演练关闭</span>
+                </h1>
+                <p class="cfg-sub">
+                    左边是所有人可见的 JVM 渡劫看板（同一份数据、同一个接口），右边是只有管理员能动的渡劫操控台。
+                    开关状态以数据库为准，多开标签页也不会看到不一致的假状态。
+                </p>
             </div>
-
-            <!-- 演练控制台：开关/分段器状态由后端每轮下发渲染，前端只做乐观翻转 -->
-            <div class="card" style="margin-bottom:16px;">
-                <div class="cfg-actions">
-                    <div class="cfg-ctl">
-                        <span class="cfg-ctl-label">故障演练</span>
-                        <div class="cfg-switch" id="swFault" onclick="toggleSwitch('swFault','fault.oom.enabled','演练已开启，注意观察曲线','演练已关闭（止血）')"><div class="cfg-switch-knob"></div></div>
-                        <span class="cfg-ctl-state" id="swFaultText">--</span>
-                    </div>
-                    <div class="cfg-ctl">
-                        <span class="cfg-ctl-label">泄漏类型</span>
-                        <div class="cfg-seg">
-                            <button id="segHeap" onclick="setType('heap')">堆内 heap</button>
-                            <button id="segDirect" onclick="setType('direct')">堆外 direct</button>
-                        </div>
-                    </div>
-                    <div class="cfg-ctl">
-                        <span class="cfg-ctl-label">修复模式</span>
-                        <div class="cfg-switch cfg-switch-blue" id="swFixed" onclick="toggleSwitch('swFixed','fault.oom.fixed','修复已开启（停止新增，存量不降）','修复已关闭（恢复泄漏注入）','修复模式')"><div class="cfg-switch-knob"></div></div>
-                        <span class="cfg-ctl-state" id="swFixedText">--</span>
-                    </div>
-                    <button class="btn btn-outline btn-sm" onclick="recover()">↺ 回收泄漏内存（堆内+堆外）</button>
-                </div>
-            </div>
-
-            <!-- JVM 核心参数（只读）+ 配置表格 -->
-            <div class="card">
-                <div style="padding:16px 20px;font-weight:600;border-bottom:1px solid #f0f0f0;">JVM 核心参数 <span style="font-size:12px;color:#999;font-weight:400;">（来自运行时真实值，只读不可修改）</span></div>
-                <div id="jvmList"><div class="loading">加载中...</div></div>
-                <div style="padding:16px 20px;font-weight:600;border-top:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;">配置项（k-v）</div>
-                <div id="configList"><div class="loading">加载中...</div></div>
+            <div class="cfg-hero-actions">
+                <a href="/monitor" class="btn btn-outline btn-sm" style="color:#c7d2fe;border-color:rgba(199,210,254,.4);">👁 公开看板视图</a>
+                <a href="/settings" class="btn btn-primary btn-sm">⚙ 配置项（k-v）</a>
             </div>
         </div>
     </div>
 
-    <script src="/js/app.js?v=8"></script>
+    <div class="cfg-shell" id="cfgBody">
+        <!-- 越线告警：只在跨过 80% 时出现，附最短路的止血按钮 -->
+        <div class="cfg-alert" id="alertBar" hidden>
+            <span id="alertText"></span>
+            <button class="btn btn-danger btn-sm" onclick="recover()">立即回收泄漏内存</button>
+        </div>
+
+        <div class="cfg-main">
+            <!-- ==================== 左：观测（复用看板片段） ==================== -->
+            <div>
+                <div th:insert="~{fragments/board :: board}"></div>
+            </div>
+
+            <!-- ==================== 右：操控 ==================== -->
+            <div>
+                <section class="cfg-card">
+                    <div class="cfg-card-head">
+                        <div class="cfg-card-title">⚡ 渡劫操控台</div>
+                        <span class="cfg-card-title small" style="font-size:12px;color:var(--text-light);font-weight:400;">注入节奏：每 5 秒一轮</span>
+                    </div>
+                    <div class="cfg-card-body">
+                        <div class="cfg-ctl">
+                            <div>
+                                <div class="cfg-ctl-label">故障演练</div>
+                                <div class="cfg-ctl-hint">总开关，随时可关，故不设二次确认</div>
+                            </div>
+                            <div class="cfg-switch" id="swFault"
+                                 onclick="toggleSwitch('swFault','fault.oom.enabled','演练已开启，注意观察曲线','演练已关闭（止血）')">
+                                <div class="cfg-switch-knob"></div>
+                            </div>
+                            <span class="cfg-ctl-state" id="swFaultText">--</span>
+                        </div>
+
+                        <div class="cfg-ctl">
+                            <div>
+                                <div class="cfg-ctl-label">泄漏类型</div>
+                                <div class="cfg-ctl-hint">heap 撞 -Xmx，direct 撞 MaxDirectMemorySize</div>
+                            </div>
+                            <div class="cfg-seg">
+                                <button id="segHeap" onclick="setType('heap')">堆内 heap</button>
+                                <button id="segDirect" onclick="setType('direct')">堆外 direct</button>
+                            </div>
+                        </div>
+
+                        <div class="cfg-ctl">
+                            <div>
+                                <div class="cfg-ctl-label">注入速率</div>
+                                <div class="cfg-ctl-hint">每轮 MB 数（上限 50，防爆得太快看不到 GC）</div>
+                            </div>
+                            <div class="cfg-range">
+                                <input type="range" id="batchRange" min="1" max="50" step="1" value="20"
+                                       onchange="saveBatch(this.value)" oninput="document.getElementById('batchVal').textContent = this.value + ' MB/轮'">
+                                <b id="batchVal">20 MB/轮</b>
+                            </div>
+                        </div>
+
+                        <div class="cfg-ctl">
+                            <div>
+                                <div class="cfg-ctl-label">修复模式</div>
+                                <div class="cfg-ctl-hint">注入改走有界 LRU / 有界引用池，曲线走平</div>
+                            </div>
+                            <div class="cfg-switch cfg-switch-blue" id="swFixed"
+                                 onclick="toggleSwitch('swFixed','fault.oom.fixed','修复已开启（停止新增，存量不降）','修复已关闭（恢复泄漏注入）','修复模式')">
+                                <div class="cfg-switch-knob"></div>
+                            </div>
+                            <span class="cfg-ctl-state" id="swFixedText">--</span>
+                        </div>
+
+                        <div class="cfg-ctl" style="display:block;">
+                            <div class="cfg-ctl-label" style="margin-bottom:9px;">一键剧本</div>
+                            <div class="cfg-scripts">
+                                <button class="cfg-script" onclick="runScript('slow')">🌱 缓泄观察<em>heap · 8MB/轮</em></button>
+                                <button class="cfg-script" onclick="runScript('rush')">⚡ 猛冲撞墙<em>heap · 50MB/轮</em></button>
+                                <button class="cfg-script" onclick="runScript('direct')">🌊 堆外泄漏<em>direct · 20MB/轮</em></button>
+                                <button class="cfg-script" onclick="runScript('fixed')">🛡 修复走平<em>有界缓存对比</em></button>
+                                <button class="cfg-script" onclick="runScript('reset')">🧘 复位默认<em>关开关 · 20MB · heap</em></button>
+                                <button class="cfg-script cfg-script-stop" onclick="runScript('stop')">⛑&nbsp; 一键止血（直接关演练）</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="cfg-card">
+                    <div class="cfg-card-head">
+                        <div class="cfg-card-title">☠️ 危险操作</div>
+                    </div>
+                    <div class="cfg-card-body">
+                        <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center;" onclick="recover()">
+                            ↺ 回收泄漏内存（堆内 + 堆外）
+                        </button>
+                        <div class="cfg-ctl-hint" style="margin-top:9px;">
+                            摘掉泄漏强引用并触发一次 GC，会短暂 STW；修复模式只能「不再新增」，存量必须靠这里降。
+                        </div>
+                    </div>
+                </section>
+
+                <section class="cfg-card">
+                    <div class="cfg-card-head">
+                        <div class="cfg-card-title">📜 演练日志 <small>本页面会话内记录</small></div>
+                    </div>
+                    <div class="cfg-card-body" style="padding-top:4px;">
+                        <ul class="cfg-log" id="eventLog"></ul>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=9"></script>
     <script>
         if (!Auth.isLoggedIn()) {
             window.location.href = '/login';
         }
         const me = Auth.getUser();
         if (!isAdmin(me)) {
-            document.querySelector('.main-content').innerHTML =
-                '<div class="empty-state"><h3>无权限</h3><p>配置中心仅管理员可访问</p></div>';
+            document.getElementById('cfgBody').innerHTML =
+                '<div class="empty-state"><h3>无权限</h3><p>配置中心仅管理员可访问，公开的内存曲线请看 <a href="/monitor">JVM 渡劫看板</a></p></div>';
+            document.querySelector('.cfg-main') && document.querySelector('.cfg-main').remove();
         }
 
-        // ======== 配置列表 ========
-        async function loadConfigs() {
-            try {
-                const list = await http.get('/admin/config');
-                renderConfigs(list);
-            } catch (e) {
-                document.getElementById('configList').innerHTML =
-                    '<div class="empty-state"><h3>加载失败</h3><p>' + escapeHtml(e.message) + '</p></div>';
-            }
+        // 配置键集中管理，避免剧本里散落字符串写错
+        const KEY = {
+            enabled: 'fault.oom.enabled',
+            type: 'fault.oom.type',
+            batch: 'fault.oom.batch-size',
+            fixed: 'fault.oom.fixed'
+        };
+
+        // ======== 演练日志：把「什么时候动了哪个开关」留在页面上，复盘时不用再回忆 ========
+        function logEvent(text, level) {
+            const ul = document.getElementById('eventLog');
+            if (!ul) return;
+            const li = document.createElement('li');
+            if (level) li.className = 'lv-' + level;
+            li.innerHTML = '<time>' + new Date().toLocaleTimeString('zh-CN', { hour12: false }) + '</time><span>'
+                + escapeHtml(text) + '</span>';
+            ul.prepend(li);
+            while (ul.children.length > 60) ul.lastChild.remove();
         }
 
-        function renderConfigs(list) {
-            if (!list || !list.length) {
-                document.getElementById('configList').innerHTML = '<div class="empty-state"><h3>暂无配置项</h3></div>';
-                return;
-            }
-            const rows = list.map(c => `
-                <tr>
-                    <td><code>${escapeHtml(c.configKey)}</code></td>
-                    <td class="cfg-desc">${escapeHtml(c.description || '')}</td>
-                    <td><input class="cfg-val" id="val_${c.id}" value="${escapeAttr(c.configValue || '')}"></td>
-                    <td><button class="btn btn-primary btn-sm" onclick="saveOne(${c.id}, '${escapeAttr(c.configKey)}')">保存</button></td>
-                </tr>`).join('');
-            document.getElementById('configList').innerHTML = `
-                <table class="cfg-table">
-                    <thead><tr><th>键</th><th>说明</th><th>值</th><th></th></tr></thead>
-                    <tbody>${rows}</tbody>
-                </table>`;
-        }
-
-        // ======== JVM 核心参数（只读展示，无保存按钮，后端 /jvm 接口来自运行时真实值） ========
-        async function loadJvm() {
-            try {
-                const list = await http.get('/admin/config/jvm');
-                const rows = list.map(r => `
-                    <tr>
-                        <td><code>${escapeHtml(r.key)}</code></td>
-                        <td class="cfg-desc">${escapeHtml(r.desc)}</td>
-                        <td class="cfg-ro">${escapeHtml(r.value)}</td>
-                    </tr>`).join('');
-                document.getElementById('jvmList').innerHTML = `
-                    <table class="cfg-table">
-                        <thead><tr><th style="width:230px;">参数</th><th style="width:340px;">说明</th><th>值</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>`;
-            } catch (e) {
-                document.getElementById('jvmList').innerHTML =
-                    '<div class="empty-state"><h3>加载失败</h3><p>' + escapeHtml(e.message) + '</p></div>';
-            }
-        }
-
-        async function saveOne(id, key) {
-            if (!(await ConfirmDialog.show('确定保存配置项 ' + key + ' 吗？'))) return;
-            const input = document.getElementById('val_' + id);
-            try {
-                await http.put('/admin/config', { configKey: key, configValue: input.value });
-                Toast.show('已保存：' + key);
-                loadConfigs();
-            } catch (e) {
-                Toast.show(e.message, 'error');
-            }
-        }
-
-        // ======== 控件状态渲染：后端是唯一事实源，每轮轮询重刷（多标签页也能看到真实状态） ========
+        // ======== 控件状态渲染：后端是唯一事实源，每轮采样重刷（多标签页也能看到真实状态） ========
         function renderControls(m) {
             const swF = document.getElementById('swFault');
+            if (!swF) return;
             swF.classList.toggle('on', !!m.faultEnabled);
             document.getElementById('swFaultText').textContent = m.faultEnabled ? '进行中' : '已关闭';
             const swX = document.getElementById('swFixed');
@@ -189,10 +241,16 @@
             document.getElementById('swFixedText').textContent = m.faultFixed ? '防新增' : '已关闭';
             document.getElementById('segHeap').className = m.faultType === 'heap' ? 'active-heap' : '';
             document.getElementById('segDirect').className = m.faultType === 'direct' ? 'active-direct' : '';
+            // 用户正在拖滑杆时不要用轮询值打断他
+            const range = document.getElementById('batchRange');
+            if (document.activeElement !== range) {
+                range.value = m.batchSize || 20;
+                document.getElementById('batchVal').textContent = (m.batchSize || 20) + ' MB/轮';
+            }
         }
 
         // 防抖：一个写请求在飞时忽略其他点击，失败下轮轮询会用后端真值把 UI 纠正回来
-        let ctlBusy = false;
+        let ctlBusy = true;
 
         // confirmLabel 非空则弹二次确认；故障演练开关不传（随时可止血，不该拦路），其余控件都传
         async function toggleSwitch(id, key, onMsg, offMsg, confirmLabel) {
@@ -211,8 +269,8 @@
             try {
                 await http.put('/admin/config', { configKey: key, configValue: value });
                 if (okMsg) Toast.show(okMsg);
-                loadConfigs();
-                pollMemory();
+                logEvent(okMsg || key + ' = ' + value);
+                pollBoard();
             } catch (e) {
                 Toast.show(e.message, 'error');
             } finally {
@@ -226,10 +284,51 @@
             if (!(await ConfirmDialog.show('确定将泄漏类型切换为「' + label + '」吗？\n（若演练进行中，下一轮注入立即按新类型执行）'))) return;
             ctlBusy = true;
             try {
-                await http.put('/admin/config', { configKey: 'fault.oom.type', configValue: type });
+                await http.put('/admin/config', { configKey: KEY.type, configValue: type });
                 Toast.show('故障类型已切换为：' + (type === 'heap' ? '堆内泄漏' : '堆外泄漏'));
-                loadConfigs();
-                pollMemory();
+                logEvent('泄漏类型 → ' + label);
+                pollBoard();
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            } finally {
+                ctlBusy = false;
+            }
+        }
+
+        // 注入速率：滑杆松手即存，不弹确认（数值可调、无破坏性，且能立刻在曲线上验证）
+        async function saveBatch(value) {
+            try {
+                await http.put('/admin/config', { configKey: KEY.batch, configValue: value });
+                Toast.show('注入速率已设为 ' + value + ' MB/轮');
+                logEvent('注入速率 → ' + value + ' MB/轮');
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+
+        // ======== 一键剧本：多键一次提交（后端 /batch），避免逐条 PUT 留下半套状态 ========
+        const SCRIPTS = {
+            slow:   { name: '缓泄观察', conf: true,  set: { [KEY.enabled]: 'true', [KEY.type]: 'heap', [KEY.batch]: '8', [KEY.fixed]: 'false' } },
+            rush:   { name: '猛冲撞墙', conf: true,  set: { [KEY.enabled]: 'true', [KEY.type]: 'heap', [KEY.batch]: '50', [KEY.fixed]: 'false' } },
+            direct: { name: '堆外泄漏', conf: true,  set: { [KEY.enabled]: 'true', [KEY.type]: 'direct', [KEY.batch]: '20', [KEY.fixed]: 'false' } },
+            fixed:  { name: '修复走平', conf: true,  set: { [KEY.enabled]: 'true', [KEY.fixed]: 'true' } },
+            reset:  { name: '复位默认', conf: true,  set: { [KEY.enabled]: 'false', [KEY.fixed]: 'false', [KEY.type]: 'heap', [KEY.batch]: '20' } },
+            // 止血属于「关掉故障」的通道，和演练总开关同理：任何时候都该一键可达，不设确认
+            stop:   { name: '一键止血', conf: false, set: { [KEY.enabled]: 'false' } }
+        };
+
+        async function runScript(id) {
+            if (ctlBusy) return;
+            const s = SCRIPTS[id];
+            if (!s) return;
+            if (s.conf && !(await ConfirmDialog.show('确定应用剧本「' + s.name + '」吗？\n（将一次改写 ' + Object.keys(s.set).length
+                + ' 项演练配置：' + Object.entries(s.set).map(([k, v]) => k.replace('fault.oom.', '').replace('monitor.', '') + '=' + v).join('，') + '）'))) return;
+            ctlBusy = true;
+            try {
+                await http.put('/admin/config/batch', s.set);
+                Toast.show('已应用剧本：' + s.name);
+                logEvent('应用剧本「' + s.name + '」', id === 'stop' ? 'ok' : 'warn');
+                pollBoard();
             } catch (e) {
                 Toast.show(e.message, 'error');
             } finally {
@@ -242,148 +341,20 @@
             if (!(await ConfirmDialog.show('确定回收已泄漏内存吗？\n（将摘除泄漏引用并触发一次 GC，会短暂 STW，演练专用）', { danger: true, okText: '回收' }))) return;
             try {
                 const msg = await http.post('/admin/config/recover');
-                Toast.show(typeof msg === 'string' ? msg : '已触发回收');
-                setTimeout(pollMemory, 800);
+                const text = typeof msg === 'string' ? msg : '已触发回收';
+                Toast.show(text);
+                logEvent(text, 'ok');
+                setTimeout(pollBoard, 800);
             } catch (e) { Toast.show(e.message, 'error'); }
         }
 
-        // ======== 内存/CPU/磁盘趋势曲线：本地保留最近 120 个采样点，原生 canvas 四线 + 坐标轴 ========
-        const HIST_CAP = 120;
-        const heapHist = [], directHist = [], cpuHist = [], diskHist = [];
-
-        function pushHist(arr, v) {
-            arr.push(v);
-            if (arr.length > HIST_CAP) arr.shift();
-        }
-
-        function drawSmoothLine(ctx, arr, x0, y0, pw, ph, color) {
-            if (arr.length < 2) return;
-            const pts = arr.map((v, i) => ({
-                x: x0 + i / (HIST_CAP - 1) * pw,
-                y: y0 + ph - (v / 100) * ph
-            }));
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.lineJoin = 'round';
-            ctx.beginPath();
-            ctx.moveTo(pts[0].x, pts[0].y);
-            // 中点二次贝塞尔：以上一点为控制点、与下一点的中点为终点，曲线平滑穿过采样趋势
-            for (let i = 1; i < pts.length - 1; i++) {
-                const mx = (pts[i].x + pts[i + 1].x) / 2;
-                const my = (pts[i].y + pts[i + 1].y) / 2;
-                ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
-            }
-            ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
-            ctx.stroke();
-        }
-
-        // 坐标轴留白：左侧放 Y 轴百分比刻度，底部放时间刻度
-        const PAD_L = 38, PAD_R = 10, PAD_T = 8, PAD_B = 20;
-
-        function fmtAgo(sec) {
-            return sec >= 60 ? (sec / 60).toFixed(sec % 60 === 0 ? 0 : 1) + '分' : sec + '秒';
-        }
-
-        function drawChart() {
-            const canvas = document.getElementById('memChart');
-            const w = canvas.clientWidth, h = canvas.clientHeight;
-            if (canvas.width !== w) canvas.width = w;
-            if (canvas.height !== h) canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, w, h);
-            const x0 = PAD_L, y0 = PAD_T, pw = w - PAD_L - PAD_R, ph = h - PAD_T - PAD_B;
-            // Y 轴：0-100%，每 20% 一条网格线 + 刻度文字（四条线统一百分比口径，共用一根轴）
-            ctx.font = '10px sans-serif';
-            ctx.fillStyle = '#999';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'middle';
-            ctx.strokeStyle = '#f0f0f0';
-            for (let p = 0; p <= 100; p += 20) {
-                const y = y0 + ph - p / 100 * ph;
-                ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + pw, y); ctx.stroke();
-                ctx.fillText(p + '%', x0 - 5, y);
-            }
-            // 80% 告警参考线：越过它就该准备抓证据/止血了
-            ctx.strokeStyle = '#ffcc80';
-            ctx.setLineDash([4, 4]);
-            const y80 = y0 + ph - 0.8 * ph;
-            ctx.beginPath(); ctx.moveTo(x0, y80); ctx.lineTo(x0 + pw, y80); ctx.stroke();
-            ctx.setLineDash([]);
-            // X 轴：相对时间刻度（窗口 = 120 点 × 当前刷新间隔，随配置动态变化）
-            const winSec = Math.round(HIST_CAP * pollMs / 1000);
-            ctx.fillStyle = '#999';
-            ctx.textAlign = 'center';
-            ctx.fillText('-' + fmtAgo(winSec), x0 + 18, y0 + ph + 10);
-            ctx.fillText('-' + fmtAgo(Math.round(winSec / 2)), x0 + pw / 2, y0 + ph + 10);
-            ctx.textAlign = 'right';
-            ctx.fillText('现在', x0 + pw, y0 + ph + 10);
-            // 坐标轴主线
-            ctx.strokeStyle = '#ddd';
-            ctx.beginPath();
-            ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + ph); ctx.lineTo(x0 + pw, y0 + ph);
-            ctx.stroke();
-            // 四条曲线：颜色与图例一一对应
-            drawSmoothLine(ctx, heapHist, x0, y0, pw, ph, '#f44336');
-            drawSmoothLine(ctx, directHist, x0, y0, pw, ph, '#2196f3');
-            drawSmoothLine(ctx, cpuHist, x0, y0, pw, ph, '#4caf50');
-            drawSmoothLine(ctx, diskHist, x0, y0, pw, ph, '#ff9800');
-        }
-
-        // ======== 刷新节奏：默认 3 秒，间隔存 blog_sys_config（monitor.poll-interval-seconds），
-        // 每轮响应下发当前值，变更后自动重排定时器，改完即生效无需刷新页面 ========
-        let pollMs = 3000;
-        let pollTimer = null;
-
-        function schedulePoll(ms) {
-            if (ms === pollMs && pollTimer) return;
-            pollMs = ms;
-            if (pollTimer) clearInterval(pollTimer);
-            pollTimer = setInterval(pollMemory, pollMs);
-        }
-
-        // ======== 内存轮询 ========
-        async function pollMemory() {
-            if (!isAdmin(me)) return;
-            try {
-                const m = await http.get('/admin/config/memory');
-                renderControls(m);
-                const pct = Math.min(100, Math.round(m.heapUsedMb / m.heapMaxMb * 100));
-                const dpct = m.directMaxMb > 0 ? Math.min(100, Math.round(m.directUsedMb / m.directMaxMb * 100)) : 0;
-                document.getElementById('heapText').textContent = m.heapUsedMb + ' / ' + m.heapMaxMb + ' MB (' + pct + '%)';
-                document.getElementById('directText').textContent = m.directUsedMb + ' / ' + m.directMaxMb + ' MB (' + dpct + '%)';
-                const cpu = m.cpuUsagePercent || 0;
-                const disk = m.diskUsagePercent || 0;
-                document.getElementById('cpuText').textContent = cpu + '%';
-                document.getElementById('diskText').textContent = disk + '%';
-                const sec = m.pollIntervalSeconds || 3;
-                document.getElementById('intervalText').textContent = sec + ' 秒';
-                schedulePoll(sec * 1000);
-                pushHist(heapHist, pct);
-                pushHist(directHist, dpct);
-                pushHist(cpuHist, cpu);
-                pushHist(diskHist, disk);
-                drawChart();
-                document.getElementById('nonHeapText').textContent = m.nonHeapUsedMb + ' MB';
-                document.getElementById('faultTypeText').textContent = m.faultType;
-                const boundedEl = document.getElementById('boundedText');
-                if (m.faultFixed) {
-                    boundedEl.style.display = '';
-                    boundedEl.innerHTML = '有界缓存：<b>' + m.boundedCacheSize + ' 条 / 已淘汰 ' + m.boundedCacheEvicted + ' 次</b>';
-                } else {
-                    boundedEl.style.display = 'none';
-                }
-                const badge = document.getElementById('faultBadge');
-                if (m.faultEnabled && m.faultFixed) { badge.textContent = '✓ 修复模式（内存应走平）'; badge.className = 'cfg-badge cfg-off'; }
-                else if (m.faultEnabled) { badge.textContent = '⚠ 泄漏演练中'; badge.className = 'cfg-badge cfg-on'; }
-                else { badge.textContent = '演练关闭'; badge.className = 'cfg-badge cfg-off'; }
-            } catch (e) { /* 静默，401 会由 http 统一跳转 */ }
-        }
-
+        // 管理员专属：把看板的每轮样本接给操控台，并在日志里留下越线时刻
         if (isAdmin(me)) {
-            loadConfigs();
-            loadJvm();
-            pollMemory();
-            pollTimer = setInterval(pollMemory, pollMs);
+            window.onJvmSample = renderControls;
+            window.onBoardWarn = who => logEvent(who + ' 越过 80% 警戒线', 'danger');
+            logEvent('操控台就绪，等待 JVM 指标…');
+            initBoard();
+            ctlBusy = false;
         }
     </script>
 </body>

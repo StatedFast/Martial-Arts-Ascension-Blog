@@ -46,6 +46,21 @@ public class LeakSimulator {
     /** 累计注入量（MB），仅用于日志观测 */
     private volatile long injectedMb = 0;
 
+    /** 累计注入量（MB）：从进程启动算起，供配置中心 KPI 卡片展示「至今一共泄了多少」 */
+    public long getInjectedMb() {
+        return injectedMb;
+    }
+
+    /** 当前仍被强引用的堆内泄漏条目数（修复模式下注入走有界 LRU，此值保持 0） */
+    public int leakEntryCount() {
+        return cacheService.countByPrefix(LEAK_KEY_PREFIX);
+    }
+
+    /** 当前仍被强引用的 DirectByteBuffer 个数 —— 堆外泄漏存量 */
+    public int directBufferCount() {
+        return directBufferPool.size();
+    }
+
     /**
      * 每 5 秒轮询一次开关。未开启直接 return，不做任何分配。
      * fixedDelay 而非 fixedRate：确保上一轮注入完成后再计时，避免泄漏任务自身堆积。
