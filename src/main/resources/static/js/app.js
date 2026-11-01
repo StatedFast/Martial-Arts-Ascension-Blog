@@ -110,6 +110,11 @@ const Auth = {
 };
 
 // ==================== 导航栏渲染 ====================
+/** 是否管理员（与后端 role=ADMIN 对齐），前端仅用于控制入口显隐，真正的权限拦截在后端 */
+function isAdmin(user) {
+    return !!user && typeof user.role === 'string' && user.role.trim().toUpperCase() === 'ADMIN';
+}
+
 function renderNavbar() {
     const navLinks = document.getElementById('navLinks');
     if (!navLinks) return;
@@ -129,6 +134,7 @@ function renderNavbar() {
                 <div class="user-dropdown" id="userDropdown">
                     <a href="/profile">个人中心</a>
                     <a href="/notifications">通知中心</a>
+                    ${isAdmin(user) ? '<a href="/config">配置中心</a>' : ''}
                     <a href="#" class="logout" onclick="Auth.logout();return false;">退出登录</a>
                 </div>
             </div>

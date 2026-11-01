@@ -6,10 +6,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
+import spring.ai.example.spring_ai_demo.entity.SysConfig;
 import spring.ai.example.spring_ai_demo.entity.User;
+import spring.ai.example.spring_ai_demo.mapper.SysConfigMapper;
 import spring.ai.example.spring_ai_demo.mapper.UserMapper;
+import spring.ai.example.spring_ai_demo.service.SysConfigService;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 数据初始化器（企业级）
@@ -28,18 +33,48 @@ public class DataInitializer implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
 
     private final UserMapper userMapper;
+    private final SysConfigMapper sysConfigMapper;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
 
     /** 种子用户的默认密码（仅开发环境，与 data.sql 中 MD5 对应的原始密码一致） */
     private static final String DEFAULT_SEED_PASSWORD = "123456";
 
-    public DataInitializer(UserMapper userMapper) {
+    public DataInitializer(UserMapper userMapper, SysConfigMapper sysConfigMapper) {
         this.userMapper = userMapper;
+        this.sysConfigMapper = sysConfigMapper;
     }
 
     @Override
     public void run(String... args) {
         migratePasswordsToBCrypt();
+        seedSysConfig();
+    }
+
+    /**
+     * 播种配置中心默认项（幂等：已存在的 key 不覆盖，保留管理员手动改过的值）。
+     * 故障演练开关默认全部关闭，batch-size 给一个温和值，需管理员显式打开才生效。
+     */
+    private void seedSysConfig() {
+        Map<String, String> defaults = new LinkedHashMap<>();
+        defaults.put(SysConfigService.FAULT_ENABLED, "false|故障演练总开关（true 开启内存泄漏注入，关闭即止血）");
+        defaults.put(SysConfigService.FAULT_TYPE, "heap|故障类型：heap=堆内泄漏 / direct=堆外直接内存泄漏");
+        defaults.put(SysConfigService.FAULT_BATCH_SIZE, "20|每5秒注入的MB数（后端钳制上限50，防止爆得太快看不到GC过程）");
+        defaults.put(SysConfigService.FAULT_FIXED, "false|修复模式（true=注入走有界LRU/有界引用池，内存曲线走平；与泄漏态对比演示修复效果）");
+
+        for (Map.Entry<String, String> entry : defaults.entrySet()) {
+            Long exists = sysConfigMapper.selectCount(
+                    new LambdaQueryWrapper<SysConfig>().eq(SysConfig::getConfigKey, entry.getKey()));
+            if (exists != null && exists > 0) {
+                continue;
+            }
+            String[] parts = entry.getValue().split("\\|", 2);
+            SysConfig config = new SysConfig();
+            config.setConfigKey(entry.getKey());
+            config.setConfigValue(parts[0]);
+            config.setDescription(parts.length > 1 ? parts[1] : null);
+            sysConfigMapper.insert(config);
+        }
+        log.debug("配置中心默认项播种完成");
     }
 
     /**

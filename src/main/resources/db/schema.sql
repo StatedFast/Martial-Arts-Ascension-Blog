@@ -125,6 +125,17 @@ CREATE TABLE IF NOT EXISTS blog_notification (
     KEY idx_notify_user (user_id, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ==================== 系统配置中心（k-v） ====================
+-- 后台「配置中心」读写，兼作故障演练开关（如内存泄漏注入）。默认全部关闭。
+CREATE TABLE IF NOT EXISTS blog_sys_config (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    config_key VARCHAR(100) NOT NULL UNIQUE,
+    config_value VARCHAR(500),
+    description VARCHAR(255),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ==================== 存量库升级：blog_article 增加 favorite_count ====================
 -- MySQL 8 不支持 ADD COLUMN IF NOT EXISTS，这里用 information_schema 判断 + 动态 SQL 保证幂等
 SET @fav_col_exists := (

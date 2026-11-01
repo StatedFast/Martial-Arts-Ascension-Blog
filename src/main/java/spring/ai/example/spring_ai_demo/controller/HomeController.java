@@ -85,6 +85,13 @@ public class HomeController {
         return "write";
     }
 
+    /** 配置中心（仅管理员，页面内会二次校验角色；非管理员接口会返回 403） */
+    @GetMapping("/config")
+    public String config(Model model) {
+        model.addAttribute("title", "配置中心 - 修仙心得");
+        return "config";
+    }
+
     /**
      * 首页博主名片数据：取站点管理员账号，缺失字段回退到默认文案。
      * 只读单行查询，走主键/角色索引，避免前端再发一次请求。

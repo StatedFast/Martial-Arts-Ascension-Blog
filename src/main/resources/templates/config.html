@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">配置中心 - 修仙心得</title>
+    <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
+    <link rel="stylesheet" href="/css/style.css?v=15">
+    <style>
+        .cfg-mem-card { padding: 20px; }
+        .cfg-mem-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+        .cfg-mem-bar { height: 18px; background: #eee; border-radius: 9px; overflow: hidden; margin-bottom: 8px; }
+        .cfg-mem-fill { height: 100%; background: linear-gradient(90deg,#4caf50,#ff9800,#f44336); width: 0; transition: width .4s; }
+        .cfg-mem-info { display: flex; gap: 24px; font-size: 13px; color: #666; flex-wrap: wrap; }
+        .cfg-badge { padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+        .cfg-on { background: #ffebee; color: #c62828; }
+        .cfg-off { background: #e8f5e9; color: #2e7d32; }
+        table.cfg-table { width: 100%; border-collapse: collapse; }
+        table.cfg-table th, table.cfg-table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; vertical-align: middle; }
+        table.cfg-table td.cfg-desc { color: #888; font-size: 13px; }
+        table.cfg-table input.cfg-val { width: 120px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; }
+        .cfg-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 修仙心得</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="main-content">
+            <!-- 实时内存 -->
+            <div class="card cfg-mem-card" style="margin-bottom:16px;">
+                <div class="cfg-mem-title">
+                    JVM 实时内存
+                    <span id="faultBadge" class="cfg-badge cfg-off">演练关闭</span>
+                </div>
+                <div class="cfg-mem-bar"><div class="cfg-mem-fill" id="heapFill"></div></div>
+                <div class="cfg-mem-info">
+                    <span>堆内存：<b id="heapText">--</b></span>
+                    <span>非堆(元空间等)：<b id="nonHeapText">--</b></span>
+                    <span>故障类型：<b id="faultTypeText">--</b></span>
+                    <span id="boundedText" style="display:none;">有界缓存：<b>--</b></span>
+                </div>
+            </div>
+
+            <!-- 快捷开关 -->
+            <div class="card" style="margin-bottom:16px;">
+                <div class="cfg-actions">
+                    <button class="btn btn-primary btn-sm" onclick="setFault('fault.oom.enabled','true')">开启演练</button>
+                    <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.enabled','false')">止血关闭</button>
+                    <button class="btn btn-outline btn-sm" onclick="setType('heap')">堆内泄漏(heap)</button>
+                    <button class="btn btn-outline btn-sm" onclick="setType('direct')">堆外泄漏(direct)</button>
+                    <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.fixed','true')">✓ 开启修复模式</button>
+                    <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.fixed','false')">关闭修复模式</button>
+                </div>
+            </div>
+
+            <!-- 配置表格 -->
+            <div class="card">
+                <div style="padding:16px 20px;font-weight:600;border-bottom:1px solid #f0f0f0;">配置项（k-v）</div>
+                <div id="configList"><div class="loading">加载中...</div></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=7"></script>
+    <script>
+        if (!Auth.isLoggedIn()) {
+            window.location.href = '/login';
+        }
+        const me = Auth.getUser();
+        if (!isAdmin(me)) {
+            document.querySelector('.main-content').innerHTML =
+                '<div class="empty-state"><h3>无权限</h3><p>配置中心仅管理员可访问</p></div>';
+        }
+
+        // ======== 配置列表 ========
+        async function loadConfigs() {
+            try {
+                const list = await http.get('/admin/config');
+                renderConfigs(list);
+            } catch (e) {
+                document.getElementById('configList').innerHTML =
+                    '<div class="empty-state"><h3>加载失败</h3><p>' + escapeHtml(e.message) + '</p></div>';
+            }
+        }
+
+        function renderConfigs(list) {
+            if (!list || !list.length) {
+                document.getElementById('configList').innerHTML = '<div class="empty-state"><h3>暂无配置项</h3></div>';
+                return;
+            }
+            const rows = list.map(c => `
+                <tr>
+                    <td><code>${escapeHtml(c.configKey)}</code></td>
+                    <td class="cfg-desc">${escapeHtml(c.description || '')}</td>
+                    <td><input class="cfg-val" id="val_${c.id}" value="${escapeAttr(c.configValue || '')}"></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="saveOne(${c.id}, '${escapeAttr(c.configKey)}')">保存</button></td>
+                </tr>`).join('');
+            document.getElementById('configList').innerHTML = `
+                <table class="cfg-table">
+                    <thead><tr><th>键</th><th>说明</th><th>值</th><th></th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+        }
+
+        async function saveOne(id, key) {
+            const input = document.getElementById('val_' + id);
+            try {
+                await http.put('/admin/config', { configKey: key, configValue: input.value });
+                Toast.show('已保存：' + key);
+                loadConfigs();
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            }
+        }
+
+        // ======== 快捷开关（复用 PUT 接口） ========
+        async function setFault(key, value) {
+            try {
+                await http.put('/admin/config', { configKey: key, configValue: value });
+                Toast.show(value === 'true' ? '演练已开启，注意观察内存' : '演练已关闭（止血）');
+                loadConfigs();
+                pollMemory();
+            } catch (e) { Toast.show(e.message, 'error'); }
+        }
+
+        async function setType(type) {
+            try {
+                await http.put('/admin/config', { configKey: 'fault.oom.type', configValue: type });
+                Toast.show('故障类型已切换为：' + type);
+                loadConfigs();
+            } catch (e) { Toast.show(e.message, 'error'); }
+        }
+
+        // ======== 内存轮询 ========
+        async function pollMemory() {
+            if (!isAdmin(me)) return;
+            try {
+                const m = await http.get('/admin/config/memory');
+                const pct = Math.min(100, Math.round(m.heapUsedMb / m.heapMaxMb * 100));
+                document.getElementById('heapFill').style.width = pct + '%';
+                document.getElementById('heapText').textContent = m.heapUsedMb + ' / ' + m.heapMaxMb + ' MB (' + pct + '%)';
+                document.getElementById('nonHeapText').textContent = m.nonHeapUsedMb + ' MB';
+                document.getElementById('faultTypeText').textContent = m.faultType;
+                const boundedEl = document.getElementById('boundedText');
+                if (m.faultFixed) {
+                    boundedEl.style.display = '';
+                    boundedEl.innerHTML = '有界缓存：<b>' + m.boundedCacheSize + ' 条 / 已淘汰 ' + m.boundedCacheEvicted + ' 次</b>';
+                } else {
+                    boundedEl.style.display = 'none';
+                }
+                const badge = document.getElementById('faultBadge');
+                if (m.faultEnabled && m.faultFixed) { badge.textContent = '✓ 修复模式（内存应走平）'; badge.className = 'cfg-badge cfg-off'; }
+                else if (m.faultEnabled) { badge.textContent = '⚠ 泄漏演练中'; badge.className = 'cfg-badge cfg-on'; }
+                else { badge.textContent = '演练关闭'; badge.className = 'cfg-badge cfg-off'; }
+            } catch (e) { /* 静默，401 会由 http 统一跳转 */ }
+        }
+
+        if (isAdmin(me)) {
+            loadConfigs();
+            pollMemory();
+            setInterval(pollMemory, 2000);
+        }
+    </script>
+</body>
+</html>
