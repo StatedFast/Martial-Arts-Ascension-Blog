@@ -4,8 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -25,9 +24,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class NotificationServiceImpl implements NotificationService {
-
-    private static final Logger log = LoggerFactory.getLogger(NotificationServiceImpl.class);
 
     /** @提及解析：昵称/用户名只允许中英文、数字、下划线，长度 1~30，避免误吞整句 */
     private static final Pattern MENTION_PATTERN = Pattern.compile("@([\\p{IsHan}\\p{L}\\p{N}_]{1,30})");

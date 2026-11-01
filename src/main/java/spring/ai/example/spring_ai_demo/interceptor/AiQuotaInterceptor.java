@@ -2,8 +2,7 @@ package spring.ai.example.spring_ai_demo.interceptor;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import spring.ai.example.spring_ai_demo.service.AiQuotaService;
@@ -20,9 +19,8 @@ import spring.ai.example.spring_ai_demo.service.AiQuotaService;
  * 这里直接写响应体，与 JwtInterceptor / RateLimitInterceptor 的处理方式保持一致。
  */
 @Component
+@Slf4j
 public class AiQuotaInterceptor implements HandlerInterceptor {
-
-    private static final Logger log = LoggerFactory.getLogger(AiQuotaInterceptor.class);
 
     /** 写作助手接口前缀：命中就走写作配额，其余 AI 接口走对话配额 */
     private static final String WRITING_PATH_PREFIX = "/api/ai/writing";

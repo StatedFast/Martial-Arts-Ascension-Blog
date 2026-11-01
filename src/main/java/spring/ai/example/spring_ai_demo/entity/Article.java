@@ -1,8 +1,11 @@
 package spring.ai.example.spring_ai_demo.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
+
 import java.time.LocalDateTime;
 
+@Data
 @TableName("blog_article")
 public class Article {
 
@@ -41,47 +44,4 @@ public class Article {
 
     @TableLogic
     private Integer deleted;
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-    public String getSummary() { return summary; }
-    public void setSummary(String summary) { this.summary = summary; }
-    public String getCoverImage() { return coverImage; }
-    public void setCoverImage(String coverImage) { this.coverImage = coverImage; }
-    public Long getAuthorId() { return authorId; }
-    public void setAuthorId(Long authorId) { this.authorId = authorId; }
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
-    public String getTags() { return tags; }
-    public void setTags(String tags) { this.tags = tags; }
-    public Long getViewCount() { return viewCount; }
-    public void setViewCount(Long viewCount) { this.viewCount = viewCount; }
-    public Long getCommentCount() { return commentCount; }
-    public void setCommentCount(Long commentCount) { this.commentCount = commentCount; }
-    public Long getLikeCount() { return likeCount; }
-    public void setLikeCount(Long likeCount) { this.likeCount = likeCount; }
-    public Long getFavoriteCount() { return favoriteCount; }
-    public void setFavoriteCount(Long favoriteCount) { this.favoriteCount = favoriteCount; }
-    public Boolean getLiked() { return liked; }
-    public void setLiked(Boolean liked) { this.liked = liked; }
-    public Boolean getFavorited() { return favorited; }
-    public void setFavorited(Boolean favorited) { this.favorited = favorited; }
-    public String getAuthorName() { return authorName; }
-    public void setAuthorName(String authorName) { this.authorName = authorName; }
-    public String getAuthorAvatar() { return authorAvatar; }
-    public void setAuthorAvatar(String authorAvatar) { this.authorAvatar = authorAvatar; }
-    public Integer getStatus() { return status; }
-    public void setStatus(Integer status) { this.status = status; }
-    public Integer getIsTop() { return isTop; }
-    public void setIsTop(Integer isTop) { this.isTop = isTop; }
-    public LocalDateTime getCreateTime() { return createTime; }
-    public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
-    public LocalDateTime getUpdateTime() { return updateTime; }
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
-    public Integer getDeleted() { return deleted; }
-    public void setDeleted(Integer deleted) { this.deleted = deleted; }
 }

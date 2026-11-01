@@ -1,7 +1,7 @@
 package spring.ai.example.spring_ai_demo.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import spring.ai.example.spring_ai_demo.service.SysConfigService;
@@ -26,9 +26,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * 做成无接口独立组件的原因同 NotificationSseManager：@Scheduled 不能落在被 JDK 动态代理的接口 Bean 上。
  */
 @Component
+@Slf4j
+@RequiredArgsConstructor
 public class LeakSimulator {
-
-    private static final Logger log = LoggerFactory.getLogger(LeakSimulator.class);
 
     private final LocalCacheService cacheService;
     private final SysConfigService sysConfigService;
@@ -45,13 +45,6 @@ public class LeakSimulator {
 
     /** 累计注入量（MB），仅用于日志观测 */
     private volatile long injectedMb = 0;
-
-    public LeakSimulator(LocalCacheService cacheService, SysConfigService sysConfigService,
-                         BoundedCacheService boundedCacheService) {
-        this.cacheService = cacheService;
-        this.sysConfigService = sysConfigService;
-        this.boundedCacheService = boundedCacheService;
-    }
 
     /**
      * 每 5 秒轮询一次开关。未开启直接 return，不做任何分配。

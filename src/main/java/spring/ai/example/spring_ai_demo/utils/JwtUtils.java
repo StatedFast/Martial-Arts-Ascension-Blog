@@ -3,8 +3,7 @@ package spring.ai.example.spring_ai_demo.utils;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import spring.ai.example.spring_ai_demo.exception.TokenExpiredException;
@@ -29,9 +28,8 @@ import java.util.UUID;
  * - 审计日志
  */
 @Component
+@Slf4j
 public class JwtUtils {
-
-    private static final Logger log = LoggerFactory.getLogger(JwtUtils.class);
 
     @Value("${jwt.secret}")
     private String secret;

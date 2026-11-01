@@ -1,5 +1,7 @@
 package spring.ai.example.spring_ai_demo.exception;
 
+import lombok.Getter;
+
 /**
  * 业务异常基类
  *
@@ -8,6 +10,7 @@ package spring.ai.example.spring_ai_demo.exception;
  * - 全局异常处理器统一捕获
  * - 前端根据错误码做差异化处理
  */
+@Getter
 public class BusinessException extends RuntimeException {
 
     private final int code;
@@ -25,9 +28,5 @@ public class BusinessException extends RuntimeException {
     public BusinessException(String message, Throwable cause) {
         super(message, cause);
         this.code = 500;
-    }
-
-    public int getCode() {
-        return code;
     }
 }

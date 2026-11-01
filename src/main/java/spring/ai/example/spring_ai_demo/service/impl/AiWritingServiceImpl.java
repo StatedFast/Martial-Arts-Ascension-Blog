@@ -1,7 +1,6 @@
 package spring.ai.example.spring_ai_demo.service.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.stereotype.Service;
@@ -21,9 +20,8 @@ import java.util.stream.Collectors;
  * - 输入先截断再拼提示词：正文可能上万字，原样送模型会超上下文并推高费用
  */
 @Service
+@Slf4j
 public class AiWritingServiceImpl implements AiWritingService {
-
-    private static final Logger log = LoggerFactory.getLogger(AiWritingServiceImpl.class);
 
     /** 送入模型的正文字数上限 */
     private static final int MAX_CONTENT = 6000;

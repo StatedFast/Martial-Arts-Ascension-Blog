@@ -2,8 +2,7 @@ package spring.ai.example.spring_ai_demo.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,9 +19,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class InteractionServiceImpl implements InteractionService {
-
-    private static final Logger log = LoggerFactory.getLogger(InteractionServiceImpl.class);
 
     private final ArticleMapper articleMapper;
     private final CommentMapper commentMapper;

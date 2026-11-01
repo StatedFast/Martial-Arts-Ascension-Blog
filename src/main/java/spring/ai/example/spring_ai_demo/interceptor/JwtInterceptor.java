@@ -3,8 +3,7 @@ package spring.ai.example.spring_ai_demo.interceptor;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -26,9 +25,8 @@ import spring.ai.example.spring_ai_demo.utils.JwtUtils;
  * - 审计日志
  */
 @Component
+@Slf4j
 public class JwtInterceptor implements HandlerInterceptor {
-
-    private static final Logger log = LoggerFactory.getLogger(JwtInterceptor.class);
 
     private final JwtUtils jwtUtils;
     private final TokenBlacklistService blacklistService;

@@ -1,7 +1,6 @@
 package spring.ai.example.spring_ai_demo.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import spring.ai.example.spring_ai_demo.entity.Article;
@@ -11,9 +10,8 @@ import spring.ai.example.spring_ai_demo.service.ArticleService;
 import java.util.Set;
 
 @Component
+@Slf4j
 public class ScheduledTasks {
-
-    private static final Logger log = LoggerFactory.getLogger(ScheduledTasks.class);
 
     private final LocalCacheService cacheService;
     private final ArticleService articleService;

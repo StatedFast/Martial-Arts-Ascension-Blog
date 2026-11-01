@@ -2,6 +2,7 @@ package spring.ai.example.spring_ai_demo.interceptor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -22,9 +23,8 @@ import java.util.stream.Collectors;
 
 @Aspect
 @Component
+@Slf4j
 public class LogAspect {
-
-    private static final Logger log = LoggerFactory.getLogger(LogAspect.class);
 
     /**
      * 核心接口操作日志的专用记录器。

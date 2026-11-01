@@ -1,5 +1,6 @@
 package spring.ai.example.spring_ai_demo.controller;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -29,6 +30,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/admin/config")
+@RequiredArgsConstructor
 public class SysConfigController {
 
     private static final String ADMIN_ROLE = "ADMIN";
@@ -36,13 +38,6 @@ public class SysConfigController {
     private final SysConfigService sysConfigService;
     private final BoundedCacheService boundedCacheService;
     private final LeakSimulator leakSimulator;
-
-    public SysConfigController(SysConfigService sysConfigService, BoundedCacheService boundedCacheService,
-                               LeakSimulator leakSimulator) {
-        this.sysConfigService = sysConfigService;
-        this.boundedCacheService = boundedCacheService;
-        this.leakSimulator = leakSimulator;
-    }
 
     /** 配置项列表（含说明），供配置中心页面渲染 */
     @GetMapping

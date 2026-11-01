@@ -1,8 +1,8 @@
 package spring.ai.example.spring_ai_demo.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import spring.ai.example.spring_ai_demo.entity.SysConfig;
 import spring.ai.example.spring_ai_demo.mapper.SysConfigMapper;
@@ -21,15 +21,11 @@ import java.util.List;
  *   导致演练无法被关掉。开关必须独立于被注入故障的存储。
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class SysConfigService {
 
-    private static final Logger log = LoggerFactory.getLogger(SysConfigService.class);
-
     private final SysConfigMapper sysConfigMapper;
-
-    public SysConfigService(SysConfigMapper sysConfigMapper) {
-        this.sysConfigMapper = sysConfigMapper;
-    }
 
     // ======== 配置键常量（故障演练） ========
 

@@ -1,7 +1,6 @@
 package spring.ai.example.spring_ai_demo.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -20,9 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * 生产环境建议替换为Redis实现（支持分布式部署）。
  */
 @Service
+@Slf4j
 public class LoginAttemptService {
-
-    private static final Logger log = LoggerFactory.getLogger(LoginAttemptService.class);
 
     @Value("${security.login.max-attempts:5}")
     private int maxAttempts;

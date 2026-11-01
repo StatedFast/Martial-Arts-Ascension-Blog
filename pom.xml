@@ -33,6 +33,8 @@
 		<spring-ai.version>1.1.8</spring-ai.version>
 		<mybatis-plus.version>3.5.9</mybatis-plus.version>
 		<jjwt.version>0.12.6</jjwt.version>
+		<!-- Boot 3.4.3 默认管理的 Lombok 不支持 JDK24，显式覆盖版本 -->
+		<lombok.version>1.18.38</lombok.version>
 	</properties>
 	<dependencies>
 		<!-- Spring Boot Web -->
@@ -129,6 +131,13 @@
 			<artifactId>spring-security-crypto</artifactId>
 		</dependency>
 
+		<!-- Lombok：编译期生成 getter/setter/log 等样板代码，只为瘦身不影响运行时 -->
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+
 		<!-- 测试 -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -150,6 +159,20 @@
 
 	<build>
 		<plugins>
+			<!-- JDK23+ 默认关闭 classpath 注解处理，Lombok 必须显式声明到处理器路径才生效 -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>${lombok.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

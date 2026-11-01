@@ -3,8 +3,7 @@ package spring.ai.example.spring_ai_demo.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import spring.ai.example.spring_ai_demo.dto.CommentDTO;
@@ -21,9 +20,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> implements CommentService {
-
-    private static final Logger log = LoggerFactory.getLogger(CommentServiceImpl.class);
 
     private static final int MAX_PAGE_SIZE = 50;
 

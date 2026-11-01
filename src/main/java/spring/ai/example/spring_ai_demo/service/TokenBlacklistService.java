@@ -1,7 +1,6 @@
 package spring.ai.example.spring_ai_demo.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import spring.ai.example.spring_ai_demo.config.LocalCacheService;
@@ -21,9 +20,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * 当前使用本地内存实现，适用于开发/演示环境。
  */
 @Service
+@Slf4j
 public class TokenBlacklistService {
-
-    private static final Logger log = LoggerFactory.getLogger(TokenBlacklistService.class);
 
     private static final String BLACKLIST_PREFIX = "jwt:blacklist:";
 

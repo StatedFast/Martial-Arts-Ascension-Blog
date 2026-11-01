@@ -1,7 +1,6 @@
 package spring.ai.example.spring_ai_demo.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -24,9 +23,8 @@ import java.util.Map;
  * 生产更推荐直接用 Caffeine（expireAfterWrite + maximumSize），本类只为「看得见原理」的教学对比。
  */
 @Component
+@Slf4j
 public class BoundedCacheService {
-
-    private static final Logger log = LoggerFactory.getLogger(BoundedCacheService.class);
 
     /** 最大条目数（默认 32；配合 1MB 负载，堆占用天花板约 32MB，256MB 小堆下曲线一眼走平） */
     private final int maxSize;

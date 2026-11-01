@@ -1,8 +1,8 @@
 package spring.ai.example.spring_ai_demo.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -28,9 +28,9 @@ import java.util.Map;
  * 此处为开发/演示环境的自动迁移方案。
  */
 @Component
+@Slf4j
+@RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
-
-    private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
 
     private final UserMapper userMapper;
     private final SysConfigMapper sysConfigMapper;
@@ -38,11 +38,6 @@ public class DataInitializer implements CommandLineRunner {
 
     /** 种子用户的默认密码（仅开发环境，与 data.sql 中 MD5 对应的原始密码一致） */
     private static final String DEFAULT_SEED_PASSWORD = "123456";
-
-    public DataInitializer(UserMapper userMapper, SysConfigMapper sysConfigMapper) {
-        this.userMapper = userMapper;
-        this.sysConfigMapper = sysConfigMapper;
-    }
 
     @Override
     public void run(String... args) {

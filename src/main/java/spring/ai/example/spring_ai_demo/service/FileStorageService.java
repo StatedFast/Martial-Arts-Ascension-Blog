@@ -1,7 +1,6 @@
 package spring.ai.example.spring_ai_demo.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.unit.DataSize;
@@ -28,9 +27,8 @@ import java.util.UUID;
  * - 删除旧图时校验最终路径仍在托管目录内
  */
 @Service
+@Slf4j
 public class FileStorageService {
-
-    private static final Logger log = LoggerFactory.getLogger(FileStorageService.class);
 
     /** 头像对外访问URL前缀（与 WebMvcConfig 的 /uploads/** 资源映射对应） */
     public static final String AVATAR_URL_PREFIX = "/uploads/avatars/";
