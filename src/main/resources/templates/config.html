@@ -21,7 +21,21 @@
         table.cfg-table th, table.cfg-table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; vertical-align: middle; }
         table.cfg-table td.cfg-desc { color: #888; font-size: 13px; }
         table.cfg-table input.cfg-val { width: 120px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; }
-        .cfg-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px; }
+        .cfg-actions { display: flex; gap: 24px; flex-wrap: wrap; padding: 16px; align-items: center; }
+        .cfg-ctl { display: flex; align-items: center; gap: 8px; }
+        .cfg-ctl-label { font-size: 14px; color: #333; font-weight: 600; }
+        .cfg-ctl-state { font-size: 12px; color: #999; min-width: 42px; }
+        /* 微信式滑块开关：点一下滑右变色=开，再点滑左=关 */
+        .cfg-switch { width: 46px; height: 26px; border-radius: 13px; background: #ddd; position: relative; cursor: pointer; transition: background .25s; flex-shrink: 0; }
+        .cfg-switch-knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .25s; }
+        .cfg-switch.on { background: #07c160; }
+        .cfg-switch.on .cfg-switch-knob { left: 23px; }
+        .cfg-switch-blue.on { background: #1976d2; }
+        /* 分段选择器：选中项填充与趋势曲线同色，颜色语义对齐 */
+        .cfg-seg { display: flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+        .cfg-seg button { border: none; background: #fff; padding: 6px 14px; font-size: 13px; cursor: pointer; color: #666; transition: background .2s, color .2s; }
+        .cfg-seg button.active-heap { background: #f44336; color: #fff; }
+        .cfg-seg button.active-direct { background: #2196f3; color: #fff; }
     </style>
 </head>
 <body>
@@ -51,15 +65,26 @@
                 </div>
             </div>
 
-            <!-- 快捷开关 -->
+            <!-- 演练控制台：开关/分段器状态由后端每轮下发渲染，前端只做乐观翻转 -->
             <div class="card" style="margin-bottom:16px;">
                 <div class="cfg-actions">
-                    <button class="btn btn-primary btn-sm" onclick="setFault('fault.oom.enabled','true')">开启演练</button>
-                    <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.enabled','false')">止血关闭</button>
-                    <button class="btn btn-outline btn-sm" onclick="setType('heap')">堆内泄漏(heap)</button>
-                    <button class="btn btn-outline btn-sm" onclick="setType('direct')">堆外泄漏(direct)</button>
-                    <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.fixed','true')">✓ 开启修复模式</button>
-                    <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.fixed','false')">关闭修复模式</button>
+                    <div class="cfg-ctl">
+                        <span class="cfg-ctl-label">故障演练</span>
+                        <div class="cfg-switch" id="swFault" onclick="toggleSwitch('swFault','fault.oom.enabled','演练已开启，注意观察曲线','演练已关闭（止血）')"><div class="cfg-switch-knob"></div></div>
+                        <span class="cfg-ctl-state" id="swFaultText">--</span>
+                    </div>
+                    <div class="cfg-ctl">
+                        <span class="cfg-ctl-label">泄漏类型</span>
+                        <div class="cfg-seg">
+                            <button id="segHeap" onclick="setType('heap')">堆内 heap</button>
+                            <button id="segDirect" onclick="setType('direct')">堆外 direct</button>
+                        </div>
+                    </div>
+                    <div class="cfg-ctl">
+                        <span class="cfg-ctl-label">修复模式</span>
+                        <div class="cfg-switch cfg-switch-blue" id="swFixed" onclick="toggleSwitch('swFixed','fault.oom.fixed','修复已开启（停止新增，存量不降）','修复已关闭（恢复泄漏注入）')"><div class="cfg-switch-knob"></div></div>
+                        <span class="cfg-ctl-state" id="swFixedText">--</span>
+                    </div>
                     <button class="btn btn-outline btn-sm" onclick="recover()">↺ 回收泄漏内存（堆内+堆外）</button>
                 </div>
             </div>
@@ -124,22 +149,57 @@
             }
         }
 
-        // ======== 快捷开关（复用 PUT 接口） ========
-        async function setFault(key, value) {
+        // ======== 控件状态渲染：后端是唯一事实源，每轮轮询重刷（多标签页也能看到真实状态） ========
+        function renderControls(m) {
+            const swF = document.getElementById('swFault');
+            swF.classList.toggle('on', !!m.faultEnabled);
+            document.getElementById('swFaultText').textContent = m.faultEnabled ? '进行中' : '已关闭';
+            const swX = document.getElementById('swFixed');
+            swX.classList.toggle('on', !!m.faultFixed);
+            document.getElementById('swFixedText').textContent = m.faultFixed ? '防新增' : '已关闭';
+            document.getElementById('segHeap').className = m.faultType === 'heap' ? 'active-heap' : '';
+            document.getElementById('segDirect').className = m.faultType === 'direct' ? 'active-direct' : '';
+        }
+
+        // 防抖：一个写请求在飞时忽略其他点击，失败下轮轮询会用后端真值把 UI 纠正回来
+        let ctlBusy = false;
+
+        function toggleSwitch(id, key, onMsg, offMsg) {
+            if (ctlBusy) return;
+            // 乐观更新：先本地翻转开关动画，再提交；后端是最终裁判
+            document.getElementById(id).classList.toggle('on');
+            const on = document.getElementById(id).classList.contains('on');
+            setFault(key, on ? 'true' : 'false', on ? onMsg : offMsg);
+        }
+
+        async function setFault(key, value, okMsg) {
+            if (ctlBusy) return;
+            ctlBusy = true;
             try {
                 await http.put('/admin/config', { configKey: key, configValue: value });
-                Toast.show(value === 'true' ? '演练已开启，注意观察内存' : '演练已关闭（止血）');
+                if (okMsg) Toast.show(okMsg);
                 loadConfigs();
                 pollMemory();
-            } catch (e) { Toast.show(e.message, 'error'); }
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            } finally {
+                ctlBusy = false;
+            }
         }
 
         async function setType(type) {
+            if (ctlBusy) return;
+            ctlBusy = true;
             try {
                 await http.put('/admin/config', { configKey: 'fault.oom.type', configValue: type });
-                Toast.show('故障类型已切换为：' + type);
+                Toast.show('故障类型已切换为：' + (type === 'heap' ? '堆内泄漏' : '堆外泄漏'));
                 loadConfigs();
-            } catch (e) { Toast.show(e.message, 'error'); }
+                pollMemory();
+            } catch (e) {
+                Toast.show(e.message, 'error');
+            } finally {
+                ctlBusy = false;
+            }
         }
 
         // 回收已泄漏内存（修复模式只能「不再新增」，已泄漏的需显式摘引用 + GC 才降得下来）
@@ -218,6 +278,7 @@
             if (!isAdmin(me)) return;
             try {
                 const m = await http.get('/admin/config/memory');
+                renderControls(m);
                 const pct = Math.min(100, Math.round(m.heapUsedMb / m.heapMaxMb * 100));
                 const dpct = m.directMaxMb > 0 ? Math.min(100, Math.round(m.directUsedMb / m.directMaxMb * 100)) : 0;
                 document.getElementById('heapText').textContent = m.heapUsedMb + ' / ' + m.heapMaxMb + ' MB (' + pct + '%)';
