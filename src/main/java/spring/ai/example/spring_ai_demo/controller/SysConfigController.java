@@ -1,6 +1,7 @@
 package spring.ai.example.spring_ai_demo.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import spring.ai.example.spring_ai_demo.common.Result;
 import spring.ai.example.spring_ai_demo.config.BoundedCacheService;
+import spring.ai.example.spring_ai_demo.config.LeakSimulator;
 import spring.ai.example.spring_ai_demo.entity.SysConfig;
 import spring.ai.example.spring_ai_demo.service.SysConfigService;
 
@@ -30,10 +32,13 @@ public class SysConfigController {
 
     private final SysConfigService sysConfigService;
     private final BoundedCacheService boundedCacheService;
+    private final LeakSimulator leakSimulator;
 
-    public SysConfigController(SysConfigService sysConfigService, BoundedCacheService boundedCacheService) {
+    public SysConfigController(SysConfigService sysConfigService, BoundedCacheService boundedCacheService,
+                               LeakSimulator leakSimulator) {
         this.sysConfigService = sysConfigService;
         this.boundedCacheService = boundedCacheService;
+        this.leakSimulator = leakSimulator;
     }
 
     /** 配置项列表（含说明），供配置中心页面渲染 */
@@ -93,5 +98,18 @@ public class SysConfigController {
 
     private boolean isAdmin(String role) {
         return role != null && ADMIN_ROLE.equalsIgnoreCase(role.trim());
+    }
+
+    /**
+     * 回收已泄漏的堆内存（仅管理员、仅演练用）。
+     * 摘除泄漏缓存条目的强引用 + 触发一次 GC，让内存曲线回落，补齐「止血→回收」演示闭环。
+     */
+    @PostMapping("/recover")
+    public Result<?> recover(@RequestAttribute("role") String role) {
+        if (!isAdmin(role)) {
+            return Result.forbidden("仅管理员可操作");
+        }
+        int removed = leakSimulator.purgeHeapLeak();
+        return Result.success("已回收 " + removed + " 个泄漏缓存条目，稍等内存曲线应回落", null);
     }
 }

@@ -56,6 +56,7 @@
                     <button class="btn btn-outline btn-sm" onclick="setType('direct')">堆外泄漏(direct)</button>
                     <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.fixed','true')">✓ 开启修复模式</button>
                     <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.fixed','false')">关闭修复模式</button>
+                    <button class="btn btn-outline btn-sm" onclick="recover()">↺ 回收已泄漏内存</button>
                 </div>
             </div>
 
@@ -134,6 +135,15 @@
                 await http.put('/admin/config', { configKey: 'fault.oom.type', configValue: type });
                 Toast.show('故障类型已切换为：' + type);
                 loadConfigs();
+            } catch (e) { Toast.show(e.message, 'error'); }
+        }
+
+        // 回收已泄漏内存（修复模式只能「不再新增」，已泄漏的需显式摘引用 + GC 才降得下来）
+        async function recover() {
+            try {
+                const msg = await http.post('/admin/config/recover');
+                Toast.show(typeof msg === 'string' ? msg : '已触发回收');
+                setTimeout(pollMemory, 800);
             } catch (e) { Toast.show(e.message, 'error'); }
         }
 

@@ -89,6 +89,8 @@ jmap -dump:format=b,file=./logs/heap_<pid>.hprof <pid>
    - 加**容量上限 + 淘汰**：`BoundedCacheService`（`LinkedHashMap` accessOrder LRU + `removeEldestEntry`），生产更推荐 **Caffeine**（`maximumSize` + `expireAfterWrite`）
    - 修掉带时间戳的 key 设计（同类请求应命中同一 key）
 3. **验证对比闭环**：配置中心点「✓ 开启修复模式」→ 保持演练开启 → 内存条涨到 ~32MB（`fault.drill.bounded-cache-max-size`）即走平，页面显示「有界缓存：32 条 / 已淘汰 N 次」，证明淘汰在工作
+   - ⚠️ **关键认知（面试必答）**：修复模式只能「止血」（不再新增泄漏），**不会让已泄漏的内存下降**——因为旧的 `byte[]` 仍被 `LocalCacheService` 这个单例 Bean 强引用，是活对象，GC 回收不掉。这正是「内存泄漏」的定义。
+   - 想让曲线真正回落：点「↺ 回收已泄漏内存」（`POST /api/admin/config/recover` → `LeakSimulator.purgeHeapLeak()`），它摘掉泄漏 key 的强引用使其变为垃圾 + 触发一次 `System.gc()`，曲线随即下降。**生产上真正的止血手段是重启**，`System.gc()` 只为演示即时效果。
 4. **防再犯**：
    - JVM 启动固定加 `HeapDumpOnOutOfMemoryError`
    - 监控告警：老年代使用率 >80% 持续 5 分钟告警

@@ -57,6 +57,17 @@ public class LocalCacheService {
         keys.forEach(cache::remove);
     }
 
+    /**
+     * 按前缀批量删除缓存条目，返回删除数量。
+     * 供故障演练的「回收已泄漏内存」使用：只清指定前缀（如 article:snapshot:），
+     * 不误伤浏览量/限流/热榜等正常缓存。删除后这些条目失去强引用，下次 GC 即可回收。
+     */
+    public int removeByPrefix(String prefix) {
+        int before = cache.size();
+        cache.keySet().removeIf(k -> k.startsWith(prefix));
+        return before - cache.size();
+    }
+
     // ======== 计数器操作 ========
 
     public Long increment(String key) {

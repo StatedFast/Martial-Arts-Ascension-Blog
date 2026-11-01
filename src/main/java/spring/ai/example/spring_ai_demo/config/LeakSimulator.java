@@ -40,6 +40,9 @@ public class LeakSimulator {
     /** 修复模式下堆外「有界引用池」的上限：超出即丢弃最老引用，让 Cleaner 能回收，堆外占用封顶 */
     private static final int FIXED_DIRECT_POOL_SIZE = 32;
 
+    /** 泄漏/修复注入统一使用的 key 前缀，回收时按此定位 */
+    private static final String LEAK_KEY_PREFIX = "article:snapshot:";
+
     /** 累计注入量（MB），仅用于日志观测 */
     private volatile long injectedMb = 0;
 
@@ -90,10 +93,10 @@ public class LeakSimulator {
             byte[] payload = new byte[SysConfigService.CHUNK_BYTES];
             if (fixed) {
                 // 修复：交给有界 LRU，超过 maxSize 由 removeEldestEntry 淘汰最久未用条目
-                boundedCacheService.put("article:snapshot:" + System.nanoTime(), payload);
+                boundedCacheService.put(LEAK_KEY_PREFIX + System.nanoTime(), payload);
             } else {
                 // 泄漏：故意用永久 set（非带 TTL 重载），key 唯一，模拟错误的缓存优化
-                cacheService.set("article:snapshot:" + System.nanoTime(), payload);
+                cacheService.set(LEAK_KEY_PREFIX + System.nanoTime(), payload);
             }
         }
     }
@@ -123,5 +126,19 @@ public class LeakSimulator {
         int size = directBufferPool.size();
         directBufferPool.clear();
         log.warn("【故障演练】已释放 {} 个 DirectByteBuffer 强引用，等待 Cleaner 回收", size);
+    }
+
+    /**
+     * 回收已泄漏的堆内存（演示用，补齐「止血→回收→曲线下降」闭环）。
+     *
+     * 关键认知：开修复模式只能「不再新增」，已经泄漏的 byte[] 仍被 LocalCacheService 强引用、GC 回收不掉。
+     * 本方法主动摘掉这些 key 的引用，使其变为垃圾，再提示一次 GC，让配置中心的内存曲线当场回落。
+     * 生产上真正的止血手段是重启；System.gc() 仅为演示即时效果，不能作为生产依赖。
+     */
+    public int purgeHeapLeak() {
+        int removed = cacheService.removeByPrefix(LEAK_KEY_PREFIX);
+        log.warn("【故障演练】已从泄漏缓存中摘除 {} 个条目，触发一次 GC 以即时回收", removed);
+        System.gc(); // 仅演示用：让曲线立即下降，生产不依赖显式 GC
+        return removed;
     }
 }
