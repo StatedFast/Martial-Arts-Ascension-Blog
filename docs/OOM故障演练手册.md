@@ -74,7 +74,10 @@ jmap -dump:format=b,file=./logs/heap_<pid>.hprof <pid>
 - 确认 `LocalCacheService` 无容量上限、无淘汰
 
 ### 2.4 direct（堆外）类型的差异（面试延伸点）
-- 症状不同：**堆使用率正常**，但进程 RSS 持续膨胀，最终 `OutOfMemoryError: Direct buffer memory`
+- 症状不同：**堆使用率正常（O 区不涨）**，但进程 RSS 持续膨胀，最终 `OutOfMemoryError: Direct buffer memory`
+- 观察口径：`MemoryMXBean` 的 nonHeap **照不到直接内存**，要用 `BufferPoolMXBean("direct")`（配置中心页面的「堆外直接内存」进度条 + 趋势曲线就是它，上限从启动参数解析 `-XX:MaxDirectMemorySize`，未设置时默认≈Xmx），或 `jcmd <pid> VM.native_memory` / 进程 RSS
+- 页面面板：堆内（红）/ 堆外（蓝）双进度条 + 120 点趋势曲线 + 80% 告警参考线；direct 演练时应该看到**红线不动、蓝线上涨**，这是最快的定性判据
+- 回收时机：摘掉 DirectByteBuffer 强引用后，native 内存不是立即归还，而是等 GC 标记到该 buffer 时由 Cleaner 释放 —— 所以回收接口会附带一次 `System.gc()`
 - `jmap -histo` 看不到元凶（DirectByteBuffer 的堆内壳很小，真正内存在堆外）
 - 定位靠 **NMT**：`-XX:NativeMemoryTracking=detail` → `jcmd <pid> VM.native_memory detail`，看 Internal/Other 段
 - 或 MAT 里找 `java.nio.Bits` 的 `TOTAL_CAPACITY` / 大量 `DirectByteBuffer` 的 `cleaner`
@@ -140,7 +143,107 @@ Windows 下 `head` 不存在，用 `... | Select-Object -First 20`（PowerShell�
 
 ---
 
-## 7. 本文件涉及的文件清单
+## 7. 堆外（Direct）OOM 排查 SOP
+
+> 适用症状：`java.lang.OutOfMemoryError: Direct buffer memory`，或「堆监控正常但进程 RSS 持续膨胀 / 容器被 OOMKilled」。
+> 演练复现：配置中心切 `堆外泄漏(direct)` + 开启演练（需 run.bat 的 `-XX:MaxDirectMemorySize=64m`）。
+
+### Step 0 看报错定方向（30 秒）
+
+OOM 报错文案就是分流表，先看清楚是哪一种：
+
+| 报错 | 方向 |
+|---|---|
+| `Java heap space` | 堆内（走第 2 章流程） |
+| `Direct buffer memory` | **堆外直接内存（本章）** |
+| `Metaspace` | 类加载泄漏（动态代理/热部署） |
+| `unable to create new native thread` | 线程数爆炸，查线程泄漏 |
+| 无异常直接消失（`dmesg` 见 OOM Killer / K8s `OOMKilled`） | RSS 碰顶容器限额，堆内堆外都要查 |
+
+### Step 1 确认「堆没事、堆外出事」（1 分钟）
+
+核心判据：**堆使用率正常，但 RSS ≫ 堆上限**。
+
+```bash
+jcmd <pid> GC.heap_info          # 堆各区占用，预期：正常、O 区不满
+top -p <pid>                     # 看 RES 列（RSS），预期：远超 -Xmx
+cat /sys/fs/cgroup/memory.current   # 容器内看 cgroup 实际用量
+```
+
+本项目对照：配置中心页面「堆内存」正常、「堆外(direct)」随演练阶梯上涨（口径：`BufferPoolMXBean("direct")`）。
+
+> 为什么堆 dump 分析（jmap -histo）在这里会失效：DirectByteBuffer 的 native 内存不在堆里，
+> 堆里只有几十个字节的「壳」，所以堆直方图按 Retained Heap 排序根本排不进前列。
+
+### Step 2 堆外内部分流：direct 还是其他 native？
+
+```bash
+# 方式 A：NMT（需启动参数 -XX:NativeMemoryTracking=summary，生产建议常开，开销 <5%）
+jcmd <pid> VM.native_memory summary
+#   看哪段涨：Internal/Other 涨 → direct buffer / mmap；Thread 涨 → 线程栈；Class 涨 → 元空间
+
+# 方式 B：无 NMT 参数时，直接看 direct buffer 池（JMX/Arthas）
+#   Arthas: dashboard 或 memory 命令，直接展示 direct/max 两列
+#   JMX: java.lang:type=BufferPool,name=direct → MemoryUsed / TotalCapacity
+```
+
+判据：`BufferPool(direct).MemoryUsed ≈ MaxDirectMemorySize` → 坐实 direct 泄漏。
+
+### Step 3 找到「壳对象」的持有者（关键一步）
+
+**堆外泄漏的元凶要靠堆内的「壳」来指认**：每个未释放的 DirectByteBuffer 在堆里都有一个壳实例，壳活着 = native 内存没还。
+
+```bash
+jmap -histo:live <pid> | grep DirectByteBuffer
+#   实例数 ≈ 泄漏 buffer 数（本项目演练：1 个壳 = 1MB 堆外），正常应用只有零星几个
+
+jmap -dump:format=b,file=./logs/heap_<pid>.hprof <pid>
+```
+
+MAT 分析（和堆内流程同套路，只是主角换成 DirectByteBuffer）：
+1. Histogram → 搜 `java.nio.DirectByteBuffer` → List objects with GC roots；
+2. **Path to GC Roots（exclude 虚/弱引用）**：注意别被 `Cleaner` 的 PhantomReference 干扰，它就是堆外回收机制本身；
+3. 引用链会落到「把 buffer 存进静态集合/单例字段」的业务代码。
+
+本项目对照：引用链 = `LeakSimulator（单例 Bean）→ CopyOnWriteArrayList directBufferPool → DirectByteBuffer[]`。
+
+### Step 4 回到代码找分配点
+
+全局 grep 三类堆外分配入口：
+- `allocateDirect` / `newDirectByteBuffer`
+- `FileChannel.map`（mmap，**不受 MaxDirectMemorySize 约束**，NMT 里在 Internal，且回收更玄学）
+- Netty `ByteBuf` / `Unsafe`（引用计数漏 release）
+
+检查模式：分配后是否被长生命周期集合持有？是否该 release/clean 却没调？
+
+### Step 5 止血
+
+| 情况 | 手段 | 效果 |
+|---|---|---|
+| buffer 已无强引用，只是 Cleaner 没跑 | `jcmd <pid> GC.run`（或等 JVM 自己的慢路径 System.gc()） | 能降，不用重启 |
+| 被静态/单例强引用（真泄漏） | **只能重启**（滚动逐台，顺带留一台 dump 取证） | 重启即恢复 |
+| 容器反复 OOMKilled | 临时调大 limit 或调小 `-XX:MaxDirectMemorySize` 兑冲 | 买时间用 |
+
+> JVM 内置彩蛋：`Bits.reserveMemory()` 分配失败时会先强制 `System.gc()` 重试一次再抱 OOM——
+> 所以 GC 日志里 direct OOM 前会密集出现 `GC cause 'System.gc()'`，看到这个特征基本可以预判堆外要爆。
+
+本项目对照：配置中心「↺ 回收泄漏内存（堆内+堆外）」= 清引用池 + System.gc()，页面「堆外(direct)」当场归零。
+
+### Step 6 修复与防复发
+
+1. 代码：引用封顶（本项目修复态：池超 32 丢最老引用）/ 用完即弃 / Netty 用 try-finally release；
+2. 参数：**显式设置 `-XX:MaxDirectMemorySize`**（默认≈Xmx，容器里极易被 OOMKiller 先杀）；
+3. 监控：`RSS - 堆上限` 差值告警；Micrometer 自带 `jvm_buffer_memory_used_bytes{id="direct"}` 指标；
+4. 取证：Netty 加 `-Dio.netty.leakDetection.level=PARANOID` 可打印未 release 的分配栈；
+5. 常开 `-XX:NativeMemoryTracking=summary`，否则事发时没历史可比。
+
+### SOP 一页纸总结（面试背诵版）
+
+> 报错分流 → 堆正常但 RSS 高确认堆外 → NMT/BufferPool 定位 direct → 堆内抓 DirectByteBuffer 壳对象、MAT 追 GC Roots 找持有者 → grep 分配点回代码 → 强引用泄漏只能重启止血 → 修复（封顶引用/显式 MaxDirectMemorySize/RSS 告警/Netty 泄漏检测）。堆外泄漏的精髓：**看堆是看不到的，要靠「壳」和 RSS 的差值破案。**
+
+---
+
+## 8. 本文件涉及的文件清单
 
 | 文件 | 角色 |
 |---|---|

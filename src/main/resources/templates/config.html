@@ -9,8 +9,10 @@
     <style>
         .cfg-mem-card { padding: 20px; }
         .cfg-mem-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
-        .cfg-mem-bar { height: 18px; background: #eee; border-radius: 9px; overflow: hidden; margin-bottom: 8px; }
-        .cfg-mem-fill { height: 100%; background: linear-gradient(90deg,#4caf50,#ff9800,#f44336); width: 0; transition: width .4s; }
+        #memChart { width: 100%; height: 140px; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 8px; margin: 4px 0 10px; }
+        .cfg-legend { font-weight: 600; }
+        .cfg-legend-heap { color: #f44336; }
+        .cfg-legend-direct { color: #2196f3; }
         .cfg-mem-info { display: flex; gap: 24px; font-size: 13px; color: #666; flex-wrap: wrap; }
         .cfg-badge { padding: 2px 10px; border-radius: 12px; font-size: 12px; }
         .cfg-on { background: #ffebee; color: #c62828; }
@@ -38,11 +40,13 @@
                     JVM 实时内存
                     <span id="faultBadge" class="cfg-badge cfg-off">演练关闭</span>
                 </div>
-                <div class="cfg-mem-bar"><div class="cfg-mem-fill" id="heapFill"></div></div>
+                <canvas id="memChart"></canvas>
                 <div class="cfg-mem-info">
-                    <span>堆内存：<b id="heapText">--</b></span>
+                    <span class="cfg-legend cfg-legend-heap">— 堆内存：<b id="heapText">--</b></span>
+                    <span class="cfg-legend cfg-legend-direct">— 堆外(direct)：<b id="directText">--</b></span>
                     <span>非堆(元空间等)：<b id="nonHeapText">--</b></span>
                     <span>故障类型：<b id="faultTypeText">--</b></span>
+                    <span>刷新间隔：<b id="intervalText">--</b></span>
                     <span id="boundedText" style="display:none;">有界缓存：<b>--</b></span>
                 </div>
             </div>
@@ -56,7 +60,7 @@
                     <button class="btn btn-outline btn-sm" onclick="setType('direct')">堆外泄漏(direct)</button>
                     <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.fixed','true')">✓ 开启修复模式</button>
                     <button class="btn btn-outline btn-sm" onclick="setFault('fault.oom.fixed','false')">关闭修复模式</button>
-                    <button class="btn btn-outline btn-sm" onclick="recover()">↺ 回收已泄漏内存</button>
+                    <button class="btn btn-outline btn-sm" onclick="recover()">↺ 回收泄漏内存（堆内+堆外）</button>
                 </div>
             </div>
 
@@ -147,14 +151,83 @@
             } catch (e) { Toast.show(e.message, 'error'); }
         }
 
+        // ======== 内存趋势曲线：本地保留最近 120 个采样点（2s 轮询 ≈ 4 分钟窗口），原生 canvas 双线 ========
+        const HIST_CAP = 120;
+        const heapHist = [], directHist = [];
+
+        function pushHist(arr, v) {
+            arr.push(v);
+            if (arr.length > HIST_CAP) arr.shift();
+        }
+
+        function drawSmoothLine(ctx, arr, w, h, color) {
+            if (arr.length < 2) return;
+            const pts = arr.map((v, i) => ({
+                x: i / (HIST_CAP - 1) * w,
+                y: h - (v / 100) * (h - 8) - 4
+            }));
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            // 中点二次贝塞尔：以上一点为控制点、与下一点的中点为终点，曲线平滑穿过采样趋势
+            for (let i = 1; i < pts.length - 1; i++) {
+                const mx = (pts[i].x + pts[i + 1].x) / 2;
+                const my = (pts[i].y + pts[i + 1].y) / 2;
+                ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+            }
+            ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+            ctx.stroke();
+        }
+
+        function drawChart() {
+            const canvas = document.getElementById('memChart');
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            if (canvas.width !== w) canvas.width = w;
+            if (canvas.height !== h) canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, w, h);
+            // 80% 告警参考线：越过它就该准备抓证据/止血了
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            const y80 = h - 0.8 * (h - 8) - 4;
+            ctx.moveTo(0, y80);
+            ctx.lineTo(w, y80);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            drawSmoothLine(ctx, heapHist, w, h, '#f44336');
+            drawSmoothLine(ctx, directHist, w, h, '#2196f3');
+        }
+
+        // ======== 刷新节奏：默认 3 秒，间隔存 blog_sys_config（monitor.poll-interval-seconds），
+        // 每轮响应下发当前值，变更后自动重排定时器，改完即生效无需刷新页面 ========
+        let pollMs = 3000;
+        let pollTimer = null;
+
+        function schedulePoll(ms) {
+            if (ms === pollMs && pollTimer) return;
+            pollMs = ms;
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(pollMemory, pollMs);
+        }
+
         // ======== 内存轮询 ========
         async function pollMemory() {
             if (!isAdmin(me)) return;
             try {
                 const m = await http.get('/admin/config/memory');
                 const pct = Math.min(100, Math.round(m.heapUsedMb / m.heapMaxMb * 100));
-                document.getElementById('heapFill').style.width = pct + '%';
+                const dpct = m.directMaxMb > 0 ? Math.min(100, Math.round(m.directUsedMb / m.directMaxMb * 100)) : 0;
                 document.getElementById('heapText').textContent = m.heapUsedMb + ' / ' + m.heapMaxMb + ' MB (' + pct + '%)';
+                document.getElementById('directText').textContent = m.directUsedMb + ' / ' + m.directMaxMb + ' MB (' + dpct + '%)';
+                const sec = m.pollIntervalSeconds || 3;
+                document.getElementById('intervalText').textContent = sec + ' 秒';
+                schedulePoll(sec * 1000);
+                pushHist(heapHist, pct);
+                pushHist(directHist, dpct);
+                drawChart();
                 document.getElementById('nonHeapText').textContent = m.nonHeapUsedMb + ' MB';
                 document.getElementById('faultTypeText').textContent = m.faultType;
                 const boundedEl = document.getElementById('boundedText');
@@ -174,7 +247,7 @@
         if (isAdmin(me)) {
             loadConfigs();
             pollMemory();
-            setInterval(pollMemory, 2000);
+            pollTimer = setInterval(pollMemory, pollMs);
         }
     </script>
 </body>

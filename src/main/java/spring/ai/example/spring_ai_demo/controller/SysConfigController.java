@@ -13,6 +13,7 @@ import spring.ai.example.spring_ai_demo.config.LeakSimulator;
 import spring.ai.example.spring_ai_demo.entity.SysConfig;
 import spring.ai.example.spring_ai_demo.service.SysConfigService;
 
+import java.lang.management.BufferPoolMXBean;
 import java.lang.management.ManagementFactory;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,16 +84,28 @@ public class SysConfigController {
         long nonHeapUsedMb = ManagementFactory.getMemoryMXBean()
                 .getNonHeapMemoryUsage().getUsed() / (1024 * 1024);
 
+        // 堆外直接内存：MemoryMXBean 的 nonHeap 照不到它，必须走 BufferPoolMXBean("direct") 口径
+        long directUsedMb = 0;
+        for (BufferPoolMXBean pool : ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class)) {
+            if ("direct".equals(pool.getName())) {
+                directUsedMb = pool.getMemoryUsed() / (1024 * 1024);
+            }
+        }
+
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("heapUsedMb", heapUsedMb);
         data.put("heapMaxMb", heapMaxMb);
         data.put("nonHeapUsedMb", nonHeapUsedMb);
+        data.put("directUsedMb", directUsedMb);
+        data.put("directMaxMb", resolveMaxDirectMb());
         data.put("faultEnabled", sysConfigService.getBoolean(SysConfigService.FAULT_ENABLED));
         data.put("faultType", sysConfigService.getFaultType());
         data.put("faultFixed", sysConfigService.getBoolean(SysConfigService.FAULT_FIXED));
         // 修复模式生效时，展示有界 LRU 当前条目数与累计淘汰次数，直观证明「淘汰在工作、内存封顶」
         data.put("boundedCacheSize", boundedCacheService.size());
         data.put("boundedCacheEvicted", boundedCacheService.evictedCount());
+        // 刷新间隔随响应下发：配置中心改完后，前端下一轮自动按新间隔重排定时器
+        data.put("pollIntervalSeconds", sysConfigService.getPollIntervalSeconds());
         return Result.success(data);
     }
 
@@ -101,15 +114,44 @@ public class SysConfigController {
     }
 
     /**
-     * 回收已泄漏的堆内存（仅管理员、仅演练用）。
-     * 摘除泄漏缓存条目的强引用 + 触发一次 GC，让内存曲线回落，补齐「止血→回收」演示闭环。
+     * 解析直接内存上限（MB）：MaxDirectMemorySize 不在 JMX 标准接口里，只能从启动参数读；
+     * 未显式设置时 JVM 默认≈最大堆，这本身就是堆外演练要展示的知识点（run.bat 里显式设了 64m）。
+     */
+    private long resolveMaxDirectMb() {
+        long heapFallback = Runtime.getRuntime().maxMemory() / (1024 * 1024);
+        for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+            if (!arg.startsWith("-XX:MaxDirectMemorySize=")) {
+                continue;
+            }
+            String v = arg.substring("-XX:MaxDirectMemorySize=".length()).toUpperCase().trim();
+            try {
+                long num = Long.parseLong(v.replaceAll("[KMG]$", ""));
+                if (v.endsWith("G")) {
+                    return num * 1024;
+                }
+                if (v.endsWith("K")) {
+                    return num / 1024;
+                }
+                return num; // 默认 M（纯数字按字节的情况极少，演练参数固定带 M）
+            } catch (NumberFormatException e) {
+                return heapFallback;
+            }
+        }
+        return heapFallback;
+    }
+
+    /**
+     * 回收已泄漏内存（仅管理员、仅演练用）：堆内 + 堆外一起。
+     * 堆内：摘除泄漏缓存条目的强引用；堆外：清 DirectByteBuffer 引用池。
+     * 最后由 purgeHeapLeak 触发一次 GC，同时让堆内垃圾回收、堆外 Cleaner 工作，曲线当场回落。
      */
     @PostMapping("/recover")
     public Result<?> recover(@RequestAttribute("role") String role) {
         if (!isAdmin(role)) {
             return Result.forbidden("仅管理员可操作");
         }
-        int removed = leakSimulator.purgeHeapLeak();
-        return Result.success("已回收 " + removed + " 个泄漏缓存条目，稍等内存曲线应回落", null);
+        int directReleased = leakSimulator.releaseDirectBuffers();
+        int heapRemoved = leakSimulator.purgeHeapLeak(); // 内部已含 System.gc()
+        return Result.success("已回收：堆内泄漏条目 " + heapRemoved + " 个，堆外 Buffer " + directReleased + " 个", null);
     }
 }

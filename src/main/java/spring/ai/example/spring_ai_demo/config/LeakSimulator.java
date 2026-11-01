@@ -119,13 +119,14 @@ public class LeakSimulator {
     }
 
     /**
-     * 应急止血：管理员可在配置中心关开关后，调用此逻辑主动释放已注入的直接内存引用，
-     * 让 Cleaner 回收，避免必须重启。目前仅暴露方法，暂不接前端（保持演练的“必须重启恢复”真实感）。
+     * 释放堆外泄漏：摘掉 DirectByteBuffer 的强引用后，其关联的 native 内存并不会立即归还，
+     * 而是等该 buffer 被 GC 标记时由 Cleaner 回收 —— 所以调用方需配合一次 System.gc() 才能即时看到回落。
      */
-    public void releaseDirectBuffers() {
+    public int releaseDirectBuffers() {
         int size = directBufferPool.size();
         directBufferPool.clear();
         log.warn("【故障演练】已释放 {} 个 DirectByteBuffer 强引用，等待 Cleaner 回收", size);
+        return size;
     }
 
     /**

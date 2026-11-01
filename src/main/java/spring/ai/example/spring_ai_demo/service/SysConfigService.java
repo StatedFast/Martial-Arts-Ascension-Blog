@@ -43,6 +43,8 @@ public class SysConfigService {
     public static final String FAULT_PAYLOAD_MB = "fault.oom.payload-mb";
     /** 修复模式：true 时注入走「有界缓存 / 有界引用池」，内存封顶曲线走平（用于修复前后对比演示） */
     public static final String FAULT_FIXED = "fault.oom.fixed";
+    /** 配置中心内存曲线刷新间隔（秒），前端每轮读取、变更后自动重排定时器 */
+    public static final String MONITOR_POLL_INTERVAL = "monitor.poll-interval-seconds";
 
     /** 每条固定 1MB，batch 直接约等于 MB 数，便于按「泄多少内存」直观调参 */
     public static final int CHUNK_BYTES = 1024 * 1024;
@@ -82,6 +84,17 @@ public class SysConfigService {
 
     public String getFaultType() {
         return getString(FAULT_TYPE, "heap").trim().toLowerCase();
+    }
+
+    /** 刷新间隔（秒），解析失败给默认 3，钳制到 [1, 60] 防手滑填 0 把前端轮询打死 */
+    public int getPollIntervalSeconds() {
+        int seconds;
+        try {
+            seconds = Integer.parseInt(getString(MONITOR_POLL_INTERVAL, "3").trim());
+        } catch (NumberFormatException e) {
+            seconds = 3;
+        }
+        return Math.max(1, Math.min(seconds, 60));
     }
 
     // ======== 写入 ========

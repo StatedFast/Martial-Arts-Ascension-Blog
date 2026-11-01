@@ -60,6 +60,7 @@ public class DataInitializer implements CommandLineRunner {
         defaults.put(SysConfigService.FAULT_TYPE, "heap|故障类型：heap=堆内泄漏 / direct=堆外直接内存泄漏");
         defaults.put(SysConfigService.FAULT_BATCH_SIZE, "20|每5秒注入的MB数（后端钳制上限50，防止爆得太快看不到GC过程）");
         defaults.put(SysConfigService.FAULT_FIXED, "false|修复模式（true=注入走有界LRU/有界引用池，内存曲线走平；与泄漏态对比演示修复效果）");
+        defaults.put(SysConfigService.MONITOR_POLL_INTERVAL, "3|配置中心内存曲线刷新间隔（秒，1-60，保存后前端自动生效）");
 
         for (Map.Entry<String, String> entry : defaults.entrySet()) {
             Long exists = sysConfigMapper.selectCount(
