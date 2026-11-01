@@ -105,7 +105,7 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=7"></script>
+    <script src="/js/app.js?v=8"></script>
     <script>
         if (!Auth.isLoggedIn()) {
             window.location.href = '/login';
@@ -168,7 +168,7 @@
         }
 
         async function saveOne(id, key) {
-            if (!confirm('确定保存配置项 ' + key + ' 吗？')) return;
+            if (!(await ConfirmDialog.show('确定保存配置项 ' + key + ' 吗？'))) return;
             const input = document.getElementById('val_' + id);
             try {
                 await http.put('/admin/config', { configKey: key, configValue: input.value });
@@ -195,11 +195,11 @@
         let ctlBusy = false;
 
         // confirmLabel 非空则弹二次确认；故障演练开关不传（随时可止血，不该拦路），其余控件都传
-        function toggleSwitch(id, key, onMsg, offMsg, confirmLabel) {
+        async function toggleSwitch(id, key, onMsg, offMsg, confirmLabel) {
             if (ctlBusy) return;
             const el = document.getElementById(id);
             const curOn = el.classList.contains('on');
-            if (confirmLabel && !confirm('确定将「' + confirmLabel + '」切换为' + (curOn ? '关闭' : '开启') + '吗？')) return;
+            if (confirmLabel && !(await ConfirmDialog.show('确定将「' + confirmLabel + '」切换为' + (curOn ? '关闭' : '开启') + '吗？'))) return;
             // 乐观更新：先本地翻转开关动画，再提交；后端是最终裁判
             el.classList.toggle('on');
             setFault(key, curOn ? 'false' : 'true', curOn ? offMsg : onMsg);
@@ -223,7 +223,7 @@
         async function setType(type) {
             if (ctlBusy) return;
             const label = type === 'heap' ? '堆内泄漏(heap)' : '堆外泄漏(direct)';
-            if (!confirm('确定将泄漏类型切换为「' + label + '」吗？\n（若演练进行中，下一轮注入立即按新类型执行）')) return;
+            if (!(await ConfirmDialog.show('确定将泄漏类型切换为「' + label + '」吗？\n（若演练进行中，下一轮注入立即按新类型执行）'))) return;
             ctlBusy = true;
             try {
                 await http.put('/admin/config', { configKey: 'fault.oom.type', configValue: type });
@@ -239,7 +239,7 @@
 
         // 回收已泄漏内存（修复模式只能「不再新增」，已泄漏的需显式摘引用 + GC 才降得下来）
         async function recover() {
-            if (!confirm('确定回收已泄漏内存吗？\n（将摘除泄漏引用并触发一次 GC，会短暂 STW，演练专用）')) return;
+            if (!(await ConfirmDialog.show('确定回收已泄漏内存吗？\n（将摘除泄漏引用并触发一次 GC，会短暂 STW，演练专用）', { danger: true, okText: '回收' }))) return;
             try {
                 const msg = await http.post('/admin/config/recover');
                 Toast.show(typeof msg === 'string' ? msg : '已触发回收');

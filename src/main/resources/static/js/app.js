@@ -78,6 +78,67 @@ const Toast = {
     }
 };
 
+// ==================== 通用确认弹窗 ====================
+/**
+ * Promise 化的二次确认，替代浏览器原生 confirm：
+ * - 居中展示，复用全局 .modal-overlay/.modal-box 样式，与个人中心头像弹窗同一套 UI
+ * - 原生弹窗标题是域名地址、样式不可控，也无法支持多行文案排版
+ * 用法：if (!(await ConfirmDialog.show('确定要…吗？\n（补充说明）'))) return;
+ */
+const ConfirmDialog = {
+    _resolve: null,
+
+    show(message, options = {}) {
+        const { title = '操作确认', okText = '确定', cancelText = '取消', danger = false } = options;
+        const overlay = this._ensure();
+        document.getElementById('confirmDialogTitle').textContent = title;
+        document.getElementById('confirmDialogMsg').textContent = message;
+        const okBtn = document.getElementById('confirmDialogOk');
+        okBtn.textContent = okText;
+        okBtn.className = danger ? 'btn btn-danger' : 'btn btn-primary';
+        document.getElementById('confirmDialogCancel').textContent = cancelText;
+        overlay.classList.add('show');
+        return new Promise(resolve => { this._resolve = resolve; });
+    },
+
+    /** 弹窗 DOM 全页只建一次，重复 show 复用；结果统一走 _settle 收敛 Promise */
+    _ensure() {
+        let overlay = document.getElementById('confirmDialog');
+        if (overlay) return overlay;
+        overlay = document.createElement('div');
+        overlay.id = 'confirmDialog';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-box">
+                <h3 class="modal-title" id="confirmDialogTitle"></h3>
+                <div id="confirmDialogMsg" style="font-size:0.95rem;color:var(--text-light,#666);line-height:1.8;white-space:pre-line;margin-bottom:24px;"></div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button class="btn btn-outline" id="confirmDialogCancel"></button>
+                    <button class="btn btn-primary" id="confirmDialogOk"></button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        document.getElementById('confirmDialogOk').onclick = () => this._settle(true);
+        document.getElementById('confirmDialogCancel').onclick = () => this._settle(false);
+        // 点遮罩空白处 = 取消，与头像弹窗的关闭习惯一致
+        overlay.addEventListener('click', e => { if (e.target === overlay) this._settle(false); });
+        // ESC 取消：拦截类操作不该强迫用户去够鼠标
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && overlay.classList.contains('show')) this._settle(false);
+        });
+        return overlay;
+    },
+
+    _settle(result) {
+        const overlay = document.getElementById('confirmDialog');
+        if (overlay) overlay.classList.remove('show');
+        if (this._resolve) {
+            this._resolve(result);
+            this._resolve = null;
+        }
+    }
+};
+
 // ==================== 用户状态管理 ====================
 const Auth = {
     isLoggedIn() {
