@@ -145,6 +145,14 @@ UPDATE blog_user SET avatar = '/images/avatars/yinyue.svg'       WHERE id = 108 
 UPDATE blog_user SET avatar = '/images/avatars/ziling.svg'       WHERE id = 109 AND (avatar IS NULL OR avatar = '' OR avatar LIKE '%default-avatar%');
 UPDATE blog_user SET avatar = '/images/avatars/bingfeng.svg'     WHERE id = 110 AND (avatar IS NULL OR avatar = '' OR avatar LIKE '%default-avatar%');
 
+-- 静态头像改版（主字放大到 64 并居中、去掉右下角 emoji 徽标）：文件内容变了但 URL 没变，
+-- 而 Nginx 对 /images/ 下发的是 max-age=2592000, immutable，浏览器根本不会回来重新取，
+-- 老用户看着还是旧字号——这正是「只有新注册的改过来了」的另一半原因。
+-- 统一给这批 SVG 加版本号查询串强制失效；用户上传的 /uploads/avatars/... 不带 .svg 不会命中，
+-- 已带版本号的也不再重复处理，本脚本每次启动都跑，幂等。
+UPDATE blog_user SET avatar = CONCAT(avatar, '?v=2')
+WHERE avatar LIKE '/images/avatars/%.svg' AND avatar NOT LIKE '%?v=%';
+
 -- 第二批功法自述：先男修十篇（1011-1020）
 INSERT IGNORE INTO blog_article (id, title, content, summary, author_id, category, tags, view_count, comment_count, like_count, favorite_count, is_top, status) VALUES
 (1011, '托塔天魔功：乱星海第一防御魔功是怎么练成的',
