@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">访问看板 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=16">
+    <link rel="stylesheet" href="/css/style.css?v=17">
     <style>
         /* ==================== 访问看板专属样式（作用域隔离，不污染全局） ====================
            刻意不复用全局 .container：那是「正文 + 300px 右栏」的博客栅格，
            看板是宽表格式内容，套进去两侧会留大片空白、曲线被压扁。 */
         .va-page { background: var(--bg); }
-        .va-shell { max-width: 1720px; margin: 0 auto; padding: 0 28px; }
+        /* 宽度收到 1440：原来 1720 在超宽屏上会把曲线图拉成一条横得发扁的图，
+           数据量小的时候上半部分全是空白，看板本身又不需要那么多列 */
+        .va-shell { max-width: 1440px; margin: 0 auto; padding: 0 28px; }
 
         .va-hero {
             background:
@@ -48,14 +50,19 @@
 
         /* ---- 图表 ---- */
         #trendChart { display: block; width: 100%; height: 300px; }
-        #hoursChart { display: block; width: 100%; height: 200px; }
+        /* 时段图填充满卡片高度：卡片跟同排的另一张拉平后，矮子项不再拖出一截空白 */
+        #hoursChart { display: block; width: 100%; height: 100%; min-height: 200px; }
         .va-legend { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--text-light); }
         .va-legend span { display: inline-flex; align-items: center; gap: 6px; }
         .va-legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
 
-        /* ---- 两栏并置 ---- */
-        .va-grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; align-items: start; }
-        .va-grid-h { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); gap: 18px; align-items: start; }
+        /* ---- 两栏并置 ----
+           align-items: stretch + 卡片内部 flex 纵向：同一排里矮的那张会被拉到与高的齐平，
+           不会在下方留出一块白（以前 200px 的时段图配 450px 的 Top10 表格，左边白一大截） */
+        .va-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; align-items: stretch; }
+        .va-grid-h { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); gap: 18px; align-items: stretch; }
+        .va-grid-h > .va-card, .va-grid2 > .va-card { display: flex; flex-direction: column; }
+        .va-grid-h .va-card-body, .va-grid2 .va-card-body { flex: 1; min-height: 0; }
 
         /* ---- 分布横向条 ---- */
         .va-bar-row { display: grid; grid-template-columns: 92px 1fr 56px; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 13px; }
@@ -72,6 +79,10 @@
         table.va-table tr:last-child td { border-bottom: none; }
         table.va-table tbody tr:hover { background: #fafbff; }
         table.va-table td.va-num { text-align: right; font-variant-numeric: tabular-nums; }
+        table.va-table td.va-num.up { color: #10b981; }
+        table.va-table td.va-num.down { color: #f43f5e; }
+        .va-today { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px;
+            background: rgba(59,130,246,0.12); color: var(--primary-dark); font-size: 11px; font-weight: 700; vertical-align: 1px; }
         table.va-table .va-rank { width: 34px; text-align: center; font-weight: 800; color: #94a3b8; }
         table.va-table .va-rank.top1 { color: #f59e0b; }
         table.va-table .va-rank.top2 { color: #94a3b8; }
@@ -145,22 +156,30 @@
             </section>
         </div>
 
-        <!-- ==================== 终端 / 来源分布 ==================== -->
+        <!-- ==================== 终端 / 设备 / 来源：三栏一行，每栏一组，不再有一格塞两组、另一格空白 ==================== -->
         <div class="va-grid2">
             <section class="va-card">
                 <div class="va-card-head"><div class="va-card-title">浏览器分布 <small>近 7 天</small></div></div>
                 <div class="va-card-body" id="browsers"><div class="va-empty">加载中...</div></div>
             </section>
             <section class="va-card">
-                <div class="va-card-head"><div class="va-card-title">访客设备与来源 <small>近 7 天</small></div></div>
-                <div class="va-card-body">
-                    <div class="va-muted" style="margin-bottom:10px;">设备类型</div>
-                    <div id="devices"></div>
-                    <div class="va-muted" style="margin:18px 0 10px;">访问来源</div>
-                    <div id="referrers"></div>
-                </div>
+                <div class="va-card-head"><div class="va-card-title">访客设备 <small>近 7 天</small></div></div>
+                <div class="va-card-body" id="devices"><div class="va-empty">加载中...</div></div>
+            </section>
+            <section class="va-card">
+                <div class="va-card-head"><div class="va-card-title">访问来源 <small>近 7 天</small></div></div>
+                <div class="va-card-body" id="referrers"><div class="va-empty">加载中...</div></div>
             </section>
         </div>
+
+        <!-- ==================== 每日明细：接在底部，把页面末尾那段空白填掉 ==================== -->
+        <section class="va-card">
+            <div class="va-card-head">
+                <div class="va-card-title">每日明细 <small id="dailyHint">近 14 天 · PV / UV / 环比</small></div>
+                <div class="va-muted">最近一天排在最上</div>
+            </div>
+            <div class="va-card-body" id="dailyTable"><div class="va-empty">加载中...</div></div>
+        </section>
     </div>
 
     <script src="/js/app.js?v=13"></script>
@@ -203,6 +222,22 @@
             ctx.fillStyle = color; ctx.beginPath(); ctx.arc(last.x, last.y, 2.8, 0, Math.PI * 2); ctx.fill();
         }
 
+        // 曲线下方铺一层渐变：数据量小的时候不铺就是上半屏一片白
+        // （颜色是 #rrggbb，直接拼两位 alpha 就是 8 位十六进制，主流浏览器都支持）
+        function fillArea(ctx, pts, color, y0, ph) {
+            if (pts.length < 2) return;
+            const base = y0 + ph;
+            const grad = ctx.createLinearGradient(0, y0, 0, base);
+            grad.addColorStop(0, color + '3a');
+            grad.addColorStop(1, color + '00');
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, base);
+            pts.forEach(pt => ctx.lineTo(pt.x, pt.y));
+            ctx.lineTo(pts[pts.length - 1].x, base);
+            ctx.closePath();
+            ctx.fillStyle = grad; ctx.fill();
+        }
+
         function niceMax(v) {
             if (v <= 5) return 5;
             const pow = Math.pow(10, Math.floor(Math.log10(v)));
@@ -240,8 +275,13 @@
             ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + ph); ctx.lineTo(x0 + pw, y0 + ph); ctx.stroke();
 
             const yFor = v => y0 + ph - (v / maxV) * ph;
-            drawSmooth(ctx, pv.map((v, i) => ({ x: xFor(i), y: yFor(v) })), VA_COLORS.pv);
-            drawSmooth(ctx, uv.map((v, i) => ({ x: xFor(i), y: yFor(v) })), VA_COLORS.uv);
+            const pvPts = pv.map((v, i) => ({ x: xFor(i), y: yFor(v) }));
+            const uvPts = uv.map((v, i) => ({ x: xFor(i), y: yFor(v) }));
+            // 先填面积再描线，线不会被半透明色块盖住
+            fillArea(ctx, pvPts, VA_COLORS.pv, y0, ph);
+            fillArea(ctx, uvPts, VA_COLORS.uv, y0, ph);
+            drawSmooth(ctx, pvPts, VA_COLORS.pv);
+            drawSmooth(ctx, uvPts, VA_COLORS.uv);
 
             document.getElementById('trendHint').textContent =
                 '近 ' + (d.trend.days || labels.length) + ' 天 · PV 峰值 ' + fmt(Math.max(0, ...pv)) + ' · UV 峰值 ' + fmt(Math.max(0, ...uv));
@@ -332,15 +372,50 @@
             document.getElementById('updatedTip').textContent = '更新于 ' + (d.serverTime || '').slice(11);
         }
 
+        // 每日明细：趋势数据本来就带 14 天数组，直接铺成一张表，顺便填住页面底部
+        function renderDaily(d) {
+            const el = document.getElementById('dailyTable');
+            const t = d.trend || {};
+            const labels = t.labels || [], pv = t.pv || [], uv = t.uv || [];
+            if (!labels.length) { el.innerHTML = '<div class="va-empty">暂无数据</div>'; return; }
+            const sum = pv.reduce((a, b) => a + (Number(b) || 0), 0);
+            const rows = labels.map((lb, i) => {
+                const p = Number(pv[i]) || 0, u = Number(uv[i]) || 0;
+                const prev = i > 0 ? (Number(pv[i - 1]) || 0) : 0;
+                const delta = p - prev;
+                const cls = delta > 0 ? 'up' : (delta < 0 ? 'down' : '');
+                const day = i === labels.length - 1 ? '<span class="va-today">今日</span>' : '';
+                const per = u > 0 ? (p / u).toFixed(1) : '--';
+                return `<tr><td>${escapeHtml(lb)}${day}</td>`
+                    + `<td class="va-num">${fmt(p)}</td>`
+                    + `<td class="va-num">${fmt(u)}</td>`
+                    + `<td class="va-num">${per}</td>`
+                    + `<td class="va-num ${cls}">${i > 0 ? (delta > 0 ? '+' : '') + fmt(delta) : '--'}</td></tr>`;
+            }).reverse().join('');
+            document.getElementById('dailyHint').textContent =
+                `近 ${labels.length} 天 · 合计 PV ${fmt(sum)} · 日均 ${fmt(Math.round(sum / labels.length))}`;
+            el.innerHTML = `<table class="va-table">
+                <thead><tr><th>日期</th>
+                    <th style="width:90px;text-align:right;">PV</th>
+                    <th style="width:90px;text-align:right;">UV</th>
+                    <th style="width:110px;text-align:right;" title="访问数 ÷ 访客数，越高说明同一批人反复来看">人均访问</th>
+                    <th style="width:100px;text-align:right;">PV 环比</th></tr></thead>
+                <tbody>${rows}</tbody></table>`;
+        }
+
         function renderAll(d) {
             lastData = d;
             renderKpis(d);
-            drawTrend(d);
-            drawHours(d);
             renderTopPages(d);
+            renderDaily(d);
             renderBars('browsers', d.browsers, '#a5b4fc', '#6366f1');
             renderBars('devices', d.devices, '#6ee7b7', '#10b981');
             renderBars('referrers', d.referrers, '#7dd3fc', '#0ea5e9');
+            drawTrend(d);
+            drawHours(d);
+            // 表格与条形图渲染完，这一排的高度才真正定下来；而 #hoursChart 是 height:100%，
+            // 所以要等下一帧按新高度重画一次，不然画布还是按“还没填高的旧尺寸”画的
+            requestAnimationFrame(() => { drawTrend(d); drawHours(d); });
         }
 
         async function loadSummary() {

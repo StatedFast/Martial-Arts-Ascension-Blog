@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">斗法台 · 人界篇 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=16">
+    <link rel="stylesheet" href="/css/style.css?v=17">
     <style>
         /* ==================== 斗法台专属样式（dl- 前缀作用域隔离） ====================
            本页只干一件事：选人 → 看两个人打。榜单（境界塔 / 人物墙 / 战力榜）在 /rank。
@@ -239,6 +239,12 @@
         .dl-empty { text-align: center; color: var(--text-light); padding: 40px 0; font-size: 13.5px; }
         .dl-sec-note { font-size: 12px; color: var(--text-light); margin-top: 10px; line-height: 1.85; }
         .dl-voice-warn { margin-top: 10px; font-size: 12px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 9px 12px; display: none; }
+        /* 音色条：音色列表、试听、重新检测。单独一行而不挤进 .dl-actions，
+           因为音色名字普遍很长，下拉得给自己留宽度 */
+        .dl-voice-bar { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .dl-voice-pick { flex: 0 1 300px; min-width: 0; font-size: 12px; padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #334155; }
+        .dl-voice-pick:disabled { opacity: .6; }
+        .dl-voice-bar .dl-hint { flex: 1 1 200px; }
 
         @media (max-width: 1080px) {
             .dl-pick-grid { grid-template-columns: 1fr; }
@@ -346,6 +352,16 @@
                         <button data-speed="1" class="on">1×</button>
                         <button data-speed="1.7">快</button>
                     </span>
+                </div>
+
+                <!-- 音色三件套：能不能发声、用哪个音色、刚装完语音包怎么重检 -->
+                <div class="dl-voice-bar">
+                    <select class="dl-voice-pick" id="dlVoiceList"
+                            title="选一个音色：列表来自你系统已装的中文语音，选过一次会记住"></select>
+                    <button class="btn btn-outline btn-sm" id="dlVoiceTry" type="button" disabled
+                            title="用左边那个人的音色念一条招名">试听</button>
+                    <button class="btn btn-outline btn-sm" id="dlVoiceRe" type="button"
+                            title="音色是异步装进来的，刚装好语音包时点一下">重新检测</button>
                     <span class="dl-hint" id="dlVoiceState"></span>
                 </div>
 
@@ -370,6 +386,6 @@
     </div>
 
     <script src="/js/app.js?v=13"></script>
-    <script src="/js/duel.js?v=2"></script>
+    <script src="/js/duel.js?v=3"></script>
 </body>
 </html>

@@ -245,29 +245,102 @@
     const Speech = {
         ok: typeof window !== 'undefined' && 'speechSynthesis' in window,
         zh: null,
+        list: [],
 
         init() {
             if (!this.ok) {
-                this.warn('这个浏览器没有语音合成，报招改用气泡（不影响斗法）。');
+                this.state('浏览器不支持语音合成');
+                this.warn('这个浏览器没有语音合成接口，报招改用气泡（不影响斗法）。换 Edge / Chrome 正式版即可。');
                 return;
             }
-            const pick = () => {
-                const vs = window.speechSynthesis.getVoices() || [];
-                this.zh = vs.find(v => /^zh([-_]|$)/i.test(v.lang)) || null;
-                $('dlVoiceState').textContent = this.zh ? '语音 · ' + this.zh.name : '未装中文语音包，报招走气泡';
-                if (!this.zh) this.warn('系统里没有中文语音包 —— 人物仍会「张口」，招名以气泡呈现。');
-            };
-            pick();
-            window.speechSynthesis.onvoiceschanged = pick;
+            // 音色是异步进来的：先试一次，剩下的交给 onvoiceschanged 与自查重试
+            this.refresh();
+            window.speechSynthesis.onvoiceschanged = () => this.refresh();
         },
 
-        warn(msg) { const el = $('dlVoiceWarn'); el.textContent = msg; el.style.display = 'block'; },
+        /* 本机可用的中文音色。只看 lang 会漏：有的系统 lang 只写 "zh"，
+           有的 lang 缺失但名字是「Microsoft 晓晓…」，所以名字也参与匹配。 */
+        candidates() {
+            const vs = window.speechSynthesis.getVoices() || [];
+            return vs.filter(v => {
+                const lang = (v.lang || '').replace(/_/g, '-');
+                return /^zh(-|$)/i.test(lang)
+                    || /zh-cn|zh-hans|zh-tw|zh-hk|chinese|mandarin|cantonese/i.test(lang)
+                    || /(中文|普通话|国语|粤语|晓晓|云希|云健|云龙|晓伊|Chinese|Mandarin)/i.test(v.name || '');
+            });
+        },
+
+        /* getVoices() 第一次调用多半返回空数组，而个别内核根本不触发 onvoiceschanged
+           → 自己按 250ms 补几次，否则会错怪用户「你没装中文语音包」 */
+        refresh(left = 10) {
+            this.list = this.candidates();
+            if (this.list.length || left <= 0) {
+                this.buildList();
+                this.report();
+                return;
+            }
+            setTimeout(() => this.refresh(left - 1), 250);
+        },
+
+        /* 音色挑选：用户在页面上选过的优先（存 localStorage，跨场保持），
+           没选过就本地音色优先（联网音色一卡就没声），其次标准普通话。 */
+        pick() {
+            if (!this.list.length) { this.zh = null; return null; }
+            const want = localStorage.getItem('duel-voice') || '';
+            if (want) {
+                const hit = this.list.find(v => v.name === want);
+                if (hit) { this.zh = hit; return hit; }
+            }
+            const score = v => (v.localService ? 2 : 0)
+                + (/^zh(-cn|-hans)?$/i.test((v.lang || '').replace(/_/g, '-')) ? 1 : 0);
+            this.zh = this.list.slice().sort((a, b) => score(b) - score(a))[0];
+            return this.zh;
+        },
+
+        /* 下拉每次整体重建：音色列表是异步补齐的，追加写法会堆出一堆重复选项，
+           而把「列表为空才塞」的判据写在循环里又只会塞进去第一个，等于没得换。 */
+        buildList() {
+            const sel = $('dlVoiceList');
+            if (!sel) return;
+            const save = localStorage.getItem('duel-voice') || '';
+            sel.innerHTML = '<option value="">自动（本地音色优先）</option>';
+            this.list.forEach(v => {
+                const o = document.createElement('option');
+                o.value = v.name;
+                o.textContent = `${v.name} · ${(v.lang || '?').toUpperCase()}${v.localService ? '' : ' · 联网'}`;
+                sel.appendChild(o);
+            });
+            sel.value = this.list.some(v => v.name === save) ? save : '';
+            sel.disabled = this.list.length < 2;
+        },
+
+        state(msg) { const el = $('dlVoiceState'); if (el) el.textContent = msg; },
+
+        /** 把检测结论写在页面上：有音色就报名字，没有就把装语音包的入口路径写清楚 */
+        report() {
+            const btn = $('dlVoiceTry');
+            if (btn) btn.disabled = !this.list.length;
+            if (!this.list.length) {
+                this.state('本机没有中文音色');
+                this.warn('系统里没有中文语音包 —— 人物仍会「张口」，招名以气泡呈现。'
+                    + 'Windows：设置 → 时间和语言 → 语音 → 添加「中文(中国)」并勾选「语音」，'
+                    + '或改用 Edge / Chrome 正式版（精简版系统和本 IDE 内置浏览器不带语音）。');
+                return;
+            }
+            const v = this.pick();
+            this.state(`音色：${v.name} · 共 ${this.list.length} 个中文音色，下拉可换`);
+            const warn = $('dlVoiceWarn');
+            if (warn) warn.style.display = 'none';
+        },
+
+        warn(msg) { const el = $('dlVoiceWarn'); if (!el) return; el.textContent = msg; el.style.display = 'block'; },
 
         /** 喝声 = 人物口气前缀 + 招名；招名里的分隔符换成逗号，念着才不像报菜名 */
         line(p, ev) {
             const v = (p && p.voice) || {};
             const skill = String(ev.skill || '').replace(/[·（）()]/g, ' ').replace(/\s+/g, ' ').trim();
-            const head = ev.skipped ? '' : (v.shout || '');
+            // 喊词自带句号，再接逗号会念成两次停顿，先把结尾标点摘掉
+            const head = ev.skipped ? '' : String(v.shout || '').replace(/[。！？!~～]+$/, '');
             return (head ? head + '，' : '') + skill;
         },
 
@@ -293,6 +366,19 @@
                 u.volume = 0.95;
                 window.speechSynthesis.speak(u);
             } catch (e) { /* 语音失败不影响演出，气泡与字幕还在 */ }
+        },
+
+        /** 试听：用 A 侧人物的音色念一条招名。
+            不受「语音开关」约束 —— 它就是用来确认这台机器到底能不能发声的。 */
+        trySpeak() {
+            if (!this.ok || !this.list.length) return;
+            const p = D.people.find(x => x.userId === D.pickA) || D.people[0];
+            if (!p) return;
+            const sk = (p.skills || []).find(s => s.kind === 'ULT') || (p.skills || [])[0];
+            const keep = D.voice;
+            D.voice = true;
+            this.say(p, this.line(p, { skill: (sk || {}).name || p.styleLabel || p.style, skipped: false }));
+            D.voice = keep;
         },
 
         halt() { if (this.ok) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } } }
@@ -360,6 +446,14 @@
         $('dlReset').addEventListener('click', teardown);
         $('dlRandom').addEventListener('click', randomPair);
         $('dlVoice').addEventListener('change', e => { D.voice = e.target.checked; if (!D.voice) Speech.halt(); });
+        // 音色三件事：试听 / 重新检测 / 换音色（选过的记在本地，下次进来还是他）
+        $('dlVoiceTry').addEventListener('click', () => Speech.trySpeak());
+        $('dlVoiceRe').addEventListener('click', () => Speech.refresh());
+        $('dlVoiceList').addEventListener('change', e => {
+            localStorage.setItem('duel-voice', e.target.value);
+            Speech.pick();
+            Speech.report();
+        });
         $('dlSfx').addEventListener('change', e => D.sfx = e.target.checked);
         $('dlSpeed').addEventListener('click', e => {
             const b = e.target.closest('button');

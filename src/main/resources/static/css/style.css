@@ -934,10 +934,16 @@ textarea.form-control {
 
 .hero-actions {
     display: flex;
+    /* flex: none + margin-left: auto：不按内容去压缩标题那一边，
+       而是靠外边距把自己推到行末 —— 导航条目多到必须换行时，整块仍然贴在横幅右下角 */
     flex: none;
+    margin-left: auto;
     align-items: center;
     justify-content: flex-end;
-    flex-wrap: wrap;
+    /* 这里必须 nowrap：一个允许换行的多行 flex 容器，它的 max-content 宽度只等于「最宽的那一个子项」，
+       于是整块「按钮 + 导航」会被算成只有一个链接那么宽，链接在窄盒子里折行 ——
+       登录后八个条目就竖成一列排在左侧。窄屏交给下面的媒体查询重新换行 */
+    flex-wrap: nowrap;
     gap: 10px;
     margin-bottom: 4px;
 }
@@ -946,8 +952,8 @@ textarea.form-control {
 .hero-nav {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
     gap: 4px;
+    flex-wrap: nowrap; /* 同上：不让导航自己被压成一列 */
 }
 
 /* 只作用于直接子链接：否则下拉菜单里的链接也会被刷成白字，落在白底面板上就看不见了 */
@@ -3006,6 +3012,23 @@ textarea.form-control {
 
     .home-hero .hero-sub {
         font-size: 0.86rem;
+    }
+}
+
+/* 窄一点的屏上登录态有八个条目，nowrap 会撑破横幅：这里才放开换行。
+   先把宽度钉死成整行，再让导航吃掉剩下的空间：两个容器都拿到确定宽度后，
+   换行折出来的是两三排，不会再退化成竖着的一列 */
+@media (max-width: 1180px) {
+    .hero-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .hero-nav {
+        flex: 1 1 auto;
+        flex-wrap: wrap;
     }
 }
 
