@@ -324,14 +324,40 @@
         // ======== 每轮采样：读数 + 曲线 + 告警 ========
         let wasOverWarn = false;
 
+        /* 越线告警（告警条 + 宿主回调）—— 这段是纯 UI，但曾经出过一个要命的写法：
+           who 只在 if (over) 块里声明，却在块外的回调里被引用，一越过 80% 就抛 ReferenceError，
+           又被 pollBoard 的 catch 无声吞掉 —— 曲线恰好在最需要看的时刻停止累计与重绘，
+           刷新只是把 localStorage 里冻结的那段重画一遍，看着就像「读数 99%、曲线 76% 且永远不动」。
+           现在变量全部提到块外，并且调用方把这段包在独立异常边界里，UI 出错绝不许再拖死曲线。 */
+        function renderOverWarn(pct, dpct) {
+            const over = pct >= WARN_PERCENT || dpct >= WARN_PERCENT;
+            const who = pct >= WARN_PERCENT && dpct >= WARN_PERCENT ? '堆内存与堆外内存'
+                : (pct >= WARN_PERCENT ? '堆内存' : '堆外内存');
+            const alertBar = document.getElementById('alertBar');
+            if (alertBar) {
+                if (over) {
+                    document.getElementById('alertText').textContent =
+                        '⚠ ' + who + '已越过 ' + WARN_PERCENT + '% 警戒线，随时可能 OOM —— 管理员可抓证据（jmap / dump）或止血。';
+                    alertBar.hidden = false;
+                } else {
+                    alertBar.hidden = true;
+                }
+            }
+            const rising = over && !wasOverWarn;
+            wasOverWarn = over;   // 先推进标记再回调：回调抛错也不该每轮重复触发
+            if (rising && typeof window.onBoardWarn === 'function') window.onBoardWarn(who);
+        }
+
         async function pollBoard() {
+            // pct 为 null 表示这轮根本没取到数据（网络/权限），下面就不补点，免得画出假平台
+            let pct = null, dpct = 0, cpu = 0, disk = 0, sec = 0;
             try {
                 const m = await http.get('/monitor/memory');
-                const pct = Math.min(100, Math.round(m.heapUsedMb / m.heapMaxMb * 100));
-                const dpct = m.directMaxMb > 0 ? Math.min(100, Math.round(m.directUsedMb / m.directMaxMb * 100)) : 0;
-                const cpu = m.cpuUsagePercent || 0;
-                const disk = m.diskUsagePercent || 0;
-                const sec = m.pollIntervalSeconds || 3;
+                pct = Math.min(100, Math.round(m.heapUsedMb / m.heapMaxMb * 100));
+                dpct = m.directMaxMb > 0 ? Math.min(100, Math.round(m.directUsedMb / m.directMaxMb * 100)) : 0;
+                cpu = m.cpuUsagePercent || 0;
+                disk = m.diskUsagePercent || 0;
+                sec = m.pollIntervalSeconds || 3;
 
                 setChipText('lgHeap', pct + '%');
                 setChipText('lgHeapAbs', m.heapUsedMb + '/' + m.heapMaxMb + 'MB');
@@ -358,50 +384,43 @@
                     else { badge.textContent = '演练关闭'; badge.className = 'cfg-badge cfg-badge-safe'; }
                 }
 
-                const over = pct >= WARN_PERCENT || dpct >= WARN_PERCENT;
-                const alertBar = document.getElementById('alertBar');
-                if (alertBar) {
-                    if (over) {
-                        const who = pct >= WARN_PERCENT && dpct >= WARN_PERCENT ? '堆内存与堆外内存'
-                            : (pct >= WARN_PERCENT ? '堆内存' : '堆外内存');
-                        document.getElementById('alertText').textContent =
-                            '⚠ ' + who + '已越过 ' + WARN_PERCENT + '% 警戒线，随时可能 OOM —— 管理员可抓证据（jmap / dump）或止血。';
-                        alertBar.hidden = false;
-                    } else {
-                        alertBar.hidden = true;
-                    }
-                    if (over && !wasOverWarn && typeof window.onBoardWarn === 'function') {
-                        window.onBoardWarn(who);
-                    }
-                }
-                wasOverWarn = over;
+                renderOverWarn(pct, dpct);
 
-                boardPush(board.heap, pct);
-                boardPush(board.direct, dpct);
-                boardPush(board.cpu, cpu);
-                boardPush(board.disk, disk);
-                board.samples++;
-                persistBoard();
-                drawChart();
-                scheduleBoardPoll(sec * 1000);
                 // 宿主页面（配置中心）在这里刷新开关/滑杆等控件
                 if (typeof window.onJvmSample === 'function') window.onJvmSample(m);
-            } catch (e) { /* 静默：网络抖动下轮自愈，401 由 http 统一处理 */ }
+            } catch (e) {
+                // 网络抖动下一轮自愈、401 由 http 统一拦截；但不再彻底无声：
+                // 这条控制台日志是「读数和曲线对不上」这类问题唯一的线索
+                console.warn('[board] 本轮读数/告警渲染异常（曲线仍会继续累计）', e);
+            } finally {
+                // 曲线累计与重绘放在 finally：读数、告警这些纯 UI 代码抛错，也不能把趋势冻住
+                if (pct !== null) {
+                    boardPush(board.heap, pct);
+                    boardPush(board.direct, dpct);
+                    boardPush(board.cpu, cpu);
+                    boardPush(board.disk, disk);
+                    board.samples++;
+                    persistBoard();
+                    drawChart();
+                    scheduleBoardPoll(sec * 1000);
+                }
+            }
         }
 
         // ======== JVM 只读参数 ========
         async function loadJvm() {
             const box = document.getElementById('jvmList');
             if (!box) return;
+            /* 管理员走 /admin/config/jvm（多两行 JDK / OS 环境信息），其余人走公开的 /monitor/jvm。
+               公开接口刻意隐去环境指纹：游客用不上，而对旁人来说这是可直接比对 CVE 的版本信息。 */
+            const adminMode = boardIsAdmin();
             try {
-                /* 管理员走 /admin/config/jvm（多两行 JDK / OS 环境信息），其余人走公开的 /monitor/jvm。
-                   公开接口刻意隐去环境指纹：游客用不上，而对旁人来说这是可直接比对 CVE 的版本信息。
-                   admin 的 token 一旦过期，401 会自动降级到公开接口，不让整块表变成一堆“加载失败”。 */
                 let list;
-                const adminMode = boardIsAdmin();
                 try {
                     list = await http.get(adminMode ? '/admin/config/jvm' : '/monitor/jvm');
                 } catch (e) {
+                    // admin 的 token 一旦过期，降级到公开接口，不让整块表变成“加载失败”；
+                    // adminMode 必须声明在外层 try 之外 —— 块级变量在 catch 里根本不存，写在里面会抛 ReferenceError
                     if (!adminMode) throw e;
                     list = await http.get('/monitor/jvm');
                 }
