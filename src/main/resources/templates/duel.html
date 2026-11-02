@@ -186,6 +186,9 @@
         .dl-head { position: absolute; left: 14px; top: 20px; width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
             background: #0f172a; border: 2px solid color-mix(in srgb, var(--pc) 55%, #e2e8f0);
             box-shadow: 0 4px 14px rgba(2,6,23,.55), 0 0 16px color-mix(in srgb, var(--pc) 34%, transparent); }
+        /* 右侧那人整体镜像（.dl-headwrap 上 scaleX(-1)），头像圆牌里的「韩/向」这些字会跟着翻成反字。
+           只把这张图再翻回来：头发仍保持镜像（朝向才对），字就正了。 */
+        .dl-figure.B .dl-head { transform: scaleX(-1); }
         /* 掌上一团灵光：原来是个飘在半空的汉字，改成本命法宝的符文光 */
         /* 本命法宝的符文光：贴在近侧掌心上。位置按朝向镜像（B 侧换到另一头），
            但元素自身不翻 —— 翻过去「诀」「剑」这些字就是反的 */

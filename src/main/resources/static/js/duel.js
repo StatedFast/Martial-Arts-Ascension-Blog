@@ -583,7 +583,59 @@
             o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + dur);
         },
 
-        charge() { this.tone(210, 0.52, 'triangle', 0.045, 640); },
+        /** 慢起慢收的一层音。蓄力这类音不该「砸」出来，它得是聚起来再散掉的 */
+        swell(freq, dur, gain, toMul) {
+            if (!this.ready()) return;
+            const c = this.ctx, t0 = c.currentTime;
+            const o = c.createOscillator(), g = c.createGain();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(freq, t0);
+            o.frequency.exponentialRampToValueAtTime(Math.max(30, freq * (toMul || 1)), t0 + dur);
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(gain, t0 + dur * 0.6);
+            g.gain.exponentialRampToValueAtTime(0.0006, t0 + dur);
+            o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+        },
+
+        /** 一记带泛音的钟磬：基音之上叠几层不整数倍泛音，高泛音先散 —— 单振荡器那种「嗒」是塑料味的来源 */
+        bell(freq, dur, gain, delay) {
+            if (!this.ready()) return;
+            const c = this.ctx, t0 = c.currentTime + (delay || 0);
+            [[1, 1, 1], [2.0, 0.34, 0.62], [2.99, 0.16, 0.4], [4.21, 0.07, 0.24]].forEach(p => {
+                const o = c.createOscillator(), g = c.createGain(), d = dur * p[2];
+                o.type = 'sine';
+                o.frequency.setValueAtTime(freq * p[0], t0);
+                g.gain.setValueAtTime(0.0001, t0);
+                g.gain.exponentialRampToValueAtTime(gain * p[1], t0 + 0.014);
+                g.gain.exponentialRampToValueAtTime(0.0006, t0 + d);
+                o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + d + 0.05);
+            });
+        },
+
+        /** 柔音钟：只用整数倍泛音（1/2/3/4）+ 50ms 缓起音。
+         *  bell 那套 2.99/4.21 不整数倍泛音会打出拍频，叠在一起就是「难听」的来源；
+         *  换成和谐泛音、起音放慢，收尾就是一记干净温润的钟。 */
+        chime(freq, dur, gain, delay) {
+            if (!this.ready()) return;
+            const c = this.ctx, t0 = c.currentTime + (delay || 0);
+            [[1, 1, 1], [2, 0.4, 0.7], [3, 0.16, 0.48], [4, 0.05, 0.3]].forEach(p => {
+                const o = c.createOscillator(), g = c.createGain(), d = dur * p[2];
+                o.type = 'sine';
+                o.frequency.setValueAtTime(freq * p[0], t0);
+                g.gain.setValueAtTime(0.0001, t0);
+                g.gain.exponentialRampToValueAtTime(gain * p[1], t0 + 0.05);
+                g.gain.exponentialRampToValueAtTime(0.0004, t0 + d);
+                o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + d + 0.05);
+            });
+        },
+
+        /* 轮转（每一合起手）：两段纯五度（G3→D4）慢起慢收地往上聚，像灵气拢过来；
+           再叠一层低通到 900Hz 以内的极轻气流。去掉原来顶到 1500Hz 的啸叫，不再像哨子 */
+        charge() {
+            this.swell(196.00, 0.44, 0.04, 1.33);
+            this.swell(293.66, 0.44, 0.024, 1.33);
+            this.noise(0.3, 320, 880, 0.026);
+        },
         swing(ult) { this.noise(ult ? 0.52 : 0.32, 1900, 320, ult ? 0.2 : 0.13); },
         hit(ult, crit) {
             this.noise(ult ? 0.58 : 0.32, 900, 120, ult ? 0.28 : 0.18);
@@ -592,8 +644,24 @@
         guard() { this.tone(520, 0.34, 'sine', 0.09, 300); this.noise(0.18, 2600, 900, 0.07); },
         heal() { this.tone(660, 0.46, 'sine', 0.075, 990); },
         flee() { this.noise(0.55, 2600, 480, 0.11); },
-        stall() { this.tone(150, 0.4, 'sawtooth', 0.05, 96); },
-        verdict(win) { this.tone(win ? 392 : 196, 0.75, 'triangle', 0.1, win ? 588 : 132); }
+        /* 失神：原来是一记 150→96 的锄齿波，满屏毛刺。改成低频往下坠 + 一记问心闷响 */
+        stall() { this.swell(110, 0.36, 0.045, 0.72); this.noise(0.22, 240, 85, 0.05); },
+        /* 落幕：胜局走一串清亮的宫-角-徵-羽上行大和弦（C-E-G-C）加一层低钟铺底；
+           平手不砸，只往低处轻轻收两个音。全部改用 chime（和谐泛音、缓起音），
+           不再用 bell 那套带拍频的钟声 —— 那才是原来「难听」的根 */
+        verdict(win) {
+            if (win) {
+                this.chime(523.25, 1.5, 0.06, 0);
+                this.chime(659.25, 1.5, 0.055, 0.13);
+                this.chime(783.99, 1.7, 0.055, 0.26);
+                this.chime(1046.5, 2.1, 0.05, 0.4);
+                this.swell(130.81, 2.2, 0.038, 1);
+            } else {
+                this.chime(392.0, 1.7, 0.05, 0);
+                this.chime(329.63, 2.1, 0.045, 0.18);
+                this.swell(98, 2.0, 0.032, 1);
+            }
+        }
     };
 
     // ==================== 控件 ====================
