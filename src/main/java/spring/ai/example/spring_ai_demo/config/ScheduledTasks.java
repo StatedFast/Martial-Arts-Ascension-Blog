@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import spring.ai.example.spring_ai_demo.entity.Article;
 import spring.ai.example.spring_ai_demo.service.AiQuotaService;
 import spring.ai.example.spring_ai_demo.service.ArticleService;
+import spring.ai.example.spring_ai_demo.service.VisitAnalyticsService;
 
 import java.util.Set;
 
@@ -16,12 +17,14 @@ public class ScheduledTasks {
     private final LocalCacheService cacheService;
     private final ArticleService articleService;
     private final AiQuotaService aiQuotaService;
+    private final VisitAnalyticsService visitAnalyticsService;
 
     public ScheduledTasks(LocalCacheService cacheService, ArticleService articleService,
-                          AiQuotaService aiQuotaService) {
+                          AiQuotaService aiQuotaService, VisitAnalyticsService visitAnalyticsService) {
         this.cacheService = cacheService;
         this.articleService = articleService;
         this.aiQuotaService = aiQuotaService;
+        this.visitAnalyticsService = visitAnalyticsService;
     }
 
     private static final String VIEW_COUNT_PREFIX = "blog:article:view:";
@@ -75,6 +78,22 @@ public class ScheduledTasks {
             log.info("AI 每日配额已重置，回收 {} 个历史 key", removed);
         } catch (Exception e) {
             log.error("重置 AI 配额失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 访问日志保留期清理：每天 00:20 删除超过保留期的记录，防止 blog_visit_log 无限膨胀。
+     * 与配额重置错开 15 分钟，避免两个清理任务争抢同一时刻的调度线程。
+     */
+    @Scheduled(cron = "0 20 0 * * ?")
+    public void cleanVisitLogs() {
+        try {
+            int removed = visitAnalyticsService.cleanExpired();
+            if (removed > 0) {
+                log.info("访问日志已按保留期清理，删除 {} 条", removed);
+            }
+        } catch (Exception e) {
+            log.error("清理访问日志失败: {}", e.getMessage());
         }
     }
 }

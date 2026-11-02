@@ -12,6 +12,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import spring.ai.example.spring_ai_demo.interceptor.AiQuotaInterceptor;
 import spring.ai.example.spring_ai_demo.interceptor.JwtInterceptor;
 import spring.ai.example.spring_ai_demo.interceptor.RateLimitInterceptor;
+import spring.ai.example.spring_ai_demo.interceptor.VisitRecordInterceptor;
 
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -26,14 +27,16 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final JwtInterceptor jwtInterceptor;
     private final RateLimitInterceptor rateLimitInterceptor;
     private final AiQuotaInterceptor aiQuotaInterceptor;
+    private final VisitRecordInterceptor visitRecordInterceptor;
     private final ThreadPoolTaskExecutor taskExecutor;
 
     public WebMvcConfig(JwtInterceptor jwtInterceptor, RateLimitInterceptor rateLimitInterceptor,
-                        AiQuotaInterceptor aiQuotaInterceptor,
+                        AiQuotaInterceptor aiQuotaInterceptor, VisitRecordInterceptor visitRecordInterceptor,
                         @Qualifier("taskExecutor") ThreadPoolTaskExecutor taskExecutor) {
         this.jwtInterceptor = jwtInterceptor;
         this.rateLimitInterceptor = rateLimitInterceptor;
         this.aiQuotaInterceptor = aiQuotaInterceptor;
+        this.visitRecordInterceptor = visitRecordInterceptor;
         this.taskExecutor = taskExecutor;
     }
 
@@ -69,6 +72,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(aiQuotaInterceptor)
                 .addPathPatterns("/api/ai/**")
                 .order(3);
+
+        // 访问看板埋点：只挂 HTML 页面路由（不碰 /api/** 与静态资源），异步记录、放行不受影响
+        registry.addInterceptor(visitRecordInterceptor)
+                .addPathPatterns(
+                        "/", "/index", "/article/*", "/user/*",
+                        "/login", "/register", "/profile", "/write", "/notifications",
+                        "/monitor", "/visits", "/config", "/settings"
+                )
+                .order(10);
     }
 
     @Override

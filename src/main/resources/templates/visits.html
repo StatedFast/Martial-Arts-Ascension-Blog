@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">访问看板 - 修仙心得</title>
+    <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
+    <link rel="stylesheet" href="/css/style.css?v=15">
+    <style>
+        /* ==================== 访问看板专属样式（作用域隔离，不污染全局） ====================
+           刻意不复用全局 .container：那是「正文 + 300px 右栏」的博客栅格，
+           看板是宽表格式内容，套进去两侧会留大片空白、曲线被压扁。 */
+        .va-page { background: var(--bg); }
+        .va-shell { max-width: 1720px; margin: 0 auto; padding: 0 28px; }
+
+        .va-hero {
+            background:
+                radial-gradient(760px 300px at 88% -30%, rgba(56,189,248,0.32), transparent 62%),
+                radial-gradient(620px 260px at 6% 130%, rgba(129,140,248,0.34), transparent 60%),
+                linear-gradient(118deg, #101830 0%, #16294a 46%, #23244f 100%);
+            color: #eef2ff; padding: 30px 0 26px; margin-bottom: 22px;
+        }
+        .va-hero-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+        .va-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(199,210,254,0.72); margin-bottom: 8px; }
+        .va-title { font-size: 27px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 12px; }
+        .va-sub { margin-top: 8px; font-size: 13px; color: rgba(203,213,255,0.78); max-width: 720px; line-height: 1.75; }
+        .va-hero-actions { display: flex; align-items: center; gap: 14px; }
+        .va-updated { font-size: 12px; color: rgba(199,210,254,0.6); font-variant-numeric: tabular-nums; }
+
+        .va-card {
+            background: var(--card-bg); border: 1px solid rgba(226,232,240,0.8);
+            border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 18px; overflow: hidden;
+        }
+        .va-card-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eef1f7; flex-wrap: wrap; }
+        .va-card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .va-card-title small { font-size: 12px; font-weight: 400; color: var(--text-light); }
+        .va-card-body { padding: 16px 18px; }
+
+        /* ---- KPI 指标卡 ---- */
+        .va-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 18px; }
+        .va-kpi { background: var(--card-bg); border: 1px solid rgba(226,232,240,0.8); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; position: relative; overflow: hidden; }
+        .va-kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent, var(--primary)); }
+        .va-kpi-label { font-size: 12.5px; color: var(--text-light); display: flex; align-items: center; gap: 6px; }
+        .va-kpi-value { font-size: 30px; font-weight: 800; margin-top: 6px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+        .va-kpi-foot { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+        .va-live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 0 rgba(16,185,129,.5); animation: vaPulse 1.8s infinite; }
+        @keyframes vaPulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.5); } 70% { box-shadow: 0 0 0 7px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+
+        /* ---- 图表 ---- */
+        #trendChart { display: block; width: 100%; height: 300px; }
+        #hoursChart { display: block; width: 100%; height: 200px; }
+        .va-legend { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--text-light); }
+        .va-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .va-legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+        /* ---- 两栏并置 ---- */
+        .va-grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; align-items: start; }
+        .va-grid-h { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); gap: 18px; align-items: start; }
+
+        /* ---- 分布横向条 ---- */
+        .va-bar-row { display: grid; grid-template-columns: 92px 1fr 56px; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 13px; }
+        .va-bar-row:last-child { margin-bottom: 0; }
+        .va-bar-name { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .va-bar-track { background: #eef1f7; border-radius: 999px; height: 14px; overflow: hidden; }
+        .va-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c1,#60a5fa), var(--c2,#3b82f6)); width: 0; transition: width .6s ease; }
+        .va-bar-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-light); }
+
+        /* ---- 表格 ---- */
+        table.va-table { width: 100%; border-collapse: collapse; }
+        table.va-table th, table.va-table td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #f0f2f7; font-size: 13.5px; vertical-align: middle; }
+        table.va-table th { background: #fafbfe; color: var(--text-light); font-size: 12px; font-weight: 600; }
+        table.va-table tr:last-child td { border-bottom: none; }
+        table.va-table tbody tr:hover { background: #fafbff; }
+        table.va-table td.va-num { text-align: right; font-variant-numeric: tabular-nums; }
+        table.va-table .va-rank { width: 34px; text-align: center; font-weight: 800; color: #94a3b8; }
+        table.va-table .va-rank.top1 { color: #f59e0b; }
+        table.va-table .va-rank.top2 { color: #94a3b8; }
+        table.va-table .va-rank.top3 { color: #b45309; }
+        table.va-table code { background: #f1f5f9; padding: 2px 7px; border-radius: 6px; font-size: 12px; color: #334155; }
+
+        .va-empty { text-align: center; color: var(--text-light); padding: 32px 0; font-size: 13.5px; }
+        .va-muted { color: #94a3b8; font-weight: 400; font-size: 12px; }
+
+        @media (max-width: 1080px) { .va-grid2, .va-grid-h { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body class="va-page">
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">📝 修仙心得</a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <!-- ==================== 顶部 ==================== -->
+    <div class="va-hero">
+        <div class="va-shell va-hero-row">
+            <div>
+                <div class="va-eyebrow">Traffic Observatory · 访问看板</div>
+                <h1 class="va-title">访问看板</h1>
+                <p class="va-sub">
+                    本站每一次页面访问都会被匿名记录（路径 / 去重 IP / 终端），这里把它聚合成热度。
+                    与「渡劫看板」一样对所有人开放 —— 只读、只有聚合数字，不含任何访客 IP 明细。
+                </p>
+            </div>
+            <div class="va-hero-actions">
+                <span class="va-updated" id="updatedTip">加载中...</span>
+                <button class="btn btn-outline btn-sm" id="refreshBtn" style="color:#c7d2fe;border-color:rgba(199,210,254,.4);">↻ 刷新</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="va-shell">
+        <!-- ==================== KPI 指标卡 ==================== -->
+        <div class="va-kpis" id="kpis">
+            <div class="va-kpi" style="--accent:#3b82f6;"><div class="va-kpi-label">今日访问 PV</div><div class="va-kpi-value" id="kTodayPv">--</div><div class="va-kpi-foot">今天 0 点起页面访问数</div></div>
+            <div class="va-kpi" style="--accent:#8b5cf6;"><div class="va-kpi-label">今日访客 UV</div><div class="va-kpi-value" id="kTodayUv">--</div><div class="va-kpi-foot">今天去重独立 IP</div></div>
+            <div class="va-kpi" style="--accent:#10b981;"><div class="va-kpi-label"><span class="va-live-dot"></span> 当前在线</div><div class="va-kpi-value" id="kOnline">--</div><div class="va-kpi-foot" id="kOnlineFoot">近 5 分钟活跃 IP</div></div>
+            <div class="va-kpi" style="--accent:#f59e0b;"><div class="va-kpi-label">累计访问 PV</div><div class="va-kpi-value" id="kTotalPv">--</div><div class="va-kpi-foot">看板开站以来总量</div></div>
+            <div class="va-kpi" style="--accent:#06b6d4;"><div class="va-kpi-label">累计访客 UV</div><div class="va-kpi-value" id="kTotalUv">--</div><div class="va-kpi-foot">历史去重独立 IP</div></div>
+        </div>
+
+        <!-- ==================== 访问趋势（PV/UV 双线） ==================== -->
+        <section class="va-card">
+            <div class="va-card-head">
+                <div class="va-card-title">访问趋势 <small id="trendHint">近 14 天 · PV 与 UV 双序列</small></div>
+                <div class="va-legend">
+                    <span><i style="background:#3b82f6"></i>PV 访问</span>
+                    <span><i style="background:#8b5cf6"></i>UV 访客</span>
+                </div>
+            </div>
+            <div class="va-card-body"><canvas id="trendChart"></canvas></div>
+        </section>
+
+        <!-- ==================== 时段分布 + 热门页面 ==================== -->
+        <div class="va-grid-h">
+            <section class="va-card">
+                <div class="va-card-head"><div class="va-card-title">今日时段分布 <small>24 小时访问柱状</small></div></div>
+                <div class="va-card-body"><canvas id="hoursChart"></canvas></div>
+            </section>
+
+            <section class="va-card">
+                <div class="va-card-head"><div class="va-card-title">热门页面 Top 10 <small>近 7 天 · 按 PV</small></div></div>
+                <div class="va-card-body" id="topPages"><div class="va-empty">加载中...</div></div>
+            </section>
+        </div>
+
+        <!-- ==================== 终端 / 来源分布 ==================== -->
+        <div class="va-grid2">
+            <section class="va-card">
+                <div class="va-card-head"><div class="va-card-title">浏览器分布 <small>近 7 天</small></div></div>
+                <div class="va-card-body" id="browsers"><div class="va-empty">加载中...</div></div>
+            </section>
+            <section class="va-card">
+                <div class="va-card-head"><div class="va-card-title">访客设备与来源 <small>近 7 天</small></div></div>
+                <div class="va-card-body">
+                    <div class="va-muted" style="margin-bottom:10px;">设备类型</div>
+                    <div id="devices"></div>
+                    <div class="va-muted" style="margin:18px 0 10px;">访问来源</div>
+                    <div id="referrers"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=10"></script>
+    <script>
+        // ==================== 访问看板内核：拉一次 /visit/summary，渲染全部卡片 ====================
+        const VA_COLORS = { pv: '#3b82f6', uv: '#8b5cf6' };
+        const REFRESH_MS = 30000;      // 看板热数据：30 秒自动刷新一次
+        const PAD_L = 40, PAD_R = 16, PAD_T = 14, PAD_B = 26;
+        let timer = null;
+        let lastData = null;
+
+        function fmt(n) { return (n == null ? 0 : Number(n)).toLocaleString('zh-CN'); }
+
+        // 高分屏按设备像素比放大画布，线条和刻度文字不发虚
+        function prepareCanvas(canvas) {
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            if (!w || !h) return null;
+            const dpr = window.devicePixelRatio || 1;
+            if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+                canvas.width = Math.round(w * dpr);
+                canvas.height = Math.round(h * dpr);
+            }
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            return { ctx, w, h };
+        }
+
+        // 平滑折线（中点二次贝塞尔）+ 末端亮点
+        function drawSmooth(ctx, pts, color) {
+            if (pts.length < 2) return;
+            ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+            ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length - 1; i++) {
+                const mx = (pts[i].x + pts[i + 1].x) / 2, my = (pts[i].y + pts[i + 1].y) / 2;
+                ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+            }
+            const last = pts[pts.length - 1];
+            ctx.lineTo(last.x, last.y); ctx.stroke();
+            ctx.fillStyle = color; ctx.beginPath(); ctx.arc(last.x, last.y, 2.8, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function niceMax(v) {
+            if (v <= 5) return 5;
+            const pow = Math.pow(10, Math.floor(Math.log10(v)));
+            const n = v / pow;
+            const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+            return step * pow;
+        }
+
+        function drawTrend(d) {
+            const canvas = document.getElementById('trendChart');
+            const p = prepareCanvas(canvas); if (!p) return;
+            const { ctx, w, h } = p;
+            const x0 = PAD_L, y0 = PAD_T, pw = w - PAD_L - PAD_R, ph = h - PAD_T - PAD_B;
+            const labels = d.trend.labels || [], pv = d.trend.pv || [], uv = d.trend.uv || [];
+            const maxV = niceMax(Math.max(1, ...pv, ...uv));
+            const n = labels.length;
+
+            // Y 轴网格 + 刻度
+            ctx.font = '10px sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+            for (let g = 0; g <= 4; g++) {
+                const val = maxV * g / 4;
+                const y = y0 + ph - (g / 4) * ph;
+                ctx.strokeStyle = '#f0f2f7'; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + pw, y); ctx.stroke();
+                ctx.fillStyle = '#9aa3b2'; ctx.fillText(Math.round(val), x0 - 6, y);
+            }
+            // X 轴标签（点太密时隔一个显示）
+            ctx.fillStyle = '#9aa3b2'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            const every = n > 14 ? 2 : 1;
+            const xFor = i => x0 + (n <= 1 ? pw / 2 : i / (n - 1) * pw);
+            for (let i = 0; i < n; i += every) {
+                ctx.fillText(labels[i], xFor(i), y0 + ph + 8);
+            }
+            // 坐标轴主线
+            ctx.strokeStyle = '#e2e8f0'; ctx.beginPath();
+            ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + ph); ctx.lineTo(x0 + pw, y0 + ph); ctx.stroke();
+
+            const yFor = v => y0 + ph - (v / maxV) * ph;
+            drawSmooth(ctx, pv.map((v, i) => ({ x: xFor(i), y: yFor(v) })), VA_COLORS.pv);
+            drawSmooth(ctx, uv.map((v, i) => ({ x: xFor(i), y: yFor(v) })), VA_COLORS.uv);
+
+            document.getElementById('trendHint').textContent =
+                '近 ' + (d.trend.days || labels.length) + ' 天 · PV 峰值 ' + fmt(Math.max(0, ...pv)) + ' · UV 峰值 ' + fmt(Math.max(0, ...uv));
+        }
+
+        function drawHours(d) {
+            const canvas = document.getElementById('hoursChart');
+            const p = prepareCanvas(canvas); if (!p) return;
+            const { ctx, w, h } = p;
+            const x0 = PAD_L, y0 = PAD_T, pw = w - PAD_L - PAD_R, ph = h - PAD_T - PAD_B;
+            const vals = d.hours || [];
+            const maxV = niceMax(Math.max(1, ...vals));
+            const n = vals.length || 24;
+            const bw = pw / n;
+
+            ctx.font = '10px sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+            for (let g = 0; g <= 3; g++) {
+                const y = y0 + ph - (g / 3) * ph;
+                ctx.strokeStyle = '#f0f2f7'; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + pw, y); ctx.stroke();
+                ctx.fillStyle = '#9aa3b2'; ctx.fillText(Math.round(maxV * g / 3), x0 - 6, y);
+            }
+            // 柱体
+            const nowHour = new Date().getHours();
+            for (let i = 0; i < n; i++) {
+                const v = vals[i] || 0;
+                const bh = (v / maxV) * ph;
+                const bx = x0 + i * bw + bw * 0.18;
+                const bwidth = bw * 0.64;
+                const by = y0 + ph - bh;
+                ctx.fillStyle = i === nowHour ? '#f59e0b' : '#60a5fa';
+                if (bh > 0) ctx.fillRect(bx, by, bwidth, bh);
+                else { ctx.fillStyle = '#e2e8f0'; ctx.fillRect(bx, y0 + ph - 1, bwidth, 1); }
+            }
+            // X 轴小时刻度
+            ctx.fillStyle = '#9aa3b2'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            for (let hr = 0; hr < n; hr += 3) {
+                ctx.fillText(hr + '时', x0 + hr * bw + bw / 2, y0 + ph + 8);
+            }
+            ctx.strokeStyle = '#e2e8f0'; ctx.beginPath();
+            ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + ph); ctx.lineTo(x0 + pw, y0 + ph); ctx.stroke();
+        }
+
+        // 横向条渲染（浏览器 / 设备 / 来源共用）
+        function renderBars(box, items, gradFrom, gradTo) {
+            const el = document.getElementById(box);
+            if (!el) return;
+            if (!items || !items.length) { el.innerHTML = '<div class="va-empty">暂无数据</div>'; return; }
+            const max = Math.max(1, ...items.map(it => Number(it.pv) || 0));
+            el.innerHTML = items.map(it => {
+                const pv = Number(it.pv) || 0;
+                const pct = Math.round(pv / max * 100);
+                return `<div class="va-bar-row" title="${escapeAttr(it.name)}：${fmt(pv)}">
+                    <div class="va-bar-name">${escapeHtml(it.name)}</div>
+                    <div class="va-bar-track"><div class="va-bar-fill" style="--c1:${gradFrom};--c2:${gradTo};width:0" data-w="${pct}"></div></div>
+                    <div class="va-bar-num">${fmt(pv)}</div>
+                </div>`;
+            }).join('');
+            // 下一帧再推宽度，触发 transition 动画
+            requestAnimationFrame(() => el.querySelectorAll('.va-bar-fill').forEach(f => { f.style.width = f.dataset.w + '%'; }));
+        }
+
+        function renderTopPages(d) {
+            const el = document.getElementById('topPages');
+            const pages = d.topPages || [];
+            if (!pages.length) { el.innerHTML = '<div class="va-empty">暂无数据</div>'; return; }
+            const rows = pages.map((it, i) => {
+                const rankCls = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+                return `<tr>
+                    <td class="va-rank ${rankCls}">${i + 1}</td>
+                    <td>${escapeHtml(it.label)}<div class="va-muted"><code>${escapeHtml(it.path)}</code></div></td>
+                    <td class="va-num">${fmt(it.pv)}</td>
+                    <td class="va-num">${fmt(it.uv)}</td>
+                </tr>`;
+            }).join('');
+            el.innerHTML = `<table class="va-table">
+                <thead><tr><th style="width:34px;"></th><th>页面</th><th style="width:80px;text-align:right;">PV</th><th style="width:80px;text-align:right;">UV</th></tr></thead>
+                <tbody>${rows}</tbody></table>`;
+        }
+
+        function renderKpis(d) {
+            const m = d.metrics || {};
+            document.getElementById('kTodayPv').textContent = fmt(m.todayPv);
+            document.getElementById('kTodayUv').textContent = fmt(m.todayUv);
+            document.getElementById('kOnline').textContent = fmt(m.online);
+            document.getElementById('kTotalPv').textContent = fmt(m.totalPv);
+            document.getElementById('kTotalUv').textContent = fmt(m.totalUv);
+            document.getElementById('kOnlineFoot').textContent = '近 ' + (m.onlineWindowMinutes || 5) + ' 分钟活跃 IP';
+            document.getElementById('updatedTip').textContent = '更新于 ' + (d.serverTime || '').slice(11);
+        }
+
+        function renderAll(d) {
+            lastData = d;
+            renderKpis(d);
+            drawTrend(d);
+            drawHours(d);
+            renderTopPages(d);
+            renderBars('browsers', d.browsers, '#a5b4fc', '#6366f1');
+            renderBars('devices', d.devices, '#6ee7b7', '#10b981');
+            renderBars('referrers', d.referrers, '#7dd3fc', '#0ea5e9');
+        }
+
+        async function loadSummary() {
+            const btn = document.getElementById('refreshBtn');
+            try {
+                if (btn) btn.disabled = true;
+                const d = await http.get('/visit/summary');
+                renderAll(d);
+            } catch (e) {
+                document.getElementById('updatedTip').textContent = '加载失败：' + e.message;
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        function scheduleAuto() {
+            if (timer) clearInterval(timer);
+            timer = setInterval(loadSummary, REFRESH_MS);
+        }
+
+        // 访问看板对所有人开放，游客也能看，因此不跳登录；导航由 app.js 在 DOMContentLoaded 统一渲染
+        document.getElementById('refreshBtn').addEventListener('click', loadSummary);
+        window.addEventListener('resize', () => { if (lastData) { drawTrend(lastData); drawHours(lastData); } });
+        // app.js 的 DOMContentLoaded 晚于本脚本执行，等一帧确保 http / escapeHtml 就绪
+        setTimeout(() => { loadSummary(); scheduleAuto(); }, 0);
+    </script>
+</body>
+</html>

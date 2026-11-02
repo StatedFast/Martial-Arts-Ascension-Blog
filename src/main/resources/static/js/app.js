@@ -215,6 +215,7 @@ function renderNavbar() {
         navLinks.innerHTML = `
             <a href="/">首页</a>
             <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
+            <a href="/visits" title="本站访问热度 · 所有人可见">访问看板</a>
             <a href="/write" class="btn-write">写文章</a>
             <a href="/notifications" class="nav-bell" title="通知中心">
                 🔔<span class="nav-bell-badge" id="navBellBadge" hidden>0</span>
@@ -238,6 +239,7 @@ function renderNavbar() {
         navLinks.innerHTML = `
             <a href="/">首页</a>
             <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
+            <a href="/visits" title="本站访问热度 · 所有人可见">访问看板</a>
             <a href="/login">登录</a>
             <a href="/register" class="btn btn-primary btn-sm">注册</a>
         `;

@@ -8,6 +8,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import spring.ai.example.spring_ai_demo.config.LocalCacheService;
+import spring.ai.example.spring_ai_demo.controller.AvatarController;
 import spring.ai.example.spring_ai_demo.dto.LoginDTO;
 import spring.ai.example.spring_ai_demo.dto.RegisterDTO;
 import spring.ai.example.spring_ai_demo.entity.User;
@@ -80,8 +81,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setEmail(dto.getEmail());
         user.setRole("USER");
         user.setStatus(1);
-        user.setAvatar("/images/default-avatar.svg");
+        // 先落库拿到自增 id，再把头像指向首字文字头像接口（/avatar/text/{id}）：
+        // 新注册用户默认以昵称/用户名首字作为头像，用户自行上传后被替换为 /uploads/avatars/...，保持不变。
+        user.setAvatar(null);
         save(user);
+        user.setAvatar(AvatarController.TEXT_AVATAR_PREFIX + user.getId());
+        updateById(user);
 
         // 生成双令牌
         String accessToken = jwtUtils.generateAccessToken(user.getId(), user.getUsername(), user.getRole());

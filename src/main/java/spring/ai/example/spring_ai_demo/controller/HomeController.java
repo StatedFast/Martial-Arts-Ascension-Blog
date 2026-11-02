@@ -99,6 +99,13 @@ public class HomeController {
         return "monitor";
     }
 
+    /** 访问看板：全站公开入口（数据走 @NoAuth 的 /api/visit/**），展示本站访问热度 */
+    @GetMapping("/visits")
+    public String visits(Model model) {
+        model.addAttribute("title", "访问看板 - 修仙心得");
+        return "visits";
+    }
+
     /** 配置项（k-v 全表，仅管理员）：从看板里拆出来，避免监控台和改配置混在同一屏 */
     @GetMapping("/settings")
     public String settings(Model model) {

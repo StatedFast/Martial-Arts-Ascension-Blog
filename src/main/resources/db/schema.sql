@@ -136,6 +136,26 @@ CREATE TABLE IF NOT EXISTS blog_sys_config (
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ==================== 访问日志（访问看板数据源） ====================
+-- 每次 HTML 页面命中记一行，供「访问看板」聚合 PV/UV、趋势、时段分布、热门页、终端分布。
+-- 只存聚合所需的维度（路径/IP/UA 解析结果/来源），不存任何请求体或敏感信息。
+-- 刻意不做逻辑删除：日志表只增，清理走定时任务按天删除（见 ScheduledTasks）。
+CREATE TABLE IF NOT EXISTS blog_visit_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    path VARCHAR(200) NOT NULL COMMENT '访问页面路径',
+    page_type VARCHAR(30) COMMENT '页面分类：home/article/user/board/auth/other',
+    ip VARCHAR(50) COMMENT '访客 IP（UV 去重口径）',
+    user_agent VARCHAR(400) COMMENT '原始 UA（截断存储）',
+    browser VARCHAR(30) COMMENT '解析出的浏览器',
+    os VARCHAR(30) COMMENT '解析出的操作系统',
+    device_type VARCHAR(20) COMMENT '设备类型：mobile/desktop/tablet/bot',
+    referrer VARCHAR(255) COMMENT '来源页（站内/直接访问归一化处理）',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_visit_time (create_time),
+    KEY idx_visit_path (path),
+    KEY idx_visit_type_time (page_type, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ==================== 存量库升级：blog_article 增加 favorite_count ====================
 -- MySQL 8 不支持 ADD COLUMN IF NOT EXISTS，这里用 information_schema 判断 + 动态 SQL 保证幂等
 SET @fav_col_exists := (
