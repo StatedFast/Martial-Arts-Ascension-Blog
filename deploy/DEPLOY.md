@@ -42,7 +42,36 @@ scp deploy/server-setup.sh app.jar root@118.31.186.244:/root/
 bash /root/server-setup.sh 118.31.186.244
 ```
 
+## 服务器上的数据库账号
+
+应用连库用的是 `app.env` 里的 `DB_USERNAME` / `DB_PASSWORD`（`blog@localhost`，随机生成）。**这个随机密码没有备份在任何仓库文件里**，所以排查数据时不要拿 `application.properties` 中的 `${DB_USERNAME:blog}` 默认值去连（会 `ERROR 1045`）；在服务器上用 root 免密即可：
+
+```bash
+mysql -h 127.0.0.1 -u root blog -e 'select id,username,avatar from blog_user limit 10;'
+```
+
 ## 日常更新（改代码后重新发布）
+
+用 `deploy/deploy.ps1`，一条命令搞定「构建 → 差异上传 → 生效 → 校验」：
+
+```powershell
+$env:DEPLOY_SSH_PASSWORD = '<root 密码>'     # 不落仓库；不设置则脚本交互式提示
+.\deploy\deploy.ps1                          # 常态：只改了 resources/templates/static
+.\deploy\deploy.ps1 -ForceFull               # 怀疑线上 jar 被手工动过，强制整包
+```
+
+脚本做的四件事，也是它比手工快的主因（实测 **≈56 s**，其中重启就绪 ≈12 s）：
+
+| 环节 | 手工做法 | 脚本做法 | 收益 |
+| --- | --- | --- | --- |
+| 构建 | `clean package` 联网全量 | 无 `.java`/`pom.xml` 变动时走 `-DskipTests -o package` 增量离线 | ≈2 min → ≈5 s |
+| 上传 | 整个 jar 59.68 MB | 本地与线上 jar 逐条目比 CRC32，只把差异条目打成 patch.zip | 59.68 MB → ≈100 KB |
+| 生效 | `Sleep 40` 再试 | 1 秒粒度轮询 `curl -sf http://127.0.0.1/login` | 固定 40 s → 实测 12 s |
+| 校验 | 打开页面看一眼 | 线上 jar 再取条目清单，与本地逐条目比 CRC32 + 压缩方式 | 419 条目全等才算成功 |
+
+差异条目全部落在 `BOOT-INF/classes/` 且没有条目被删除时，才用服务器 JDK 的 `jar uf` 就地替换（失败自动回滚最新 `app.jar.bak.*` 并降级整包）；否则一律整包上传。`jar uf` 重写归档会动到 `BOOT-INF/lib`，所以最后一列的「压缩方式」比对是必须的 —— Spring Boot 的嵌套 jar 只能用 **Stored** 装载，被改成 Deflate 会直接启动失败。
+
+下面是等价的原始手工流程，脚本不可用时兜底：
 
 ```bash
 # 本地
