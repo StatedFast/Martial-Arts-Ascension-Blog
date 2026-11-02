@@ -132,6 +132,62 @@ INSERT IGNORE INTO blog_user (id, username, password, nickname, email, bio, avat
 (129, 'wansangu',     'e10adc3949ba59abbe56e057f20f883e', '万三姑',     'wansangu@fanren.dev',     '正道第一人。位置越高，能出手的事越少。',                 '/images/avatars/wansangu.svg',     'USER', 1),
 (130, 'hongfu',       'e10adc3949ba59abbe56e057f20f883e', '红拂',       'hongfu@fanren.dev',       '红拂三剑。当年能带走女儿，如今也护得住。',               '/images/avatars/hongfu.svg',       'USER', 1);
 
+-- ==================== 人界篇第三批：有名有姓的元婴老怪与妖修 ====================
+-- 这一批只为榜单与斗法台建身份（昵称、一句话来历、主页可用），不发文也不互评：
+-- 站内设定表（CultivationCatalog 131-173）才是他们的正文。INSERT IGNORE 保证每次启动重跑都不冲突。
+INSERT IGNORE INTO blog_user (id, username, password, nickname, email, bio, avatar, role, status) VALUES
+(131, 'weiwuya',        'e10adc3949ba59abbe56e057f20f883e', '魏无涯',     'weiwuya@fanren.dev',        '天南九国盟化意门太上长老，元婴后期巅峰。十绝毒，毒道冠绝天南。',       '/images/default-avatar.svg', 'USER', 1),
+(132, 'zhiyangshangren','e10adc3949ba59abbe56e057f20f883e', '至阳上人',   'zhiyang@fanren.dev',        '太真门太上长老，天南正道第一人。静心诀，至阳真火。',                 '/images/default-avatar.svg', 'USER', 1),
+(133, 'hehuanlaomo',    'e10adc3949ba59abbe56e057f20f883e', '合欢老魔',   'hehuan@fanren.dev',         '合欢宗大长老，天南第一魔修。不谈正邪，只谈效果。',                   '/images/default-avatar.svg', 'USER', 1),
+(134, 'tianhenlaoguai', 'e10adc3949ba59abbe56e057f20f883e', '天恨老怪',   'tianhen@fanren.dev',        '天南魔道散修，三大修士之下第一人。曾轻伤至阳上人。',               '/images/default-avatar.svg', 'USER', 1),
+(135, 'longhan',        'e10adc3949ba59abbe56e057f20f883e', '龙晗',       'longhan@fanren.dev',        '鸾鸣宗太上长老，天道盟领军。领军是最后退的那个。',                   '/images/default-avatar.svg', 'USER', 1),
+(136, 'fengbing',       'e10adc3949ba59abbe56e057f20f883e', '凤冰',       'fengbing@fanren.dev',       '鸾鸣宗，龙晗道侣。他出头，我算账。',                                 '/images/default-avatar.svg', 'USER', 1),
+(137, 'jinwuhuan',      'e10adc3949ba59abbe56e057f20f883e', '金武环',     'jinwuhuan@fanren.dev',      '古剑门大长老，化剑为丝。与自己切磋过的那位，赢在翅上。',           '/images/default-avatar.svg', 'USER', 1),
+(138, 'nangongque',     'e10adc3949ba59abbe56e057f20f883e', '南宫阙',     'nangongque@fanren.dev',     '掩月宗元婴剑修，持凝光镜。同为南宫，与婉妹不熟。',                 '/images/default-avatar.svg', 'USER', 1),
+(139, 'linghulaoguai',  'e10adc3949ba59abbe56e057f20f883e', '令狐老怪',   'linghu@fanren.dev',         '黄枫谷唯一的元婴。谷里弟子叫我老祖。',                               '/images/default-avatar.svg', 'USER', 1),
+(140, 'nanlonghou',     'e10adc3949ba59abbe56e057f20f883e', '南陇侯',     'nanlonghou@fanren.dev',     '天南散修，万尺一线。退路就是我的宗门。',                             '/images/default-avatar.svg', 'USER', 1),
+(141, 'suihunzhenren',  'e10adc3949ba59abbe56e057f20f883e', '碎魂真人',   'suihun@fanren.dev',         '天南散修，碎魂大法。人身好护，魂难护。',                             '/images/default-avatar.svg', 'USER', 1),
+(142, 'luweiying',      'e10adc3949ba59abbe56e057f20f883e', '鲁卫英',     'luweiying@fanren.dev',      '天极门长老。坠魔谷那一役，我算没回去的那一个。',                   '/images/default-avatar.svg', 'USER', 1),
+(143, 'dongmentu',      'e10adc3949ba59abbe56e057f20f883e', '东门图',     'dongmentu@fanren.dev',      '御灵宗大长老。兽不听我的，只听划算。',                               '/images/default-avatar.svg', 'USER', 1),
+(144, 'huolongtongzi',  'e10adc3949ba59abbe56e057f20f883e', '火龙童子',   'huolong@fanren.dev',        '天南魔道散修，火龙真炎。我叫童子，因为这张脸不会老。',           '/images/default-avatar.svg', 'USER', 1),
+(145, 'baiyaoyi',       'e10adc3949ba59abbe56e057f20f883e', '白瑶怡',     'baiyaoyi@fanren.dev',       '天南顶尖元中女修，白虹一剑。独斗过十级妖狼。',                       '/images/default-avatar.svg', 'USER', 1),
+(146, 'chengtiankun',   'e10adc3949ba59abbe56e057f20f883e', '程天坤',     'chengtiankun@fanren.dev',   '落云宗掌门。掌门不是最强的，是最后一个走的。',                       '/images/default-avatar.svg', 'USER', 1),
+(147, 'lvluo',          'e10adc3949ba59abbe56e057f20f883e', '吕洛',       'lvluo@fanren.dev',          '落云宗长老，千浪决。浪多不代表浪大，靠的是打不完。',                 '/images/default-avatar.svg', 'USER', 1),
+(148, 'wenqing',        'e10adc3949ba59abbe56e057f20f883e', '温青',       'wenqing@fanren.dev',       '天星双圣之一，天灵根。元磁神光两极之中她养阳极。',                 '/images/default-avatar.svg', 'USER', 1),
+(149, 'fangzongshi',    'e10adc3949ba59abbe56e057f20f883e', '房宗主',     'fangzongshi@fanren.dev',    '大晋阴罗宗宗主，三具尸王随身。灭仙珠还在匣子里。',                 '/images/default-avatar.svg', 'USER', 1),
+(150, 'qianlaomo',      'e10adc3949ba59abbe56e057f20f883e', '乾老魔',     'qianlaomo@fanren.dev',      '大晋阴罗宗大长老，逆情断天大法。五子同心魔，合体不灭火。',         '/images/default-avatar.svg', 'USER', 1),
+(151, 'xuanqingzi',     'e10adc3949ba59abbe56e057f20f883e', '玄青子',     'xuanqingzi@fanren.dev',     '大晋太一门话事人。灵宝不是我们的，我们只替它看门。',               '/images/default-avatar.svg', 'USER', 1),
+(152, 'qimiaozhenren',  'e10adc3949ba59abbe56e057f20f883e', '七妙真人',   'qimiao@fanren.dev',         '大晋天魔宗执法长老，赤鸣鼓。一鼓破胆，再鼓散魂。',                   '/images/default-avatar.svg', 'USER', 1),
+(153, 'kunwuji',        'e10adc3949ba59abbe56e057f20f883e', '坤无极',     'kunwuji@fanren.dev',        '大晋血凄门大长老。别人炼气，我炼血。',                               '/images/default-avatar.svg', 'USER', 1),
+(154, 'yuanzhidashi',   'e10adc3949ba59abbe56e057f20f883e', '元智大师',   'yuanzhi@fanren.dev',        '大晋雷音宗，明王诀与四层金刚诀。肉身堪比法宝。',                   '/images/default-avatar.svg', 'USER', 1),
+(155, 'biyuechanshi',   'e10adc3949ba59abbe56e057f20f883e', '碧月禅师',   'biyue@fanren.dev',          '大晋净火宗，四百年入元后。没人见过我出手。',                       '/images/default-avatar.svg', 'USER', 1),
+(156, 'yixitian',       'e10adc3949ba59abbe56e057f20f883e', '易洗天',     'yixitian@fanren.dev',       '大晋四大散修之一，曾轻斩八级妖兽。靠山是那一剑。',                 '/images/default-avatar.svg', 'USER', 1),
+(157, 'hanlishangren',  'e10adc3949ba59abbe56e057f20f883e', '寒骊上人',   'hanli@fanren.dev',          '大晋北夜小极宫，两口乾蓝鼎，乾蓝冰焰修到极致。',                   '/images/default-avatar.svg', 'USER', 1),
+(158, 'xiaojiugongzhu', 'e10adc3949ba59abbe56e057f20f883e', '小极宫宫主', 'xiaojiugong@fanren.dev',    '北夜小极宫主。手里有一把黄泉的钥匙。',                               '/images/default-avatar.svg', 'USER', 1),
+(159, 'huangguiguimu',  'e10adc3949ba59abbe56e057f20f883e', '黄泉鬼母',   'huanggui@fanren.dev',       '北夜黄泉白板鬼修。最不值钱的就是那具身子，它早烂了。',               '/images/default-avatar.svg', 'USER', 1),
+(160, 'yejiadalao',     'e10adc3949ba59abbe56e057f20f883e', '叶家大长老', 'yejiadalao@fanren.dev',     '大晋叶家大长老，黑血刃。世家靠的是肯把精血拿出来的人多。',           '/images/default-avatar.svg', 'USER', 1),
+(161, 'yeyuesheng',     'e10adc3949ba59abbe56e057f20f883e', '叶月圣',     'yeyuesheng@fanren.dev',      '叶家七叔。族里都当我修为平平 —— 藏了三百年。',                       '/images/default-avatar.svg', 'USER', 1),
+(162, 'fucheng',        'e10adc3949ba59abbe56e057f20f883e', '富成',       'fucheng@fanren.dev',        '大晋九幽宗执法长老。宗门里的事，办完了不必说。',                   '/images/default-avatar.svg', 'USER', 1),
+(163, 'xudaxianshi',    'e10adc3949ba59abbe56e057f20f883e', '徐大仙师',   'xudaxianshi@fanren.dev',    '天澜草原大仙师，与至阳上人、乾老魔齐名。草原认祭坛。',             '/images/default-avatar.svg', 'USER', 1),
+(164, 'tianchui',       'e10adc3949ba59abbe56e057f20f883e', '田锤',       'tianchui@fanren.dev',       '慕兰草原第四神师，刚进阶元后。神来那一瞬，我不是我。',             '/images/default-avatar.svg', 'USER', 1),
+(165, 'jinjiaowang',    'e10adc3949ba59abbe56e057f20f883e', '金蛟王',     'jinjiao@fanren.dev',        '乱星海外海蛟龙族长，十级妖修。外海只认鳞片的硬度。',                 '/images/default-avatar.svg', 'USER', 1),
+(166, 'wannianshixiong','e10adc3949ba59abbe56e057f20f883e', '万年尸熊',   'shixiong@fanren.dev',       '万妖谷副谷主，持血刃。昆吾山那一夜我没让过路。',                       '/images/default-avatar.svg', 'USER', 1),
+(167, 'qingbeicanglang','e10adc3949ba59abbe56e057f20f883e', '青背苍狼',   'canglang@fanren.dev',       '万妖谷副谷主。我穿人衣、说人话，只为叫人先不想动手。',             '/images/default-avatar.svg', 'USER', 1),
+(168, 'mukui',          'e10adc3949ba59abbe56e057f20f883e', '木魁',       'mukui@fanren.dev',          '昆吾山万年古木。我不追人，我长得比你跑得远。',                       '/images/default-avatar.svg', 'USER', 1),
+(169, 'yinchiyecha',    'e10adc3949ba59abbe56e057f20f883e', '银翅夜叉',   'yecha@fanren.dev',          '昆吾山四妖，仅次于金身月尸的十级飞天尸。想事的尸最难杀。',         '/images/default-avatar.svg', 'USER', 1),
+(170, 'shiqinshou',     'e10adc3949ba59abbe56e057f20f883e', '狮禽兽',     'shiqin@fanren.dev',         '昆吾山四妖，狮首鹰身四翅，未化形。我不会说话。',                   '/images/default-avatar.svg', 'USER', 1),
+(171, 'chelaoyao',      'e10adc3949ba59abbe56e057f20f883e', '车老妖',     'chelaoyao@fanren.dev',      '万妖幡主。幡里那些东西都欠我，欠久了就肯替我死。',                   '/images/default-avatar.svg', 'USER', 1),
+(172, 'xuangushangren', 'e10adc3949ba59abbe56e057f20f883e', '玄骨上人',   'xuangushangren@fanren.dev', '乱星海虚天殿旧怪，肉身被打爆、元婴被擒，多年后复出。死过一次，什么都不必要了。', '/images/default-avatar.svg', 'USER', 1),
+(173, 'wentianren',     'e10adc3949ba59abbe56e057f20f883e', '温天仁',     'wentianren@fanren.dev',     '乱星海结丹修士第一人，六道极圣门下。一身宝物，一身劫。',         '/images/default-avatar.svg', 'USER', 1);
+
+-- 线上 id=131 曾被一个占位空账号占住（昵称就是「无名之辈」，无文章、无评论、无操作日志），
+-- 而 INSERT IGNORE 碰到已存在的 id 不会改写，榜单里那位化意门太上长老就会顶着一个占位名字。
+-- 这条只在昵称仍是那个占位值时动手，真实注册用户一概不碰；改完条件就不成立了，每次启动重跑幂等。
+UPDATE blog_user SET username = 'weiwuya', nickname = '魏无涯', email = 'weiwuya@fanren.dev',
+                     bio = '天南九国盟化意门太上长老，元婴后期巅峰。十绝毒，毒道冠绝天南。',
+                     avatar = '/images/default-avatar.svg'
+WHERE id = 131 AND nickname = '无名之辈';
+
 -- 前一批十位角色的头像：只补空值和旧的统一占位图（default-avatar），
 -- 用户自己上传过的（/uploads/avatars/...）一概不动；本脚本每次启动都跑，必须幂等。
 UPDATE blog_user SET avatar = '/images/avatars/hanli.svg'        WHERE id = 101 AND (avatar IS NULL OR avatar = '' OR avatar LIKE '%default-avatar%');

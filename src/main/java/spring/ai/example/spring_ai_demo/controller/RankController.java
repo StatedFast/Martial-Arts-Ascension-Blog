@@ -37,7 +37,7 @@ public class RankController {
     private final DuelEngine duelEngine;
     private final UserService userService;
 
-    /** 榜单一次性快照：境界塔 + 30 个人物 + 路数说明，前端只需要这一个请求就能铺满全页 */
+    /** 榜单一次性快照：境界塔 + 七十三位人物 + 路数说明，前端只需要这一个请求就能铺满全页 */
     @NoAuth
     @RateLimit(limit = 30, window = 1)
     @GetMapping("/roster")
@@ -75,7 +75,7 @@ public class RankController {
         Cultivator ca = catalog.find(a).orElse(null);
         Cultivator cb = catalog.find(b).orElse(null);
         if (ca == null || cb == null) {
-            return Result.error(404, "此人不在人界篇榜单内（榜单只收 101-130 这三十位）");
+            return Result.error(404, "此人不在人界篇榜单内（榜单只收 101-173 这七十三位）");
         }
         return duelEngine.duel(ca, cb, avatars())
                 .map(Result::success)

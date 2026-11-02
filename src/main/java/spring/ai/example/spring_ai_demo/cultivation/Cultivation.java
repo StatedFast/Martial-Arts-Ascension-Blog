@@ -289,7 +289,7 @@ public final class Cultivation {
     }
 
     /**
-     * 一个人物的一条设定。userId 对应 blog_user 里的角色账号（101-130），
+     * 一个人物的一条设定。userId 对应 blog_user 里的角色账号（101-173，其中 131 以后只建账号不写文章），
      * name 只作兜底：万一角色账号被删了，榜单仍然说得清这是谁。
      */
     public record Cultivator(
