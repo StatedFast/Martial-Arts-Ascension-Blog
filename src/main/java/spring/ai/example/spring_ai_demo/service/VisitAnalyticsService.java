@@ -263,6 +263,7 @@ public class VisitAnalyticsService {
         return switch (path) {
             case "/monitor" -> "渡劫看板";
             case "/visits" -> "访问看板";
+            case "/rank" -> "修仙排行榜";
             case "/login" -> "登录页";
             case "/register" -> "注册页";
             case "/profile" -> "个人中心";

@@ -106,6 +106,13 @@ public class HomeController {
         return "visits";
     }
 
+    /** 修仙排行榜（人界篇）：境界榜 + 两人自动斗法，同样全站公开，数据走 @NoAuth 的 /api/rank/** */
+    @GetMapping("/rank")
+    public String rank(Model model) {
+        model.addAttribute("title", "修仙排行榜 · 人界篇 - 修仙心得");
+        return "rank";
+    }
+
     /** 配置项（k-v 全表，仅管理员）：从看板里拆出来，避免监控台和改配置混在同一屏 */
     @GetMapping("/settings")
     public String settings(Model model) {
