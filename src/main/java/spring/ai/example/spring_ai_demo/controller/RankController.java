@@ -112,6 +112,8 @@ public class RankController {
         m.put("basisLabel", c.basis().getLabel());
         m.put("basisNote", c.basisNote());
         m.put("quote", c.quote());
+        // 报招配音的音色设定：只影响斗法台“听起来像谁”，不参与任何裁决
+        m.put("voice", catalog.voice(c.userId()));
         m.put("skills", c.skills());
         return m;
     }

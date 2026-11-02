@@ -78,7 +78,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addPathPatterns(
                         "/", "/index", "/article/*", "/user/*",
                         "/login", "/register", "/profile", "/write", "/notifications",
-                        "/monitor", "/visits", "/config", "/settings"
+                        "/monitor", "/visits", "/config", "/settings",
+                        // 排行榜与斗法台都是公开页，进看板才知道有没有人看
+                        "/rank", "/duel"
                 )
                 .order(10);
     }

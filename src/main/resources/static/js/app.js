@@ -216,7 +216,8 @@ function renderNavbar() {
             <a href="/">首页</a>
             <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
             <a href="/visits" title="本站访问热度 · 所有人可见">访问看板</a>
-            <a href="/rank" title="凡人修仙传 · 人界境界榜与斗法推演">修仙榜</a>
+            <a href="/rank" title="凡人修仙传 · 人界篇境界榜">修仙榜</a>
+            <a href="/duel" title="凡人修仙传 · 人界斗法台 · 自动过招报招">斗法台</a>
             <a href="/write" class="btn-write">写文章</a>
             <a href="/notifications" class="nav-bell" title="通知中心">
                 🔔<span class="nav-bell-badge" id="navBellBadge" hidden>0</span>
@@ -241,7 +242,8 @@ function renderNavbar() {
             <a href="/">首页</a>
             <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
             <a href="/visits" title="本站访问热度 · 所有人可见">访问看板</a>
-            <a href="/rank" title="凡人修仙传 · 人界境界榜与斗法推演">修仙榜</a>
+            <a href="/rank" title="凡人修仙传 · 人界篇境界榜">修仙榜</a>
+            <a href="/duel" title="凡人修仙传 · 人界斗法台 · 自动过招报招">斗法台</a>
             <a href="/login">登录</a>
             <a href="/register" class="btn btn-primary btn-sm">注册</a>
         `;
@@ -493,7 +495,7 @@ const AiAssistant = {
         el.innerHTML = `
             <div class="ai-welcome-avatar">🤖</div>
             <div class="ai-welcome-title">你好，我是大衍神君</div>
-            <div class="ai-welcome-sub">你的博客 AI 助手<br>找文章 · 看排行 · 总结内容 · 答疑</div>
+            <div class="ai-welcome-sub">你的修仙 AI 助手<br>找文章 · 看排行 · 总结内容 · 答疑</div>
             <div class="ai-chips">
                 ${chips.map(([icon, q]) => `
                     <button class="ai-chip" data-q="${q}">

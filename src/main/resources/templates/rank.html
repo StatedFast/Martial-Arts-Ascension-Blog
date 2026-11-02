@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">修仙排行榜 · 人界篇 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=15">
+    <link rel="stylesheet" href="/css/style.css?v=16">
     <style>
         /* ==================== 修仙排行榜专属样式（rk- 前缀作用域隔离，不污染全局） ====================
            与看板页同一取舍：不复用全局 .container —— 那是「正文 + 300px 右栏」的博客栅格，
@@ -87,6 +87,10 @@
         .rk-skill-chip.mobility { background: #ecfeff; color: #0e7490; }
         .rk-skill-chip.defense, .rk-skill-chip.heal { background: #f0fdf4; color: #15803d; }
         .rk-skill-chip.control { background: #f5f3ff; color: #6d28d9; }
+        .rk-person-foot { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #eaeef6; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .rk-duel-link { font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 8px; background: #171d33; color: #fde68a; white-space: nowrap; }
+        .rk-duel-link:hover { background: #2a1f45; color: #fff; }
+        .rk-voice-hint { font-size: 11px; color: var(--text-light); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
 
         /* ---- 三、战力榜横条 ---- */
         .rk-bar-row { display: grid; grid-template-columns: 34px 88px 1fr 138px; align-items: center; gap: 11px; margin-bottom: 9px; font-size: 13px; }
@@ -98,114 +102,23 @@
         .rk-bar-foot { text-align: right; font-size: 11.5px; color: var(--text-light); font-variant-numeric: tabular-nums; }
         .rk-bar-foot span { color: #64748b; font-weight: 700; }
 
-        /* ---- 四、斗法台 ---- */
-        .rk-pick-grid { display: grid; grid-template-columns: minmax(0,1fr) 76px minmax(0,1fr); gap: 14px; align-items: stretch; }
-        .rk-pick { border: 1px dashed #dbe3ef; border-radius: 14px; padding: 13px; background: #fafbff; }
-        .rk-pick.ready { border-style: solid; border-color: var(--pc, #6366f1); background: #fff; }
-        .rk-pick-label { font-size: 12px; font-weight: 700; color: var(--text-light); letter-spacing: .06em; margin-bottom: 9px; }
-        .rk-picked { display: flex; align-items: center; gap: 11px; min-height: 54px; }
-        .rk-picked img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; background: #e2e8f0; flex: none; }
-        .rk-picked .rk-pk-name { font-size: 16px; font-weight: 800; }
-        .rk-picked .rk-pk-realm { font-size: 12px; color: var(--text-light); }
-        .rk-picked.empty { color: #94a3b8; font-size: 13px; }
-        .rk-vs { display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; color: #cbd5e1; letter-spacing: .06em; }
-        .rk-search { width: 100%; padding: 7px 11px; border: 1px solid #e2e8f0; border-radius: 9px; font-size: 12.5px; margin-bottom: 9px; background: #fff; }
-        .rk-roster { display: flex; flex-wrap: wrap; gap: 6px; max-height: 196px; overflow-y: auto; }
-        .rk-chip { font-size: 11.5px; padding: 4px 9px; border-radius: 999px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; transition: all .15s ease; white-space: nowrap; }
-        .rk-chip:hover { border-color: var(--primary); color: var(--primary); }
-        .rk-chip.picked { background: var(--primary); color: #fff; border-color: var(--primary); }
-        .rk-chip .rk-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
-
-        .rk-stage {
-            position: relative; height: 430px; border-radius: 18px; overflow: hidden; margin-top: 18px;
-            background:
-                radial-gradient(600px 260px at 50% 118%, rgba(99,102,241,0.28), transparent 65%),
-                radial-gradient(420px 220px at 12% -10%, rgba(245,158,11,0.22), transparent 60%),
-                linear-gradient(160deg, #0b1020 0%, #131a34 42%, #221b3c 78%, #0b1020 100%);
-            border: 1px solid rgba(148,163,184,0.28);
-        }
-        #rkFx { position: absolute; inset: 0; width: 100%; height: 100%; }
-        .rk-stage.shake { animation: rkShake .42s cubic-bezier(.36,.07,.19,.97); }
-        .rk-stage.shake-hard { animation: rkShake .8s cubic-bezier(.36,.07,.19,.97); }
-        @keyframes rkShake {
-            10%,90% { transform: translate(-2px,1px) rotate(-0.2deg); }
-            20%,80% { transform: translate(4px,-2px); }
-            30%,50%,70% { transform: translate(-7px,3px); }
-            40%,60% { transform: translate(7px,-3px); }
-        }
-        .rk-stage.flash::after { content: ""; position: absolute; inset: 0; background: #fff; opacity: 0; animation: rkFlash .5s ease; pointer-events: none; }
-        @keyframes rkFlash { 0% { opacity: .82; } 100% { opacity: 0; } }
-
-        .rk-strip { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 16px; display: flex; gap: 14px; align-items: flex-end;
-            background: linear-gradient(180deg, transparent, rgba(6,10,24,0.86)); }
-        .rk-legend { position: absolute; top: 12px; left: 16px; right: 16px; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; }
-        .rk-fighter { width: 42%; color: #e2e8f0; }
-        .rk-fighter.right { text-align: right; }
-        .rk-f-name { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
-        .rk-fighter.right .rk-f-name { flex-direction: row-reverse; }
-        .rk-f-realm { font-size: 11px; color: rgba(203,213,225,0.75); margin-left: 3px; font-weight: 600; }
-        .rk-bar { height: 12px; border-radius: 999px; background: rgba(148,163,184,0.24); margin-top: 6px; overflow: hidden; position: relative; }
-        .rk-bar > i { display: block; height: 100%; border-radius: 999px; transition: width .45s ease; }
-        .rk-bar.hp > i { background: linear-gradient(90deg,#34d399,#10b981); }
-        .rk-bar.hp.low > i { background: linear-gradient(90deg,#fb923c,#ef4444); }
-        .rk-bar.mp > i { background: linear-gradient(90deg,#60a5fa,#a78bfa); height: 100%; }
-        .rk-bar.mp { height: 7px; }
-        .rk-bar span { position: absolute; inset: 0; font-size: 9.5px; line-height: 12px; text-align: center; color: rgba(255,255,255,0.9); font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
-        .rk-hp-ghost { position: absolute; top: 0; bottom: 0; background: rgba(239,68,68,0.45); transition: width .9s ease .15s; }
-
-        .rk-skill-name { position: absolute; left: 50%; top: 30%; transform: translate(-50%,-50%); font-size: 26px; font-weight: 900;
-            color: #fff; text-shadow: 0 0 18px rgba(255,255,255,.45), 0 2px 10px rgba(0,0,0,.6); letter-spacing: .03em;
-            opacity: 0; pointer-events: none; white-space: nowrap; text-align: center; }
-        .rk-skill-name.play { animation: rkSkillIn 1.05s cubic-bezier(.2,.8,.2,1); }
-        .rk-skill-name.ult { font-size: 34px; color: #fde68a; text-shadow: 0 0 26px rgba(251,191,36,.8), 0 2px 14px rgba(0,0,0,.75); }
-        @keyframes rkSkillIn {
-            0% { opacity: 0; transform: translate(-50%,-50%) scale(.72) skewX(-8deg); }
-            22% { opacity: 1; transform: translate(-50%,-50%) scale(1.06); }
-            70% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
-            100% { opacity: 0; transform: translate(-50%,-62%) scale(1.02); }
-        }
-        .rk-dmg { position: absolute; font-weight: 900; font-size: 22px; color: #fecaca; text-shadow: 0 2px 8px rgba(0,0,0,.7); pointer-events: none; animation: rkDmg 1s ease-out forwards; }
-        .rk-dmg.crit { color: #fbbf24; font-size: 30px; }
-        .rk-dmg.heal { color: #86efac; }
-        @keyframes rkDmg { 0% { opacity: 0; transform: translateY(6px) scale(.8); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-46px) scale(1.05); } }
-
-        .rk-round-tag { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); font-size: 11px; letter-spacing: .22em;
-            color: rgba(226,232,240,.72); text-transform: uppercase; }
-        .rk-verdict { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 12px; background: rgba(6,10,24,0.78); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity .5s ease; text-align: center; padding: 0 30px; }
-        .rk-verdict.show { opacity: 1; pointer-events: auto; }
-        .rk-verdict-head { font-size: 32px; font-weight: 900; color: #fde68a; text-shadow: 0 0 24px rgba(251,191,36,.55); }
-        .rk-verdict-body { font-size: 13.5px; color: #e2e8f0; line-height: 1.9; max-width: 720px; }
-        .rk-verdict-src { font-size: 11.5px; color: rgba(203,213,225,.68); }
-
-        .rk-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-        .rk-log { margin-top: 16px; max-height: 210px; overflow-y: auto; border: 1px solid #eef1f7; border-radius: 12px; background: #fafbff; }
-        .rk-log-item { display: flex; gap: 10px; padding: 8px 13px; font-size: 12.5px; border-bottom: 1px solid #f1f4fa; line-height: 1.7; }
-        .rk-log-item:last-child { border-bottom: none; }
-        .rk-log-item .rk-lg-r { color: #94a3b8; font-variant-numeric: tabular-nums; flex: none; width: 34px; }
-        .rk-log-item .rk-lg-n { font-weight: 700; color: var(--text); flex: none; }
-        .rk-log-item .rk-lg-t { color: #64748b; }
-        .rk-log-item.ult { background: #fffaf0; }
-        .rk-log-item.now { background: #eef2ff; }
-        .rk-speed { display: inline-flex; border: 1px solid #e2e8f0; border-radius: 9px; overflow: hidden; }
-        .rk-speed button { border: none; background: #fff; padding: 6px 12px; font-size: 12px; cursor: pointer; color: #475569; }
-        .rk-speed button.on { background: var(--primary); color: #fff; }
-
-        /* ---- 五、路数克制 ---- */
-        .rk-styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-        .rk-style { border: 1px solid #eef1f7; border-radius: 12px; padding: 12px 13px; background: #fbfcff; }
-        .rk-style b { font-size: 13px; }
-        .rk-style p { margin: 4px 0 8px; font-size: 11.5px; color: var(--text-light); line-height: 1.7; }
-        .rk-style .rk-line { font-size: 11.5px; color: #475569; }
-        .rk-style .rk-line i { font-style: normal; color: #16a34a; font-weight: 700; }
-        .rk-style .rk-line.bad i { color: #dc2626; }
+        /* ---- 四、去斗法台（榜单与打斗分家：本页只负责「谁在哪一格」） ---- */
+        .rk-duel-cta { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+            padding: 18px 20px; border-radius: 14px; color: #f8fafc;
+            background: linear-gradient(112deg, #171d33 0%, #2a1f45 52%, #3b1d2e 100%);
+            border: 1px solid rgba(148,163,184,0.28); }
+        .rk-duel-cta h3 { font-size: 17px; font-weight: 800; }
+        .rk-duel-cta p { margin: 6px 0 0; font-size: 12.5px; color: rgba(214,207,245,0.82); line-height: 1.85; max-width: 760px; }
+        .rk-duel-cta .rk-go { padding: 10px 20px; border-radius: 11px; background: #f59e0b; color: #1c1917;
+            font-weight: 800; font-size: 13.5px; white-space: nowrap; }
+        .rk-duel-cta .rk-go:hover { background: #fbbf24; }
+        .rk-sub a { color: #fde68a; font-weight: 700; }
 
         .rk-empty { text-align: center; color: var(--text-light); padding: 40px 0; font-size: 13.5px; }
         .rk-sec-note { font-size: 12px; color: var(--text-light); margin-top: 10px; line-height: 1.85; }
 
         @media (max-width: 1080px) {
-            .rk-pyramid-wrap, .rk-pick-grid { grid-template-columns: 1fr; }
-            .rk-vs { display: none; }
+            .rk-pyramid-wrap { grid-template-columns: 1fr; }
             .rk-bar-row { grid-template-columns: 28px 72px 1fr 104px; }
         }
     </style>
@@ -226,8 +139,9 @@
                 <h1 class="rk-title">凡人修仙传 · 人界篇修仙排行榜</h1>
                 <p class="rk-sub">
                     收录本站三十位角色在<b>人界篇终局</b>的境界：上古古魔入侵后灵气稀薄，人界修士最高只能到化神初期 ——
-                    所以这座塔只有六层，塔尖站得住的人不超过两个。选中两位可以自动斗法，
-                    招式各自释放、技能名当场报出，<b>胜负在服务端按境界压制 + 功法克制 + 原著战绩推演</b>，不是前端随机演给你看。
+                    所以这座塔只有六层，塔尖站得住的人不超过两个。想看他们怎么打，去
+                    <a href="/duel">斗法台</a>：选两位自动过招，施法时当场报招，
+                    <b>胜负在服务端按境界压制 + 功法克制 + 原著战绩推演</b>，不是前端随机演给你看。
                 </p>
             </div>
             <div class="rk-hero-actions">
@@ -273,78 +187,23 @@
             <div class="rk-card-body" id="powerBoard"><div class="rk-empty">加载中...</div></div>
         </section>
 
-        <!-- ==================== 四、斗法台 ==================== -->
+        <!-- ==================== 四、去斗法台 ==================== -->
         <section class="rk-card">
-            <div class="rk-card-head">
-                <div class="rk-card-title">斗法台 <small>各自动手 · 技能当场报名 · 结果贴设定</small></div>
-                <div class="rk-hint" id="rkMatchTip">先选两位 —— 同境界打的是小层与底牌，差两级基本无解。</div>
-            </div>
             <div class="rk-card-body">
-                <div class="rk-pick-grid">
-                    <div class="rk-pick" id="pickA">
-                        <div class="rk-pick-label">甲 · 左</div>
-                        <div class="rk-picked empty" id="pickedA">尚未选人</div>
-                        <input class="rk-search" id="searchA" placeholder="搜索名字 / 功法 / 境界" autocomplete="off">
-                        <div class="rk-roster" id="rosterA"></div>
+                <div class="rk-duel-cta">
+                    <div>
+                        <h3>名字排完了，想看他们动手 —— 去斗法台</h3>
+                        <p>斗法台单独一页：选两位修士自动过招，人物会抬袖、扑杀、受击、遁走，
+                            施法那一刻自己报名字（可开语音），技能名、血条、特效按每一合铺开；
+                            功法路数与克制表也在那页。同一对人种子相同，结果必然相同。</p>
                     </div>
-                    <div class="rk-vs">VS</div>
-                    <div class="rk-pick" id="pickB">
-                        <div class="rk-pick-label">乙 · 右</div>
-                        <div class="rk-picked empty" id="pickedB">尚未选人</div>
-                        <input class="rk-search" id="searchB" placeholder="搜索名字 / 功法 / 境界" autocomplete="off">
-                        <div class="rk-roster" id="rosterB"></div>
-                    </div>
+                    <a class="rk-go" href="/duel">⚔ 进入斗法台 →</a>
                 </div>
-
-                <div class="rk-stage" id="rkStage">
-                    <canvas id="rkFx"></canvas>
-                    <div class="rk-round-tag" id="rkRoundTag">待 手</div>
-                    <div class="rk-legend">
-                        <div class="rk-fighter" id="fgA"></div>
-                        <div class="rk-fighter right" id="fgB"></div>
-                    </div>
-                    <div class="rk-skill-name" id="rkSkillName"></div>
-                    <div class="rk-strip"><div class="rk-hint" id="rkStageHint" style="color:rgba(226,232,240,.72);width:100%;text-align:center;">
-                        选好两位，点下方「开始斗法」。想复现同一局：种子相同则招式序列相同。</div></div>
-                    <div class="rk-verdict" id="rkVerdict">
-                        <div class="rk-verdict-head" id="rkVerdictHead"></div>
-                        <div class="rk-verdict-body" id="rkVerdictBody"></div>
-                        <div class="rk-verdict-src" id="rkVerdictSrc"></div>
-                    </div>
-                </div>
-
-                <div class="rk-actions">
-                    <button class="btn btn-primary btn-sm" id="rkFight" disabled>⚔ 开始斗法</button>
-                    <button class="btn btn-outline btn-sm" id="rkReset">清台</button>
-                    <span class="rk-hint">播放速度</span>
-                    <span class="rk-speed" id="rkSpeed">
-                        <button data-speed="1" class="on">1×</button>
-                        <button data-speed="1.8">1.8×</button>
-                        <button data-speed="0.55">慢</button>
-                    </span>
-                    <span class="rk-hint" id="rkSeedTip"></span>
-                </div>
-
-                <div class="rk-log" id="rkLog"></div>
-            </div>
-        </section>
-
-        <!-- ==================== 五、路数克制 ==================== -->
-        <section class="rk-card">
-            <div class="rk-card-head">
-                <div class="rk-card-title">功法路数与克制 <small>裁决引擎实际使用的这张表</small></div>
-            </div>
-            <div class="rk-card-body">
-                <div class="rk-styles" id="styleGuide"></div>
-                <p class="rk-sec-note">
-                    克制只调倍率，不改境界：被克的一方最多讨回一点点便宜，跨两个大境界仍然打不动 ——
-                    原著里没有人靠「属性克制」以炼气逆杀元婴，榜单也不该出现这种事。
-                </p>
             </div>
         </section>
     </div>
 
-    <script src="/js/app.js?v=12"></script>
-    <script src="/js/rank.js?v=1"></script>
+    <script src="/js/app.js?v=13"></script>
+    <script src="/js/rank.js?v=2"></script>
 </body>
 </html>

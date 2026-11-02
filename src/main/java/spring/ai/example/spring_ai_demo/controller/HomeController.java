@@ -106,11 +106,18 @@ public class HomeController {
         return "visits";
     }
 
-    /** 修仙排行榜（人界篇）：境界榜 + 两人自动斗法，同样全站公开，数据走 @NoAuth 的 /api/rank/** */
+    /** 修仙排行榜（人界篇）：只放榜单 —— 境界塔、人物墙、战力榜，数据走 @NoAuth 的 /api/rank/** */
     @GetMapping("/rank")
     public String rank(Model model) {
         model.addAttribute("title", "修仙排行榜 · 人界篇 - 修仙心得");
         return "rank";
+    }
+
+    /** 斗法台（人界篇）：选两人自动过招、施法报招，与榜单分成两页 —— 看名次和看打斗是两件事 */
+    @GetMapping("/duel")
+    public String duel(Model model) {
+        model.addAttribute("title", "斗法台 · 人界篇 - 修仙心得");
+        return "duel";
     }
 
     /** 配置项（k-v 全表，仅管理员）：从看板里拆出来，避免监控台和改配置混在同一屏 */

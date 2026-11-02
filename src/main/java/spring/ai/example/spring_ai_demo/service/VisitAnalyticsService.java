@@ -237,7 +237,8 @@ public class VisitAnalyticsService {
         if (path.startsWith("/user")) {
             return "user";
         }
-        if (path.startsWith("/monitor") || path.startsWith("/visits")) {
+        if (path.startsWith("/monitor") || path.startsWith("/visits")
+                || path.startsWith("/rank") || path.startsWith("/duel")) {
             return "board";
         }
         if (path.startsWith("/login") || path.startsWith("/register")) {
@@ -264,6 +265,7 @@ public class VisitAnalyticsService {
             case "/monitor" -> "渡劫看板";
             case "/visits" -> "访问看板";
             case "/rank" -> "修仙排行榜";
+            case "/duel" -> "斗法台";
             case "/login" -> "登录页";
             case "/register" -> "注册页";
             case "/profile" -> "个人中心";

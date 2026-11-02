@@ -9,7 +9,7 @@
     <!-- 首屏封面图预加载：与 .home-cover 背景图共用同一 URL，只下载一次，后续 30 天走浏览器本地缓存 -->
     <link rel="preload" as="image" href="/images/home-songyu.jpg"
           th:if="${bannerUrl != null}" th:href="${bannerUrl}">
-    <link rel="stylesheet" href="/css/style.css?v=15">
+    <link rel="stylesheet" href="/css/style.css?v=16">
     <style>
         /* 首页专属：顶部「洞中灵气」实时条（样式其余额外加 .home 作用域，避免影响其他页面） */
         .home .hero-live {
@@ -113,6 +113,8 @@
                 <div class="side-card-title">⚡ 快捷入口</div>
                 <div class="quick-links">
                     <a href="/write" class="quick-link"><span class="quick-icon">✍️</span>写文章</a>
+                    <a href="/duel" class="quick-link"><span class="quick-icon">⚔️</span>斗法台</a>
+                    <a href="/rank" class="quick-link"><span class="quick-icon">🏗️</span>修仙榜</a>
                     <a href="/monitor" class="quick-link"><span class="quick-icon">⚡</span>渡劫看板</a>
                     <a href="/profile" class="quick-link"><span class="quick-icon">👤</span>个人中心</a>
                     <a href="#" class="quick-link" onclick="AiAssistant.toggle();return false;">
@@ -168,6 +170,13 @@
                 </div>
             </div>
 
+            <!-- 斗法台入口：榜单和打斗分成两页，首页这张卡直接进打斗那一页（名次在卡文案里顺链到榜单） -->
+            <div class="card side-card duel-cta">
+                <div class="duel-cta-title">⚔️ 斗法台 · 人界篇</div>
+                <div class="duel-cta-desc">选两位修士自动过招：抬袖、扑杀、受击、遁走，施法当场报招；功法克制也在同页。想先看名次，去<a href="/rank">修仙榜</a>。</div>
+                <a class="duel-cta-btn" href="/duel">开打 →</a>
+            </div>
+
             <!-- AI 助手入口：本项目差异点，放到右栏第二位置 -->
             <div class="card side-card ai-cta">
                 <div class="ai-cta-title">🤖 大衍神君 · AI 助手</div>
@@ -193,7 +202,7 @@
         </aside>
     </div>
 
-    <script src="/js/app.js?v=12"></script>
+    <script src="/js/app.js?v=13"></script>
     <script>
         // ==================== 首页逻辑 ====================
         let currentPage = 1;

@@ -2690,6 +2690,74 @@ textarea.form-control {
     transform: translateY(-1px);
 }
 
+/* ======== 斗法台入口卡片（首页右栏）========
+   与 AI 助手那张卡同一个位置语义：都是「别处没有」的入口。
+   配色走夜色加琥珀金，和榜单页的 hero 一脉相承，让人一眼认出这是「动手」那一页 */
+.duel-cta {
+    position: relative;
+    overflow: hidden;
+    border: none;
+    background: linear-gradient(135deg, #171d33 0%, #2a1f45 54%, #3b1d2e 100%);
+    color: #fff;
+    box-shadow: 0 14px 30px -14px rgba(23, 29, 51, 0.85);
+}
+
+.duel-cta::after {
+    content: '';
+    position: absolute;
+    left: -34px;
+    bottom: -62px;
+    width: 156px;
+    height: 156px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245,158,11,0.34), rgba(245,158,11,0) 68%);
+    pointer-events: none;
+}
+
+.duel-cta-title {
+    position: relative;
+    z-index: 1;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #fde68a;
+}
+
+.duel-cta-desc {
+    position: relative;
+    z-index: 1;
+    margin: 6px 0 12px;
+    font-size: 0.78rem;
+    line-height: 1.65;
+    opacity: 0.92;
+}
+
+.duel-cta-desc a {
+    color: #fbbf24;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.duel-cta-btn {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 999px;
+    background: #f59e0b;
+    color: #1c1917;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.duel-cta-btn:hover {
+    background: #fbbf24;
+    color: #1c1917;
+    transform: translateY(-1px);
+}
+
 /* ======== 中间列表卡片头部 ======== */
 .list-card {
     padding: 20px 24px 12px;

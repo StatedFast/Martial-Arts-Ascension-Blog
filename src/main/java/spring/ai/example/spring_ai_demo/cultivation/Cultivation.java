@@ -254,7 +254,15 @@ public final class Cultivation {
     public record Skill(String name, String kind, double power, int cost, String vfx, String desc) {
     }
 
-    /** 特效键，前端 rank.js 按键分派画法 */
+    /**
+     * 斗法台报招配音：前端用浏览器语音合成把招名念出来，这里只定“听起来像谁”。
+     * pitch/rate 直接给 Web Speech 用（1.0 为正常人声），timbre 是人设描述，
+     * shout 是出手前那一声喊招 —— 短，否则一拍里光说话就打不完仗了。
+     */
+    public record Voice(double pitch, double rate, String timbre, String shout) {
+    }
+
+    /** 特效键，前端 duel.js 按键分派画法 */
     public static final class Vfx {
         public static final String SLASH = "SLASH";
         public static final String SWORD_RAIN = "SWORD_RAIN";

@@ -134,11 +134,14 @@ Step 'diff local vs remote jar' {
     if ($ForceFull -or $remoteMap.Count -eq 0) { Write-Host '    force/full'; return }
     $diff = @()
     $onlyRemote = @()
+    # Dir entries are not a real difference: zero payload, and jar uf rewrites them. Remote unpack uses
+    # `find BOOT-INF/classes -type f`, so it never depends on directory entries.
     foreach ($k in $localMap.Keys) {
+        if ($k.EndsWith('/')) { continue }
         if (-not $remoteMap.ContainsKey($k)) { $diff += $k }
         elseif ($remoteMap[$k].crc -ne $localMap[$k].crc) { $diff += $k }
     }
-    foreach ($k in $remoteMap.Keys) { if (-not $localMap.ContainsKey($k)) { $onlyRemote += $k } }
+    foreach ($k in $remoteMap.Keys) { if (-not $k.EndsWith('/') -and -not $localMap.ContainsKey($k)) { $onlyRemote += $k } }
     Write-Host ('    changed=' + $diff.Count + ' removed=' + $onlyRemote.Count)
     if ($diff.Count -eq 0 -and $onlyRemote.Count -eq 0) {
         $script:mode = 'NOOP'
@@ -278,12 +281,20 @@ Step 'verify remote jar entry-by-entry' {
     $remote   = Invoke-RemoteScript ("unzip -v " + $remoteJar) -Quiet
     $nowMap   = Parse-UnzipV $remote.Output
     $mismatch = @()
+    # Directory entries (name ends with /) carry no payload, and `jar uf` rewrites them with its own CRC/size
+    # convention, so comparing them only produces false mismatches. Keep this block ASCII: PS 5.1 reads BOM-less
+    # files as GBK and mangled CJK bytes can emit stray [ or backtick tokens that break parsing.
+    $dirSkipped = 0
     foreach ($k in $localMap.Keys) {
+        if ($k.EndsWith('/')) { $dirSkipped++; continue }
         if (-not $nowMap.ContainsKey($k) -or $nowMap[$k].crc -ne $localMap[$k].crc) { $mismatch += ('CRC ' + $k) }
         elseif ($nowMap[$k].method -ne $localMap[$k].method) { $mismatch += ('METHOD ' + $k + ' ' + $localMap[$k].method + '->' + $nowMap[$k].method) }
     }
-    foreach ($k in $nowMap.Keys) { if (-not $localMap.ContainsKey($k)) { $mismatch += ('EXTRA ' + $k) } }
-    Write-Host ('    entries compared=' + $localMap.Count + '  mismatch=' + $mismatch.Count)
+    foreach ($k in $nowMap.Keys) {
+        if ($k.EndsWith('/')) { continue }
+        if (-not $localMap.ContainsKey($k)) { $mismatch += ('EXTRA ' + $k) }
+    }
+    Write-Host ('    entries compared=' + ($localMap.Count - $dirSkipped) + ' (dir entries skipped=' + $dirSkipped + ')  mismatch=' + $mismatch.Count)
     if ($mismatch.Count -gt 0) {
         ($mismatch | Select-Object -First 10) | ForEach-Object { Write-Host ('      ' + $_) -ForegroundColor Red }
     } else {

@@ -7,6 +7,7 @@ import spring.ai.example.spring_ai_demo.cultivation.Cultivation.Skill;
 import spring.ai.example.spring_ai_demo.cultivation.Cultivation.Style;
 import spring.ai.example.spring_ai_demo.cultivation.Cultivation.SubStage;
 import spring.ai.example.spring_ai_demo.cultivation.Cultivation.Vfx;
+import spring.ai.example.spring_ai_demo.cultivation.Cultivation.Voice;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -31,6 +32,14 @@ public class CultivationCatalog {
 
     private static final List<Cultivator> ROSTER = build();
     private static final Map<Long, Cultivator> BY_ID = indexById(ROSTER);
+    private static final Map<Long, Voice> VOICES = buildVoices();
+
+    /** 拿不到就给一套中性人声：斗法台不能因为某个角色没配音色就不开口 */
+    private static final Voice DEFAULT_VOICE = new Voice(1.0, 0.95, "未单独配音色", "");
+
+    public Voice voice(Long userId) {
+        return VOICES.getOrDefault(userId, DEFAULT_VOICE);
+    }
 
     public List<Cultivator> roster() {
         return ROSTER;
@@ -66,6 +75,47 @@ public class CultivationCatalog {
             map.put(c.userId(), c);
         }
         return map;
+    }
+
+    /**
+     * 报招音色：只写“听起来像谁”，不写数值，也不影响裁决。
+     * 取值的根据是原著里这个人的说话方式：韩立少话、蛮胡子粗豪、曲魂是炼尸几乎不开口、
+     * 银月与柳乐儿是个姑娘腔、向之礼三千年没跟人吵过架。女修普遍 pitch 高、rate 快，
+     * 老魔 pitch 低、rate 慢 —— 一听就知道是谁在出手。
+     */
+    private static Map<Long, Voice> buildVoices() {
+        Map<Long, Voice> m = new LinkedHashMap<>();
+        m.put(101L, new Voice(0.82, 0.92, "低而稳，话不多", "去。"));
+        m.put(118L, new Voice(0.68, 0.82, "苍老悠远", "起。"));
+        m.put(102L, new Voice(1.22, 0.92, "清冷女声", "凝。"));
+        m.put(110L, new Voice(1.14, 0.90, "傲冷、字字结霜", "冻。"));
+        m.put(126L, new Voice(1.02, 0.78, "兽语沉缓", "扛。"));
+        m.put(107L, new Voice(0.74, 0.86, "残魂空响", "识。"));
+        m.put(114L, new Voice(0.70, 0.88, "六气重叠", "六道。"));
+        m.put(117L, new Voice(0.86, 0.94, "风急刀鸣", "收。"));
+        m.put(113L, new Voice(0.64, 0.80, "阴寒沙哑", "来鼎。"));
+        m.put(129L, new Voice(1.16, 0.90, "端凝持重", "正法。"));
+        m.put(116L, new Voice(0.78, 0.88, "金铁之声", "砸。"));
+        m.put(111L, new Voice(0.58, 0.80, "粗豪炸裂", "哈！"));
+        m.put(119L, new Voice(0.70, 0.84, "迷幻慵懒", "睡吧。"));
+        m.put(115L, new Voice(0.88, 0.95, "灵光清越", "照。"));
+        m.put(130L, new Voice(1.08, 1.00, "三剑急啸", "剑去。"));
+        m.put(109L, new Voice(1.20, 0.95, "柔中带韧", "紫焰。"));
+        m.put(128L, new Voice(1.26, 0.94, "清亮傲气", "凤鸣。"));
+        m.put(124L, new Voice(1.12, 1.00, "急切清越", "我还没输。"));
+        m.put(108L, new Voice(1.30, 0.98, "少女器灵", "我在剑里。"));
+        m.put(127L, new Voice(1.34, 1.04, "娇俏狐音", "看尾巴。"));
+        m.put(105L, new Voice(1.28, 1.00, "娇声带刺", "花里有剑。"));
+        m.put(123L, new Voice(1.16, 0.94, "温婉清淡", "云芝在此。"));
+        m.put(106L, new Voice(0.90, 0.96, "沉郁书生", "师命不敢辞。"));
+        m.put(112L, new Voice(0.55, 0.76, "炼尸不开口，只当招自己到了", ""));
+        m.put(125L, new Voice(1.06, 1.02, "市井爽利", "讲规矩。"));
+        m.put(121L, new Voice(1.24, 0.98, "少女脆声", "师兄小心。"));
+        m.put(103L, new Voice(0.76, 0.90, "阴恻恻老医", "别动。"));
+        m.put(104L, new Voice(0.84, 1.00, "少年清亮", "八极拳。"));
+        m.put(122L, new Voice(1.18, 0.96, "温软医女", "我帮你。"));
+        m.put(120L, new Voice(0.96, 1.04, "市井粗嗓", "先走一步。"));
+        return m;
     }
 
     // ==================== 设定正文 ====================
