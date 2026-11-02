@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">配置项 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=18">
+    <link rel="stylesheet" href="/css/style.css?v=19">
     <style>
         /* 配置项页：从看板里拆出来的纯表格页，不再混监控内容 */
         .cfg-page { background: var(--bg); }
@@ -85,7 +85,7 @@
         <section class="cfg-card">
             <div class="cfg-card-head">
                 <div class="cfg-card-title">全部配置项 <small id="cfgCount"></small></div>
-                <button class="btn btn-outline btn-sm" onclick="loadConfigs()">↻ 重新拉取</button>
+                <button class="btn btn-outline btn-sm" onclick="loadConfigs(true)">↻ 重新拉取</button>
             </div>
             <div id="configList"><div class="loading">加载中...</div></div>
         </section>
@@ -101,13 +101,17 @@
                 '<div class="empty-state"><h3>无权限</h3><p>配置项仅管理员可访问</p></div>';
         }
 
-        async function loadConfigs() {
+        /* notify：手点「重新拉取」时必须给回执 —— 表格长得一模一样，不提示就看不出到底刷没刷；
+           进页自动拉的那一次不打扰（但失败一定要说）。 */
+        async function loadConfigs(notify) {
             try {
                 const list = await http.get('/admin/config');
                 renderConfigs(list);
+                if (notify) Toast.show('已重新拉取：共 ' + (list || []).length + ' 项配置');
             } catch (e) {
                 document.getElementById('configList').innerHTML =
                     '<div class="empty-state"><h3>加载失败</h3><p>' + escapeHtml(e.message) + '</p></div>';
+                Toast.show('配置拉取失败：' + e.message, 'error');
             }
         }
 
@@ -143,7 +147,7 @@
             }
         }
 
-        if (isAdmin(Auth.getUser())) loadConfigs();
+        if (isAdmin(Auth.getUser())) loadConfigs(false);
     </script>
 </body>
 </html>

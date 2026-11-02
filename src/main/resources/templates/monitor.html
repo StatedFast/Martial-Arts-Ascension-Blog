@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">JVM 渡劫看板 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=18">
+    <link rel="stylesheet" href="/css/style.css?v=19">
     <style>
         /* 看板页专属样式；曲线/卡片/表格等公共部分由 fragments/board 自带 */
         .cfg-page { background: var(--bg); }
@@ -167,11 +167,13 @@
         <div class="cfg-main">
             <!-- ==================== 左：观测 ==================== -->
             <div>
-                <!-- 曲线 + JVM 参数（复用片段）：用 th:insert 而非 th:replace，
-                     否则宿主标签被整体换掉，--board-h 这个高度变量就传不进去了 -->
-                <div style="--board-h:340px;" th:insert="~{fragments/board :: board}"></div>
+                <!-- 看板片段拆成四块：样式 / 曲线 / JVM 参数 / 内核脚本。
+                     用 th:insert 而非 th:replace，否则宿主标签被整体换掉，--board-h 这个高度变量就传不进去 -->
+                <div th:insert="~{fragments/board :: styles}"></div>
+                <div style="--board-h:340px;" th:insert="~{fragments/board :: chart}"></div>
 
-                <!-- ==================== 灵气境界：占用率的修仙化读数 ==================== -->
+                <!-- ==================== 灵气境界：占用率的修仙化读数 ====================
+                     紧跟曲线、排在 JVM 核心参数之前：先看占用率长什么样，再看它对应哪个境界 -->
                 <section class="cfg-card">
                     <div class="cfg-realm">
                         <div class="cfg-realm-badge" id="realmBadge">炼气</div>
@@ -191,6 +193,9 @@
                         </div>
                     </div>
                 </section>
+
+                <div th:insert="~{fragments/board :: params}"></div>
+                <div th:insert="~{fragments/board :: engine}"></div>
             </div>
 
             <!-- ==================== 右：渡劫操控台（仅管理员可写） ==================== -->

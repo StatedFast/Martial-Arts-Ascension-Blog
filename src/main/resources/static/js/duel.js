@@ -144,7 +144,7 @@
     const Stage = {
         init() {
             ['A', 'B'].forEach(side => {
-                $('fig' + side).innerHTML = figureHtml();
+                $('fig' + side).innerHTML = figureHtml(side);
                 $('fg' + side).innerHTML = `
                     <div class="dl-f-name"><span id="dlName${side}">未选人</span>
                         <em class="dl-f-realm" id="dlRealm${side}"></em></div>
@@ -197,7 +197,7 @@
         paint(side) {
             const p = D.byId.get(D['pick' + side]);
             const fig = $('fig' + side);
-            fig.innerHTML = figureHtml();
+            fig.innerHTML = figureHtml(side);
             fig.style.setProperty('--pc', p ? p.realmColor : '#64748b');
             fig.style.setProperty('--flip', side === 'A' ? '1' : '-1');
             if (!p) return;
@@ -216,25 +216,127 @@
         }
     };
 
-    function figureHtml() {
+    /**
+     * 立影：先有人体，再穿衣服 —— 上一版是「一个梯形袍子上浮了个头」，这次按真人身架叠：
+     *   颈(45~55) → 肩(y30, 宽 40) → 胸(y44) → 腰(y60, 收至 22) → 髋 → 袍摆(y148)
+     *   肩宽 : 头宽 ≈ 1.25 : 1，头坐在肩上（颈被领口压住下缘），腿从袍摆开缝里露到靴子。
+     * 手臂一律从肩点出发，广袖只盖到腕，腕下一截手掌 + 两根指头 —— 上一版的手埋在袖子里，
+     * 看着就是两片翅膀。尺寸仍走 viewBox 0 0 100 160 等比坐标（.dl-body 150x240 = 1.5 倍）。
+     * 渐变 id 必须带侧别后缀：A/B 两片 SVG 在同一份文档里，重名会让 B 取到 A 的境界色。
+     */
+    function figureHtml(side) {
+        const gid = name => `dl${name}${side}`;
+        const url = name => `url(#${gid(name)})`;
         return `
             <div class="dl-aura"></div>
             <div class="dl-array"></div>
             <div class="dl-shadow"></div>
             <div class="dl-visual">
-                <svg class="dl-body" viewBox="0 0 120 200" aria-hidden="true">
+                <svg class="dl-body" viewBox="0 0 100 160" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="${gid('Robe')}" x1="0" y1="0" x2="1" y2="1">
+                            <stop class="g-robe-1" offset="0"/>
+                            <stop class="g-robe-2" offset=".45"/>
+                            <stop class="g-robe-3" offset="1"/>
+                        </linearGradient>
+                        <linearGradient id="${gid('Skirt')}" x1="0" y1="0" x2="1" y2=".6">
+                            <stop class="g-skirt-1" offset="0"/>
+                            <stop class="g-skirt-2" offset="1"/>
+                        </linearGradient>
+                        <linearGradient id="${gid('Sleeve')}" x1="0" y1="0" x2="1" y2=".9">
+                            <stop class="g-sleeve-1" offset="0"/>
+                            <stop class="g-sleeve-2" offset="1"/>
+                        </linearGradient>
+                        <linearGradient id="${gid('Sash')}" x1="0" y1="0" x2="0" y2="1">
+                            <stop class="g-sash-1" offset="0"/>
+                            <stop class="g-sash-2" offset="1"/>
+                        </linearGradient>
+                    </defs>
+
+                    <!-- 灵光绕体：轮廓光贴着身形走，人物才不像贴在背景上的贴纸 -->
+                    <path class="halo" d="M50 16 C36 18 30 26 29 34 C26 48 24 60 22 76 C20 100 18 124 16 148 L84 148 C82 124 80 100 78 76 C76 60 74 48 71 34 C70 26 64 18 50 16 Z"/>
+
+                    <!-- 背后飘带：从肩后垂到腰下，跟着呼吸飘，静止的人才有风 -->
+                    <path class="ribbon rb1" d="M33 34 Q17 62 21 100"/>
+                    <path class="ribbon rb2" d="M67 36 Q85 64 81 104"/>
+
                     <g class="torso">
-                        <g class="arm-b"><path class="limb" d="M50 92 q-12 20 -12 44 l16 -1 q1 -22 6 -40 z"/></g>
-                        <path class="robe2" d="M42 94 Q30 148 20 196 L100 196 Q88 148 78 94 Z"/>
-                        <path class="robe" d="M47 94 Q41 148 33 192 L87 192 Q79 148 73 94 Z"/>
-                        <path class="sash" d="M44 122 h32 v10 h-32 z"/>
-                        <path class="limb" d="M52 74 q8 -10 16 0 l-2 22 h-12 z"/>
-                        <path class="ribbon rb1" d="M80 112 Q108 132 98 166"/>
-                        <path class="ribbon rb2" d="M40 114 Q12 134 24 168"/>
-                        <g class="arm-f"><path class="limb" d="M66 92 q16 14 22 38 l-16 6 q-6 -22 -16 -34 z"/></g>
+                    <!-- 脑后垂发：绕到肩后，两头都被头发压住才有「长发包着头」的观感 -->
+                    <path class="hair" d="M40 14 Q30 34 33 58 L43 54 Q37 34 44 16 Z"/>
+                    <path class="hair" d="M60 14 Q70 34 67 58 L57 54 Q63 34 56 16 Z"/>
+
+                    <!-- 颈：头像的下缘正好压住它，肩线在 y30 —— 头坐在肩上，不是浮在袍上 -->
+                    <path class="neck" d="M45 14 L45 30 Q50 35 55 30 L55 14 Z"/>
+                    <path class="neck-shade" d="M45 14 L55 14 L55 21 Q50 26 45 21 Z"/>
+
+                    <!-- 远侧手臂：肩点出发，袖只到腕，腕下是手掌 -->
+                    <g class="arm-b">
+                        <path class="limb" fill="${url('Sleeve')}" d="M35 29 Q25 40 23 56 Q22 68 24 76 L37 72 Q34 58 35 46 Q36 37 39 31 Z"/>
+                        <path class="cuff" d="M20 68 Q31 64 38 72 Q33 83 22 79 Z"/>
+                        <ellipse class="hand" cx="26" cy="85" rx="5" ry="4.6"/>
+                        <path class="fingers" d="M23 89 Q26 94 31 92"/>
+                    </g>
+
+                    <!-- 裤与靴：袍摆开衩处露出来，脚下才有实地 -->
+                    <path class="trouser" d="M43 64 L41 134 L50 134 L49 64 Z"/>
+                    <path class="trouser" d="M57 64 L59 134 L50 134 L51 64 Z"/>
+                    <path class="boot" d="M39 134 Q36 146 43 150 L51 150 L50 134 Z"/>
+                    <path class="boot" d="M61 134 Q64 146 57 150 L49 150 L50 134 Z"/>
+
+                    <!-- 内裳压在最里，从袍摆开缝里露出一条深色中缝 -->
+                    <path class="skirt" fill="${url('Skirt')}" d="M38 58 Q25 106 21 150 L47 150 Q45 104 46 58 Z"/>
+                    <path class="skirt" fill="${url('Skirt')}" d="M62 58 Q75 106 79 150 L53 150 Q55 104 54 58 Z"/>
+                    <path class="under" d="M46 60 L43 148 L57 148 L54 60 Z"/>
+
+                    <!-- 上身两襟：肩→胸→收腰，腰线比头还窄，人才有身形 -->
+                    <path class="shoulder" d="M30 33 Q50 23 70 33 Q50 41 30 33 Z"/>
+                    <path class="robe" fill="${url('Robe')}" d="M50 26 C41 27 33 31 30 38 C28 48 29 56 31 62 L46 64 L47 40 Z"/>
+                    <path class="robe" fill="${url('Robe')}" d="M50 26 C59 27 67 31 70 38 C72 48 71 56 69 62 L54 64 L53 40 Z"/>
+
+                    <!-- 衣褶与受光轮廓：几道细线就够，多了满屏就乱 -->
+                    <path class="fold" d="M38 72 Q33 110 29 146"/>
+                    <path class="fold" d="M62 74 Q67 112 71 146"/>
+                    <path class="fold" d="M46 66 Q45 108 44 146"/>
+                    <path class="rim" d="M70 38 C72 58 75 106 79 148"/>
+
+                    <!-- 交领（右衽）：两道襟边在锁骨下交成 V，把颈和胸接上 -->
+                    <path class="collar" d="M43 27 Q49 41 58 51"/>
+                    <path class="collar in" d="M57 27 Q51 40 44 49"/>
+
+                    <!-- 大带束在腰上（不是腹），玉佩与绦穗垂到胯 —— 视觉上把上身提上去 -->
+                    <path class="sash" fill="${url('Sash')}" d="M36 56 Q50 52 64 56 L64 68 Q50 64 36 68 Z"/>
+                    <path class="jade" d="M50 68 L55 75 L50 82 L45 75 Z"/>
+                    <path class="tassel" d="M50 82 L50 94"/>
+
+                    <!-- 近侧广袖与手：压在最上层，抬袖出手都靠它 -->
+                    <g class="arm-f">
+                        <path class="limb" fill="${url('Sleeve')}" d="M65 29 Q75 40 77 56 Q78 68 76 76 L63 72 Q66 58 65 46 Q64 37 61 31 Z"/>
+                        <path class="cuff" d="M80 68 Q69 64 62 72 Q67 83 78 79 Z"/>
+                        <ellipse class="hand" cx="74" cy="85" rx="5.4" ry="4.8"/>
+                        <path class="fingers" d="M77 89 Q74 94 69 92"/>
+                    </g>
                     </g>
                 </svg>
-                <div class="dl-headwrap"><img class="dl-head" src="/images/default-avatar.svg" alt=""></div>
+                <div class="dl-headwrap">
+                    <svg class="dl-hair dl-hair-back" viewBox="0 0 76 90" aria-hidden="true">
+                        <ellipse class="hb" cx="38" cy="32" rx="29" ry="25"/>
+                        <path class="hb" d="M38 6 C17 6 5 22 7 44 C8 62 14 78 22 88 L26 44 C26 24 30 12 38 8 Z"/>
+                        <path class="hb" d="M38 6 C59 6 71 22 69 44 C68 62 62 78 54 88 L50 44 C50 24 46 12 38 8 Z"/>
+                    </svg>
+                    <img class="dl-head" src="/images/default-avatar.svg" alt="">
+                    <svg class="dl-hair dl-hair-front" viewBox="0 0 76 90" aria-hidden="true">
+                        <!-- 刘海压到额头 1/3，鬓发沿脸侧下到下颌：头发贴着脸长，不是扣在头上的黑帽子 -->
+                        <path class="hf" d="M12 44 C12 22 23 10 38 10 C53 10 64 22 64 44 C58 27 50 20 38 20 C26 20 18 27 12 44 Z"/>
+                        <path class="hf" d="M11 40 C9 56 12 70 18 80 L23 58 C20 50 19 45 19 40 Z"/>
+                        <path class="hf" d="M65 40 C67 56 64 70 58 80 L53 58 C56 50 57 45 57 40 Z"/>
+                        <path class="sheen" d="M19 30 Q29 15 45 15 Q33 21 24 35 Z"/>
+                        <ellipse class="hf" cx="38" cy="8" rx="10" ry="8"/>
+                        <rect class="guan" x="29" y="0" width="18" height="7" rx="3"/>
+                        <path class="guan-pin" d="M46 4 L60 0"/>
+                        <path class="hair-tie" d="M26 14 Q38 20 50 14"/>
+                        <path class="ribbon rb3" d="M50 4 Q66 11 62 30"/>
+                    </svg>
+                </div>
                 <div class="dl-weapon">诀</div>
             </div>
             <div class="dl-bubble"></div>
@@ -246,6 +348,12 @@
         ok: typeof window !== 'undefined' && 'speechSynthesis' in window,
         zh: null,
         list: [],
+        /* 念话状态：排时间轴要靠它把下一拍按住。上一句没念完就开下一招，两句话会叠成一团糊音。
+           busy 由 utterance 的 onend/onerror 归位，另有超时保险丝（有些内核被 cancel 后两个回调都不发）。 */
+        busy: false,
+        utter: null,
+        idleCbs: [],
+        fuse: 0,
 
         init() {
             if (!this.ok) {
@@ -364,8 +472,58 @@
                 u.pitch = clampNum(v.pitch || 1, 0.4, 1.8);
                 u.rate = clampNum((v.rate || 0.95) * (D.speed >= 1.7 ? 1.12 : 1), 0.6, 1.6);
                 u.volume = 0.95;
+                this.busy = true;
+                this.utter = u;
+                u.onend = () => this.release(u);
+                u.onerror = () => this.release(u);
+                /* 兜底：联网音色卡住、或内核一个回调都不发时，按预估时长再给 3 秒就当作念完了。
+                   绝不能把整场斗法冻在「等一句话」上 —— 宁可少等一句，也不能不往下打。 */
+                clearTimeout(this.fuse);
+                this.fuse = setTimeout(() => this.release(u), this.estMs(p, text) + 3000);
                 window.speechSynthesis.speak(u);
-            } catch (e) { /* 语音失败不影响演出，气泡与字幕还在 */ }
+            } catch (e) {
+                // 语音失败不影响演出，气泡与字幕还在，也别把下一拍锁死
+                this.release(this.utter);
+            }
+        },
+
+        /** 这一句结束了（或兜底超时了）：把等着「念完」的下一拍全部放行 */
+        release(u) {
+            if (u && this.utter !== u) return;   // 被 cancel 掉的旧 utterance 迟到的回调，忽略
+            clearTimeout(this.fuse);
+            this.busy = false;
+            this.utter = null;
+            const cbs = this.idleCbs;
+            this.idleCbs = [];
+            cbs.forEach(fn => {
+                try { fn(); } catch (e) { console.warn('[speech] 放行回调异常', e); }
+            });
+        },
+
+        /** 等这句念完再走下一拍；语音关闭时 busy 恒为 false，等于当场放行 */
+        whenIdle(cb) {
+            if (!this.busy) { cb(); return; }
+            this.idleCbs.push(cb);
+        },
+
+        /** 中途关掉语音：停止发声，但必须把排队的下一拍放行，不然斗法会卡在原地 */
+        halt() {
+            this.cancelSpeak();
+            this.release(null);
+        },
+
+        /** 清台 / 重新开局：连等待队列一起丢掉，旧链子不该再往下走 */
+        reset() {
+            clearTimeout(this.fuse);
+            this.idleCbs = [];
+            this.busy = false;
+            this.utter = null;
+            this.cancelSpeak();
+        },
+
+        cancelSpeak() {
+            if (!this.ok) return;
+            try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
         },
 
         /** 试听：用 A 侧人物的音色念一条招名。
@@ -379,9 +537,7 @@
             D.voice = true;
             this.say(p, this.line(p, { skill: (sk || {}).name || p.styleLabel || p.style, skipped: false }));
             D.voice = keep;
-        },
-
-        halt() { if (this.ok) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } } }
+        }
     };
 
     function clampNum(v, min, max) { return Math.max(min, Math.min(max, v)); }
@@ -502,9 +658,13 @@
     function teardown() {
         D.playing = false;
         clearTimers();
-        Speech.halt();
+        Speech.reset();
         Fx.reset();
         $('dlVerdict').classList.remove('show');
+        // 屏幕级演出的残留类要一起清掉，不然清台之后地面还亮着一块
+        const el = $('dlImpact'), ground = $('dlGround');
+        if (el) el.classList.remove('on');
+        if (ground) ground.classList.remove('glow');
         $('dlLog').innerHTML = '';
         $('dlRoundTag').textContent = '待 手';
         $('dlSeedTip').textContent = '';
@@ -525,7 +685,8 @@
         updateActionState();
     }
 
-    /** 逐招累加时长排成时间轴，再按倍速缩放；演出与调度都在这里，不在 Fx 里 */
+    /** 逐招串成一条链：上一拍的动画拍子走完、并且这句报招真正念完，才允许下一拍开始。
+     *  （原来是先把全部时间轴算好再挂 setTimeout，估时偏短就会两句话叠在一起） */
     function run(d) {
         const events = d.events || [], outcome = d.outcome || {};
         const A = merge(d.a), B = merge(d.b);
@@ -533,7 +694,7 @@
 
         clearTimers();
         Fx.reset();
-        Speech.halt();
+        Speech.reset();
         $('dlLog').innerHTML = '';
         $('dlVerdict').classList.remove('show');
         $('dlStageHint').style.display = 'none';
@@ -551,19 +712,32 @@
         const personOf = side => (side === 'A' ? A : B);
         const foeOf = side => (side === 'A' ? 'B' : 'A');
 
-        const scale = 1 / D.speed;
-        let t = 360 * scale;
+        const plan = [];
         events.forEach(ev => {
             const actor = sideOf(ev.actorId);
-            if (!actor) return;
-            const dur = rawDur(ev, personOf(actor)) * scale;
-            later(() => playEvent({
-                ev, actor, foe: foeOf(actor), p: personOf(actor), maxA, maxB, dur
-            }), t);
-            t += dur;
+            if (actor) plan.push({ ev, actor, foe: foeOf(actor), p: personOf(actor) });
         });
-        later(() => showOutcome(outcome, A, B, sideOf), t + 300 * scale);
-        later(() => { D.playing = false; updateActionState(); }, t + 1100 * scale);
+
+        const scale = 1 / D.speed;
+        let idx = 0;
+        function step() {
+            // 清台、重新开局、或者链子被丢弃后，旧链子自己断掉，不再往下演
+            if (!D.playing) return;
+            if (idx >= plan.length) {
+                later(() => {
+                    if (!D.playing) return;
+                    showOutcome(outcome, A, B, sideOf);
+                    later(() => { D.playing = false; updateActionState(); }, 1100 * scale);
+                }, 300 * scale);
+                return;
+            }
+            const it = plan[idx++];
+            const dur = rawDur(it.ev, it.p) * scale;
+            playEvent(Object.assign({ maxA, maxB, dur }, it));
+            // 先等这一拍的动画拍子，再等这句话念完（语音关掉时 whenIdle 当场放行，节奏不变）
+            later(() => Speech.whenIdle(step), dur);
+        }
+        later(step, 360 * scale);
     }
 
     /** 名录里带昵称、头像与配音设定，推演结果里才有的气血上限 —— 合成一个完整的打斗对象 */
@@ -576,7 +750,8 @@
         });
     }
 
-    /** 这一拍留多久：取「动作时长」与「把这句话说完」的较大者，招式名就不会说一半就没了 */
+    /** 这一拍留多久：取「动作时长」与「把这句话说完」的较大者；
+     *  真正的硬约束在 run() 的链子上（念不完就不开下一拍），这里只是先把拍子给足 */
     function rawDur(ev, p) {
         const spoken = Speech.usable() ? Speech.estMs(p, Speech.line(p, ev)) : 0;
         const base = ev.ult ? ULT_MS : (ev.kind === 'ATTACK' || ev.kind === 'ULT' ? BASE_MS : SOFT_MS);
@@ -638,6 +813,7 @@
                 Sfx.hit(ult, ev.crit);
                 floatText(struck, '-' + Math.round(ev.damage), ev.crit ? 'crit' : '');
                 shake(struck, ult, ev.crit);
+                screenHit(struck, toneOf(ev.vfx, p.realmColor), ult, !!ev.crit);
             }
             if (ev.heal > 0) {
                 floatText(actor, '+' + Math.round(ev.heal), 'heal');
@@ -673,14 +849,45 @@
         const el = $('dlSkillName'), sub = $('dlSkillSub');
         el.textContent = ev.skipped ? '……失神' : trimSkill(ev.skill);
         el.classList.toggle('ult', !!ult);
+        // 招名跟着这一路的元素色走：剑气青白、火球橘红、冰霜湖蓝 —— 一眼能分清中的是什么
+        el.style.setProperty('--sk', toneOf(ev.vfx, '#e2e8f0').main);
         sub.textContent = ev.line || '';
         [el, sub].forEach(x => {
             x.classList.remove('play');
             void x.offsetWidth;
             // 人家用完一句话的时间，字得还在屏上：时长跟这一拍同样缩放
-            x.style.animationDuration = ((ult ? 3.1 : 1.9) / D.speed) + 's';
+            const dur = (ult ? 3.1 : 1.9) / D.speed;
+            x.style.animationDuration = dur + 's';
+            x.style.setProperty('--sdur', dur + 's');
             x.classList.add('play');
         });
+    }
+
+    /**
+     * 屏幕级命中反馈：打实的一刻，落点泛起这一招自己的颜色，同时扩出一圈冲击环。
+     * 只靠 canvas 里的粒子的话，画面始终是「平」的 —— 观众需要知道这一下到底打中了没有。
+     */
+    function screenHit(side, tn, ult, crit) {
+        const stage = $('dlStage'), el = $('dlImpact'), ground = $('dlGround');
+        if (!el || !stage) return;
+        const p = Fx.pos(side);
+        el.style.setProperty('--ix', (p.x / stage.clientWidth * 100).toFixed(1) + '%');
+        el.style.setProperty('--iy', ((p.y - 46) / stage.clientHeight * 100).toFixed(1) + '%');
+        el.style.setProperty('--ic', tn.main);
+        el.style.setProperty('--idur', ((ult ? .74 : crit ? .56 : .4) / D.speed) + 's');
+        el.style.setProperty('--rdur', ((ult ? 1 : .56) / D.speed) + 's');
+        el.classList.remove('on');
+        void el.offsetWidth;
+        el.classList.add('on');
+        later(() => el.classList.remove('on'), 1200);
+        // 大招砸下来，脚下整片地面都要亮一下
+        if (ground && (ult || crit)) {
+            ground.style.setProperty('--gx', (p.x / stage.clientWidth * 100).toFixed(1) + '%');
+            ground.style.setProperty('--gc', tn.main);
+            ground.classList.remove('glow');
+            void ground.offsetWidth;
+            ground.classList.add('glow');
+        }
     }
 
     function shake(struckSide, ult, crit) {
@@ -770,6 +977,35 @@
                 ${r.label} · ${r.lifespan} · ${r.count} 人</span>`).join('');
     }
 
+    /**
+     * 元素调色板：每一路招式有自己的颜色（main 主体 / hot 白热芯 / dark 边缘余焰）。
+     * 以前所有飞行物与爆点都刷施法者的境界色，所以一场看下来永远是一个色调 ——
+     * 剑是青白、火是橘红、冰是湖蓝、音是品红，先靠颜色就能分辨中了什么招。
+     * 键与后端 Cultivation.Vfx 对齐；没列上的 vfx 退回境界色，不会没特效。
+     */
+    const TONE = {
+        SLASH:        { main: '#7dd3fc', hot: '#f0f9ff', dark: '#0369a1' },
+        SWORD_RAIN:   { main: '#c4b5fd', hot: '#fde68a', dark: '#6d28d9' },
+        GOLD_BEAM:    { main: '#fbbf24', hot: '#fffbeb', dark: '#b45309' },
+        ICE_FROST:    { main: '#67e8f9', hot: '#ecfeff', dark: '#0e7490' },
+        FIRE_ORB:     { main: '#fb923c', hot: '#fef08a', dark: '#b91c1c' },
+        SHIELD:       { main: '#38bdf8', hot: '#f0f9ff', dark: '#1d4ed8' },
+        MIND_WAVE:    { main: '#a78bfa', hot: '#f5d0fe', dark: '#5b21b6' },
+        BLOOD_SHADOW: { main: '#f87171', hot: '#fecaca', dark: '#7f1d1d' },
+        SUMMON:       { main: '#4ade80', hot: '#ecfccb', dark: '#15803d' },
+        POISON_MIST:  { main: '#a3e635', hot: '#d9f99d', dark: '#3f6212' },
+        ARRAY_PRESS:  { main: '#fcd34d', hot: '#fff7ed', dark: '#92400e' },
+        MAGNET_BEAM:  { main: '#818cf8', hot: '#c7d2fe', dark: '#312e81' },
+        SOUND_RING:   { main: '#e879f9', hot: '#fdf4ff', dark: '#a21caf' },
+        TURTLE_SHELL: { main: '#5eead4', hot: '#f0fdfa', dark: '#115e59' },
+        MOON_GLOW:    { main: '#bfdbfe', hot: '#ffffff', dark: '#1e40af' },
+        QI_PALM:      { main: '#94a3b8', hot: '#f1f5f9', dark: '#334155' },
+        MORTAL_PUNCH: { main: '#fda4af', hot: '#ffe4e6', dark: '#9f1239' },
+        HEAL_GLOW:    { main: '#4ade80', hot: '#f0fdf4', dark: '#166534' },
+        ULT_NOVA:     { main: '#fde68a', hot: '#ffffff', dark: '#f97316' }
+    };
+    const toneOf = (vfx, fallback) => TONE[vfx] || { main: fallback || '#a78bfa', hot: '#ffffff', dark: '#312e81' };
+
     // ==================== 特效引擎 ====================
     // 所有 life 都比「一闪而过」长一倍以上：得让人看清这一招是什么、从哪来到哪去
     const Fx = {
@@ -813,168 +1049,277 @@
             this.trails = [];
         },
 
-        /** 蓄力：灵气由四面汇向人物，出手前就有前摇 */
+        /** 蓄力：灵气由四面汇向人物，出手前就有前摇；神通额外开一层旋转法阵与灵气漩涡 */
         charge(p, color, ult) {
-            const n = ult ? 36 : 22;
+            const n = ult ? 52 : 26;
             for (let i = 0; i < n; i++) {
                 const a = Math.random() * Math.PI * 2;
-                const r = (ult ? 210 : 140) * (0.5 + Math.random() * 0.7);
+                const r = (ult ? 250 : 150) * (0.5 + Math.random() * 0.7);
                 this.parts.push({
                     kind: 'converge', x: p.x + Math.cos(a) * r, y: p.y - 50 + Math.sin(a) * r * 0.7,
                     tx: p.x, ty: p.y - 66, k: 0, speed: 0.02 + Math.random() * 0.02, cx: p.x, cy: p.y,
-                    life: 86, max: 86, r: 1.6 + Math.random() * 2.4, color
+                    life: 92, max: 92, r: 1.6 + Math.random() * 2.6, color
                 });
             }
-            this.shapes.push({ kind: 'halo', x: p.x, y: p.y - 54, color, life: ult ? 110 : 76, max: ult ? 110 : 76, r: ult ? 158 : 108 });
-            if (ult) this.shapes.push({ kind: 'rune', x: p.x, y: p.y - 6, color: '#fde68a', life: 120, max: 120, r: 120 });
+            this.shapes.push({ kind: 'halo', x: p.x, y: p.y - 54, color, life: ult ? 116 : 76, max: ult ? 116 : 76, r: ult ? 172 : 112 });
+            if (ult) {
+                this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 4, color: '#fde68a', life: 140, max: 140, r: 148, spin: 1 });
+                this.shapes.push({ kind: 'vortex', x: p.x, y: p.y - 62, color, life: 128, max: 128, r: 118, arms: 5, spin: -1.5 });
+            }
         },
 
+        /**
+         * 出手：按 vfx 键给每路招式一套自己的演出（颜色取自 TONE），
+         * 一个 case 里至少叠两三层：飞出去的东西 + 落点效果 + 屏幕级反馈。
+         */
         projectile(ev, actor, foeSide, color, ult) {
             const from = this.pos(actor), to = this.pos(foeSide);
             const dir = actor === 'A' ? 1 : -1;
-            this.trails.push({ x1: from.x, y1: from.y - 62, x2: to.x, y2: to.y - 58, color: color || '#cbd5e1', life: 40, max: 40 });
+            const tn = toneOf(ev.vfx, color);
+            const midY = from.y - 62;
+            // 起手一道拖光：让「这一招从他身上飞出去」有明确起点
+            this.trails.push({ x1: from.x, y1: midY, x2: to.x, y2: to.y - 58, color: tn.main, life: 46, max: 46, w: ult ? 20 : 11 });
             switch (ev.vfx) {
+                case 'SLASH':
+                    this.shapes.push({ kind: 'arcCut', x: to.x, y: to.y - 66, color: tn.main, life: 46, max: 46, dir, r: 112 });
+                    this.shapes.push({ kind: 'arcCut', x: to.x - dir * 26, y: to.y - 34, color: tn.hot, life: 38, max: 38, dir, r: 76 });
+                    this.shapes.push({ kind: 'rays', x: to.x, y: to.y - 60, color: tn.main, life: 40, max: 40, r: 96, n: 9, rot: dir });
+                    this.shards(to, tn, 8, 3.2);
+                    break;
                 case 'SWORD_RAIN':
-                    for (let i = 0; i < (ult ? 44 : 24); i++) {
+                    for (let i = 0; i < (ult ? 58 : 34); i++) {
                         this.parts.push({
-                            kind: 'sword', x: to.x + (Math.random() - 0.5) * 200, y: -30 - Math.random() * 160,
-                            vx: (Math.random() - 0.5) * 0.5, vy: 4.4 + Math.random() * 3.2,
-                            life: 104, max: 104, color: '#c7d2fe'
+                            kind: 'sword', x: to.x + (Math.random() - 0.5) * 240, y: -30 - Math.random() * 200,
+                            vx: (Math.random() - 0.5) * 0.9, vy: 5 + Math.random() * 3.6,
+                            life: 112, max: 112, color: i % 5 === 0 ? tn.hot : tn.main
                         });
                     }
-                    this.shapes.push({ kind: 'rune', x: to.x, y: to.y - 70, color: '#a5b4fc', life: 96, max: 96, r: 132 });
-                    break;
-                case 'SLASH':
-                    this.shapes.push({ kind: 'slash', x: to.x, y: to.y - 66, color: '#e0f2fe', life: 52, max: 52, dir, r: 88 });
-                    this.shapes.push({ kind: 'slash', x: to.x - dir * 28, y: to.y - 36, color: '#bae6fd', life: 44, max: 44, dir, r: 64 });
+                    this.shapes.push({ kind: 'runeRing', x: to.x, y: to.y - 74, color: tn.main, life: 116, max: 116, r: 150, spin: 1 });
+                    this.shapes.push({ kind: 'arcCut', x: to.x, y: to.y - 62, color: tn.hot, life: 44, max: 44, dir, r: 104 });
+                    if (ult) this.shapes.push({ kind: 'flash', color: tn.main, life: 24, max: 24, a: 0.5 });
                     break;
                 case 'GOLD_BEAM':
-                    this.shapes.push({
-                        kind: 'beam', x1: from.x, y1: from.y - 62, x2: to.x, y2: to.y - 56,
-                        color: '#fcd34d', life: 70, max: 70, width: ult ? 36 : 18
-                    });
-                    break;
-                case 'FIRE_ORB':
-                    this.shapes.push({ kind: 'orb', x1: from.x, y1: from.y - 62, x2: to.x, y2: to.y - 56, color: '#fb923c', life: 64, max: 64, r: 22 });
+                    this.shapes.push({ kind: 'beam', x1: from.x, y1: midY, x2: to.x, y2: to.y - 56, color: tn.main, life: 76, max: 76, width: ult ? 44 : 20 });
+                    this.shapes.push({ kind: 'rays', x: to.x, y: to.y - 58, color: tn.hot, life: 54, max: 54, r: 170, n: 14, rot: 0 });
+                    this.shapes.push({ kind: 'bloom', x: to.x, y: to.y - 58, color: tn.hot, life: 70, max: 70, r: 120 });
+                    this.embers(from, tn, 18);
+                    if (ult) this.shapes.push({ kind: 'flash', color: tn.main, life: 26, max: 26, a: 0.55 });
                     break;
                 case 'ICE_FROST':
-                    this.shapes.push({ kind: 'spike', x: to.x, y: to.y, color: '#a5f3fc', life: 96, max: 96, dir });
-                    this.ring(to, '#67e8f9', ult ? 220 : 150, 92);
+                    this.shapes.push({ kind: 'frostWeb', x: to.x, y: to.y - 46, color: tn.main, life: 124, max: 124, r: ult ? 172 : 122 });
+                    this.shapes.push({ kind: 'spike', x: to.x, y: to.y, color: tn.hot, life: 104, max: 104, dir });
+                    this.shards(to, tn, 14, 2.6);
+                    this.ring(to, tn.main, ult ? 240 : 160, 96);
+                    this.mist(to, tn.dark, 12, 0.6);
+                    break;
+                case 'FIRE_ORB':
+                    this.shapes.push({ kind: 'meteor', x1: from.x, y1: midY, x2: to.x, y2: to.y - 54, color: tn.main, life: 60, max: 60, r: ult ? 30 : 20 });
+                    this.embers(from, tn, 20);
+                    this.shapes.push({ kind: 'bloom', x: to.x, y: to.y - 54, color: tn.hot, life: 66, max: 66, r: 132 });
+                    this.shapes.push({ kind: 'rays', x: to.x, y: to.y - 54, color: tn.main, life: 48, max: 48, r: 140, n: 12, rot: 0 });
+                    this.shapes.push({ kind: 'shock', x: to.x, y: to.y + 8, color: tn.dark, life: 70, max: 70, r: 210 });
                     break;
                 case 'MIND_WAVE':
-                    this.ring(from, '#c4b5fd', 340, 104, 2);
-                    this.ring(from, '#a78bfa', 250, 86, 2);
+                    this.shapes.push({ kind: 'vortex', x: to.x, y: to.y - 60, color: tn.main, life: 120, max: 120, r: 132, arms: 4, spin: 2.2 });
+                    this.ring(from, tn.hot, 300, 100, 2);
+                    this.ring(from, tn.main, 210, 84, 2);
+                    this.mist(to, tn.dark, 10, 0.5);
                     break;
                 case 'SOUND_RING':
-                    this.ring(from, '#f0abfc', 310, 100, 3);
-                    this.ring(from, '#e879f9', 220, 84, 2);
-                    this.ring(from, '#f5d0fe', 140, 68, 2);
+                    this.ring(from, tn.main, 360, 108, 4);
+                    this.ring(from, tn.hot, 268, 92, 3);
+                    this.ring(from, tn.dark, 176, 76, 2);
+                    this.petals(to, tn, 10);
                     break;
                 case 'BLOOD_SHADOW':
-                    this.shapes.push({ kind: 'ghostRun', x1: from.x, y1: from.y, x2: to.x, y2: to.y, color: '#f87171', life: 80, max: 80 });
+                    this.shapes.push({ kind: 'ghostRun', x1: from.x, y1: from.y, x2: to.x, y2: to.y, color: tn.main, life: 84, max: 84 });
+                    this.embers(from, tn, 16);
+                    this.shapes.push({ kind: 'crack', x: to.x, y: to.y - 62, color: tn.hot, life: 60, max: 60 });
                     break;
                 case 'MAGNET_BEAM':
-                    this.shapes.push({ kind: 'pull', x: to.x, y: to.y - 60, color: '#93c5fd', life: 96, max: 96 });
+                    this.shapes.push({ kind: 'pull', x: to.x, y: to.y - 60, color: tn.main, life: 104, max: 104 });
+                    this.shapes.push({ kind: 'vortex', x: to.x, y: to.y - 60, color: tn.hot, life: 110, max: 110, r: 120, arms: 3, spin: -2.6 });
+                    this.shards(to, tn, 10, 2.2);
                     break;
                 case 'ARRAY_PRESS':
-                    this.shapes.push({ kind: 'grid', x: to.x, y: to.y - 46, color: '#fcd34d', life: 116, max: 116, r: 216 });
+                    this.shapes.push({ kind: 'grid', x: to.x, y: to.y - 46, color: tn.main, life: 128, max: 128, r: 232 });
+                    this.shapes.push({ kind: 'runeRing', x: to.x, y: to.y - 40, color: tn.hot, life: 132, max: 132, r: 196, spin: -0.8 });
+                    this.shapes.push({ kind: 'rays', x: to.x, y: to.y - 50, color: tn.main, life: 56, max: 56, r: 150, n: 10, rot: 0 });
+                    if (ult) this.shapes.push({ kind: 'flash', color: tn.main, life: 22, max: 22, a: 0.42 });
                     break;
                 case 'POISON_MIST':
-                    for (let i = 0; i < 28; i++) {
-                        this.parts.push({
-                            kind: 'mist', x: to.x + (Math.random() - 0.5) * 110, y: to.y - Math.random() * 70,
-                            vx: (Math.random() - 0.5) * 0.55, vy: -0.26 - Math.random() * 0.4,
-                            life: 150, max: 150, r: 18 + Math.random() * 26, hue: 108 + Math.random() * 32
-                        });
-                    }
+                    this.mist(to, tn.main, 34, 1.1);
+                    this.shapes.push({ kind: 'vortex', x: to.x, y: to.y - 44, color: tn.dark, life: 150, max: 150, r: 150, arms: 6, spin: 0.8 });
+                    this.ring(to, tn.main, 190, 130, 2);
+                    this.embers(to, tn, 12);
                     break;
                 case 'SUMMON':
-                    for (let i = 0; i < (ult ? 32 : 20); i++) {
+                    for (let i = 0; i < (ult ? 40 : 24); i++) {
                         this.parts.push({
-                            kind: 'rise', x: to.x + (Math.random() - 0.5) * 230, y: this.h,
-                            vx: (Math.random() - 0.5) * 0.7, vy: -2.2 - Math.random() * 2.2,
-                            life: 128, max: 128, r: 2 + Math.random() * 3.4, color: '#86efac'
+                            kind: 'rise', x: to.x + (Math.random() - 0.5) * 250, y: this.h,
+                            vx: (Math.random() - 0.5) * 0.8, vy: -2.4 - Math.random() * 2.4,
+                            life: 134, max: 134, r: 2 + Math.random() * 3.6, color: i % 3 === 0 ? tn.hot : tn.main
                         });
                     }
+                    this.shapes.push({ kind: 'runeRing', x: to.x, y: to.y - 2, color: tn.main, life: 140, max: 140, r: 160, spin: 1.2 });
+                    this.petals(to, tn, 12);
                     break;
                 case 'TURTLE_SHELL':
-                    this.shapes.push({ kind: 'hex', x: from.x, y: from.y - 62, color: '#a3a380', life: 116, max: 116, r: 98 });
-                    break;
                 case 'SHIELD':
-                    this.shapes.push({ kind: 'hex', x: from.x, y: from.y - 62, color: '#7dd3fc', life: 92, max: 92, r: 84 });
+                    this.shapes.push({ kind: 'hex', x: from.x, y: from.y - 62, color: tn.main, life: 128, max: 128, r: ult ? 122 : 98 });
+                    this.shapes.push({ kind: 'hex', x: from.x, y: from.y - 62, color: tn.hot, life: 92, max: 92, r: ult ? 86 : 66 });
+                    this.ring(from, tn.main, 190, 96, 3);
+                    this.shapes.push({ kind: 'halo', x: from.x, y: from.y - 60, color: tn.main, life: 84, max: 84, r: 130 });
                     break;
                 case 'MOON_GLOW':
-                    this.shapes.push({ kind: 'bloom', x: this.w / 2, y: this.h * 0.2, color: '#e0f2fe', life: 120, max: 120, r: 128 });
+                    this.shapes.push({ kind: 'bloom', x: this.w / 2, y: this.h * 0.2, color: tn.main, life: 132, max: 132, r: 160 });
+                    this.shapes.push({ kind: 'rays', x: this.w / 2, y: this.h * 0.22, color: tn.hot, life: 96, max: 96, r: 260, n: 18, rot: 0.4 });
+                    this.petals(to, tn, 18);
                     break;
                 case 'ULT_NOVA':
+                    this.shapes.push({ kind: 'flash', color: tn.hot, life: 30, max: 30, a: 0.66 });
                     this.shapes.push({
-                        kind: 'nova', x: to.x, y: to.y - 60, color: '#fef3c7',
-                        life: 118, max: 118, r: Math.max(this.w, this.h) * 1.15
+                        kind: 'nova', x: to.x, y: to.y - 60, color: tn.main,
+                        life: 128, max: 128, r: Math.max(this.w, this.h) * 1.2
                     });
+                    this.shapes.push({ kind: 'rays', x: to.x, y: to.y - 60, color: tn.hot, life: 84, max: 84, r: 320, n: 22, rot: 0.6 });
+                    this.shapes.push({ kind: 'vortex', x: to.x, y: to.y - 60, color: tn.dark, life: 120, max: 120, r: 210, arms: 6, spin: 1.8 });
                     break;
                 case 'QI_PALM':
-                    // 肉掌推出去是一团压实的气，不是闪电：落点开花 + 地面涟漪
-                    this.shapes.push({ kind: 'bloom', x: to.x, y: to.y - 62, color: color || '#e2e8f0', life: 74, max: 74, r: 98 });
-                    this.shapes.push({ kind: 'shock', x: to.x, y: to.y + 8, color: color || '#cbd5e1', life: 66, max: 66, r: 196 });
+                    this.shapes.push({ kind: 'bloom', x: to.x, y: to.y - 62, color: tn.hot, life: 78, max: 78, r: 118 });
+                    this.shapes.push({ kind: 'shock', x: to.x, y: to.y + 8, color: tn.main, life: 72, max: 72, r: 224 });
+                    this.ring(to, tn.main, 170, 78, 3);
+                    this.shards(to, tn, 8, 2.4);
                     break;
                 case 'MORTAL_PUNCH':
-                    // 凡人一拳：没有灵光，只有砸中的那一下裂意
-                    this.shapes.push({ kind: 'crack', x: to.x, y: to.y - 62, color: '#fda4af', life: 56, max: 56 });
-                    this.ring(to, '#fecaca', 126, 62, 2.4);
+                    this.shapes.push({ kind: 'crack', x: to.x, y: to.y - 62, color: tn.hot, life: 60, max: 60 });
+                    this.shapes.push({ kind: 'shock', x: to.x, y: to.y + 6, color: tn.main, life: 52, max: 52, r: 128 });
+                    this.ring(to, tn.main, 132, 62, 2.4);
                     break;
                 default:
-                    this.shapes.push({
-                        kind: 'bolt', x1: from.x, y1: from.y - 62, x2: to.x, y2: to.y - 56,
-                        color: color || '#cbd5e1', life: 48, max: 48
-                    });
+                    this.shapes.push({ kind: 'fork', x1: from.x, y1: midY, x2: to.x, y2: to.y - 56, color: tn.main, hot: tn.hot, life: 56, max: 56 });
+                    this.shapes.push({ kind: 'bloom', x: to.x, y: to.y - 58, color: tn.hot, life: 58, max: 58, r: 96 });
+                    this.shapes.push({ kind: 'rays', x: to.x, y: to.y - 58, color: tn.main, life: 44, max: 44, r: 120, n: 10, rot: -0.5 });
             }
-            if (ult) this.ring(from, '#ffffff', 270, 84, 2);
+            if (ult) {
+                this.ring(from, '#ffffff', 300, 92, 3);
+                this.shapes.push({ kind: 'runeRing', x: from.x, y: from.y - 8, color: tn.hot, life: 120, max: 120, r: 132, spin: -1 });
+            }
+        },
+
+        /** 碎屑四溅：冰晶、气劲、金风都用它，靠颜色区分质感 */
+        shards(p, tn, n, speed) {
+            for (let i = 0; i < n; i++) {
+                const a = Math.random() * Math.PI * 2;
+                this.parts.push({
+                    kind: 'shard', x: p.x, y: p.y - 60,
+                    vx: Math.cos(a) * speed * (0.6 + Math.random()), vy: Math.sin(a) * speed - 1.2,
+                    life: 96 + Math.random() * 50, max: 140, r: 2 + Math.random() * 3.4,
+                    spin: (Math.random() - 0.5) * 0.3, color: i % 3 === 0 ? tn.hot : tn.main
+                });
+            }
+        },
+
+        /** 上升的余烬／火星：火、毒、血都靠它把「余势」拖长 */
+        embers(p, tn, n) {
+            for (let i = 0; i < n; i++) {
+                this.parts.push({
+                    kind: 'ember', x: p.x + (Math.random() - 0.5) * 90, y: p.y - Math.random() * 60,
+                    vx: (Math.random() - 0.5) * 0.6, vy: -1.1 - Math.random() * 1.4,
+                    life: 110 + Math.random() * 60, max: 170, r: 1.4 + Math.random() * 2.4,
+                    flick: Math.random() * 6, color: Math.random() < 0.4 ? tn.hot : tn.main
+                });
+            }
+        },
+
+        /** 花瓣／落叶旋落：月华、治愈、召唤这类「柔」的招式用它收尾 */
+        petals(p, tn, n) {
+            for (let i = 0; i < n; i++) {
+                this.parts.push({
+                    kind: 'petal', x: p.x + (Math.random() - 0.5) * 220, y: p.y - 150 - Math.random() * 90,
+                    vx: (Math.random() - 0.5) * 0.7, vy: 0.7 + Math.random() * 1.1,
+                    life: 160 + Math.random() * 70, max: 230, r: 3 + Math.random() * 3.4,
+                    spin: (Math.random() - 0.5) * 0.16, sway: Math.random() * 6, color: tn.main
+                });
+            }
+        },
+
+        /** 一团滞空的雾：毒、瘞、寒气用它铺面 */
+        mist(p, color, n, scale) {
+            for (let i = 0; i < n; i++) {
+                this.parts.push({
+                    kind: 'fog', x: p.x + (Math.random() - 0.5) * 130, y: p.y - Math.random() * 80,
+                    vx: (Math.random() - 0.5) * 0.6 * scale, vy: -0.22 - Math.random() * 0.4,
+                    life: 170, max: 170, r: (18 + Math.random() * 30) * scale, color, glow: true
+                });
+            }
         },
 
         defense(p, color, vfx) {
-            this.ring(p, color, 158, 86, 3);
-            this.shapes.push({ kind: 'hex', x: p.x, y: p.y - 62, color, life: 96, max: 96, r: 92 });
-            if (vfx === 'ARRAY_PRESS') this.shapes.push({ kind: 'grid', x: p.x, y: p.y - 34, color, life: 104, max: 104, r: 176 });
+            const tn = toneOf(vfx, color);
+            this.ring(p, tn.main, 186, 92, 3);
+            this.shapes.push({ kind: 'hex', x: p.x, y: p.y - 62, color: tn.main, life: 108, max: 108, r: 96 });
+            this.shapes.push({ kind: 'hex', x: p.x, y: p.y - 62, color: tn.hot, life: 78, max: 78, r: 64 });
+            this.shapes.push({ kind: 'halo', x: p.x, y: p.y - 58, color: tn.main, life: 70, max: 70, r: 124 });
+            if (vfx === 'ARRAY_PRESS') {
+                this.shapes.push({ kind: 'grid', x: p.x, y: p.y - 34, color: tn.main, life: 112, max: 112, r: 196 });
+                this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 4, color: tn.hot, life: 120, max: 120, r: 168, spin: 0.9 });
+            }
         },
 
         heal(p, vfx) {
-            for (let i = 0; i < 24; i++) {
+            const tn = toneOf(vfx, '#4ade80');
+            for (let i = 0; i < 30; i++) {
                 this.parts.push({
-                    kind: 'rise', x: p.x + (Math.random() - 0.5) * 130, y: p.y + 8,
-                    vx: (Math.random() - 0.5) * 0.45, vy: -1.5 - Math.random() * 1.6,
-                    life: 122, max: 122, r: 2 + Math.random() * 3,
-                    color: vfx === 'HEAL_GLOW' ? '#4ade80' : '#a7f3d0'
+                    kind: 'rise', x: p.x + (Math.random() - 0.5) * 150, y: p.y + 8,
+                    vx: (Math.random() - 0.5) * 0.5, vy: -1.6 - Math.random() * 1.8,
+                    life: 132, max: 132, r: 2 + Math.random() * 3.2,
+                    color: i % 4 === 0 ? tn.hot : tn.main
                 });
             }
-            this.ring(p, '#86efac', 126, 84, 2);
+            this.petals(p, tn, 10);
+            this.ring(p, tn.main, 150, 92, 2.4);
+            this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 2, color: tn.main, life: 128, max: 128, r: 126, spin: -0.7 });
+            this.shapes.push({ kind: 'bloom', x: p.x, y: p.y - 56, color: tn.hot, life: 84, max: 84, r: 104 });
         },
 
         move(p, side, color) {
             const dir = side === 'A' ? -1 : 1;
-            for (let i = 0; i < 22; i++) {
+            for (let i = 0; i < 26; i++) {
                 this.parts.push({
-                    kind: 'streak', x: p.x + dir * i * 10, y: p.y - 24 - Math.random() * 100,
-                    vx: dir * (2.2 + Math.random() * 1.8), vy: 0.15 + Math.random() * 0.35,
-                    life: 76, max: 76, color, len: 14 + Math.random() * 22
+                    kind: 'streak', x: p.x + dir * i * 10, y: p.y - 24 - Math.random() * 110,
+                    vx: dir * (2.6 + Math.random() * 2.2), vy: 0.15 + Math.random() * 0.4,
+                    life: 82, max: 82, color: i % 3 === 0 ? '#ffffff' : color, len: 16 + Math.random() * 26
                 });
             }
+            this.embers(p, { main: color, hot: '#ffffff' }, 10);
         },
 
         impact(p, ev, color, ult, crit) {
-            const n = ult ? 62 : crit ? 36 : 24;
+            const tn = toneOf(ev && ev.vfx, color);
+            const n = ult ? 86 : crit ? 46 : 30;
             for (let i = 0; i < n; i++) {
                 const a = Math.random() * Math.PI * 2;
-                const s = (ult ? 6 : crit ? 5 : 3.8) * (0.35 + Math.random() * 0.9);
+                const s = (ult ? 7 : crit ? 5.4 : 4) * (0.35 + Math.random() * 0.95);
                 this.parts.push({
                     kind: 'spark', x: p.x, y: p.y - 62, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.6,
-                    life: (ult ? 124 : 86) * (0.6 + Math.random() * 0.7), max: ult ? 124 : 86,
-                    r: 1.4 + Math.random() * 2.6, color: crit ? '#fbbf24' : (color || '#e2e8f0')
+                    life: (ult ? 132 : 92) * (0.6 + Math.random() * 0.7), max: ult ? 132 : 92,
+                    r: 1.4 + Math.random() * 2.8,
+                    color: i % 3 === 0 ? tn.hot : (i % 3 === 1 ? tn.main : (crit ? '#fbbf24' : tn.main))
                 });
             }
-            this.ring(p, '#ffffff', ult ? 260 : 156, ult ? 86 : 60, ult ? 4 : 2.4);
-            this.shapes.push({ kind: 'shock', x: p.x, y: p.y + 8, color: color || '#cbd5e1', life: 78, max: 78, r: ult ? 270 : 158 });
-            if (ult) this.shapes.push({ kind: 'rune', x: p.x, y: p.y - 70, color: '#fde68a', life: 108, max: 108, r: 152 });
-            if (crit) this.shapes.push({ kind: 'crack', x: p.x, y: p.y - 62, color: '#fecaca', life: 78, max: 78 });
+            this.ring(p, tn.hot, ult ? 300 : 172, ult ? 92 : 62, ult ? 5 : 2.6);
+            this.shapes.push({ kind: 'shock', x: p.x, y: p.y + 8, color: tn.main, life: 84, max: 84, r: ult ? 300 : 168 });
+            this.shapes.push({ kind: 'rays', x: p.x, y: p.y - 62, color: tn.main, life: ult ? 70 : 44, max: ult ? 70 : 44, r: ult ? 250 : 132, n: ult ? 20 : 10, rot: 0.3 });
+            if (ult) {
+                this.shapes.push({ kind: 'flash', color: tn.main, life: 26, max: 26, a: 0.6 });
+                this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 66, color: tn.hot, life: 120, max: 120, r: 168, spin: 1 });
+                this.shapes.push({ kind: 'vortex', x: p.x, y: p.y - 60, color: tn.dark, life: 130, max: 130, r: 190, arms: 5, spin: -1.9 });
+                this.shards(p, tn, 16, 4.2);
+            } else if (crit) {
+                this.shapes.push({ kind: 'flash', color: '#ffffff', life: 16, max: 16, a: 0.34 });
+                this.shapes.push({ kind: 'crack', x: p.x, y: p.y - 62, color: tn.hot, life: 78, max: 78 });
+            }
         },
 
         ring(p, color, radius, life, width) {
@@ -982,18 +1327,21 @@
         },
 
         finale(color) {
-            for (let i = 0; i < 64; i++) {
+            for (let i = 0; i < 96; i++) {
                 const a = Math.random() * Math.PI * 2;
                 this.parts.push({
                     kind: 'spark', x: this.w / 2 + Math.cos(a) * 40, y: this.h / 2 + Math.sin(a) * 30,
-                    vx: Math.cos(a) * (2 + Math.random() * 5), vy: Math.sin(a) * (2 + Math.random() * 4) - 1,
-                    life: 160, max: 160, r: 1.6 + Math.random() * 3, color
+                    vx: Math.cos(a) * (2 + Math.random() * 6), vy: Math.sin(a) * (2 + Math.random() * 5) - 1,
+                    life: 176, max: 176, r: 1.6 + Math.random() * 3.4, color: i % 4 === 0 ? '#ffffff' : color
                 });
             }
+            this.shapes.push({ kind: 'flash', color: '#ffffff', life: 26, max: 26, a: 0.5 });
             this.shapes.push({
                 kind: 'nova', x: this.w / 2, y: this.h * 0.5, color: '#fde68a',
-                life: 130, max: 130, r: Math.max(this.w, this.h)
+                life: 140, max: 140, r: Math.max(this.w, this.h)
             });
+            this.shapes.push({ kind: 'rays', x: this.w / 2, y: this.h * 0.5, color: color, life: 120, max: 120, r: Math.max(this.w, this.h) * 0.9, n: 24, rot: 0.5 });
+            this.shapes.push({ kind: 'runeRing', x: this.w / 2, y: this.h * 0.55, color: '#fde68a', life: 170, max: 170, r: 260, spin: 0.8 });
         },
 
         loop() {
@@ -1058,7 +1406,11 @@
                     p.x += p.vx || 0; p.y += p.vy || 0;
                     if (p.kind === 'sword') p.vy += 0.09;
                     else if (p.kind === 'spark' || p.kind === 'streak') p.vy += 0.04;
+                    else if (p.kind === 'shard') p.vy += 0.12;
+                    else if (p.kind === 'petal') p.x += Math.sin((p.max - p.life) * 0.08 + p.sway) * 0.7;
                     else if (p.kind === 'rise') p.vy += 0.007;
+                    else if (p.kind === 'ember') p.vy -= 0.004;
+                    else if (p.kind === 'fog') p.r += 0.55;
                 }
                 const k = Math.max(0, p.life / p.max);
                 ctx.globalAlpha = k;
@@ -1078,6 +1430,34 @@
                     ctx.beginPath(); ctx.moveTo(x, y);
                     ctx.lineTo(x - (p.vx || 0) * 1.6, y - (p.vy || 0) * 1.6); ctx.stroke();
                     ctx.beginPath(); ctx.arc(x, y, p.r * k, 0, Math.PI * 2); ctx.fill();
+                } else if (p.kind === 'shard') {
+                    // 自旋碎晶片：有棱角的粒子看起来才像冰、像碎石、像气劲撞出来的瓷片
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate((p.max - p.life) * (p.spin || 0.12));
+                    ctx.globalAlpha = k * 0.9;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -p.r * 2.1); ctx.lineTo(p.r, p.r); ctx.lineTo(-p.r, p.r * 0.8); ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                } else if (p.kind === 'petal') {
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate((p.max - p.life) * (p.spin || 0.05) + p.sway);
+                    ctx.globalAlpha = k * 0.85;
+                    ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.5, p.r * 0.62, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.restore();
+                } else if (p.kind === 'ember') {
+                    // 余烬：火苗本身会闪，亮度用 sin 抽一抽，不然就是一串匀速上升的圆点
+                    ctx.globalAlpha = k * (0.55 + 0.45 * Math.sin(p.life * 0.28 + p.flick));
+                    ctx.beginPath(); ctx.arc(x, y, p.r * (0.6 + k * 0.6), 0, Math.PI * 2); ctx.fill();
+                } else if (p.kind === 'fog') {
+                    const g = ctx.createRadialGradient(x, y, 0, x, y, p.r);
+                    g.addColorStop(0, p.color);
+                    g.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.globalAlpha = k * 0.42;
+                    ctx.fillStyle = g;
+                    ctx.beginPath(); ctx.arc(x, y, p.r, 0, Math.PI * 2); ctx.fill();
                 } else {
                     ctx.beginPath(); ctx.arc(x, y, p.r * (0.5 + k * 0.7), 0, Math.PI * 2); ctx.fill();
                 }
@@ -1095,6 +1475,142 @@
                 ctx.globalAlpha = k;
                 ctx.strokeStyle = s.color; ctx.fillStyle = s.color;
                 switch (s.kind) {
+                    // 全屏白闪：只在头几帧有值，配合震屏就是“被大招正面抽中”的观感
+                    case 'flash': {
+                        ctx.globalAlpha = Math.pow(k, 2.2) * (s.a || 0.5);
+                        ctx.fillStyle = s.color;
+                        ctx.fillRect(0, 0, this.w, this.h);
+                        break;
+                    }
+                    // 放射光束：从圆心外刺的星芒，落点开花与神通开场都用它
+                    case 'rays': {
+                        const n = s.n || 12, rot = (s.rot || 0) * t * 2.6;
+                        const len = s.r * (0.42 + 0.58 * Math.sin(k * Math.PI));
+                        ctx.lineWidth = 2.6;
+                        for (let i = 0; i < n; i++) {
+                            const a = i / n * Math.PI * 2 + rot;
+                            ctx.beginPath();
+                            ctx.moveTo(s.x + Math.cos(a) * len * 0.18, s.y + Math.sin(a) * len * 0.18);
+                            ctx.lineTo(s.x + Math.cos(a) * len, s.y + Math.sin(a) * len);
+                            ctx.stroke();
+                        }
+                        break;
+                    }
+                    // 灵气漩涡：几臂螺线自转，施法与落点都很抬得起场面
+                    case 'vortex': {
+                        const arms = s.arms || 5, spin = (s.spin || 1) * t * 5;
+                        ctx.lineWidth = 3 * k + 0.8;
+                        for (let i = 0; i < arms; i++) {
+                            const a0 = i / arms * Math.PI * 2 + spin;
+                            ctx.beginPath();
+                            for (let j = 0; j <= 12; j++) {
+                                const pr = j / 12;
+                                const rr = s.r * (0.12 + pr * 0.9) * (0.55 + 0.45 * k);
+                                const aa = a0 + pr * 2.2;
+                                const px = s.x + Math.cos(aa) * rr, py = s.y + Math.sin(aa) * rr * 0.72;
+                                if (j) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+                            }
+                            ctx.stroke();
+                        }
+                        break;
+                    }
+                    // 三层旋转法阵：外环刻度 + 中六芒 + 内环，比原来那个椭圆 rune 像一个真的阵
+                    case 'runeRing': {
+                        const spin = (s.spin || 1) * t * 3.4;
+                        ctx.lineWidth = 2.6;
+                        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.stroke();
+                        ctx.lineWidth = 1.3;
+                        ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 0.82, 0, Math.PI * 2); ctx.stroke();
+                        ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 0.4, 0, Math.PI * 2); ctx.stroke();
+                        for (let i = 0; i < 24; i++) {
+                            const a = i / 24 * Math.PI * 2 + spin, long = i % 3 === 0;
+                            ctx.beginPath();
+                            ctx.moveTo(s.x + Math.cos(a) * s.r * 0.82, s.y + Math.sin(a) * s.r * 0.82);
+                            ctx.lineTo(s.x + Math.cos(a) * s.r * (long ? 1.03 : 0.93), s.y + Math.sin(a) * s.r * (long ? 1.03 : 0.93));
+                            ctx.stroke();
+                        }
+                        ctx.lineWidth = 1.6;
+                        for (let i = 0; i < 6; i++) {
+                            const a1 = i / 6 * Math.PI * 2 - spin, a2 = (i + 2) / 6 * Math.PI * 2 - spin;
+                            ctx.beginPath();
+                            ctx.moveTo(s.x + Math.cos(a1) * s.r * 0.62, s.y + Math.sin(a1) * s.r * 0.62);
+                            ctx.lineTo(s.x + Math.cos(a2) * s.r * 0.62, s.y + Math.sin(a2) * s.r * 0.62);
+                            ctx.stroke();
+                        }
+                        break;
+                    }
+                    // 冰晶六角：先长主轴再分小枝，看起来是「结出来」而不是「贴上去」的
+                    case 'frostWeb': {
+                        const g = Math.min(1, t * 3.4);
+                        ctx.lineWidth = 2.2;
+                        for (let i = 0; i < 6; i++) {
+                            const a = i / 6 * Math.PI * 2 - 0.2;
+                            const ex = s.x + Math.cos(a) * s.r * g, ey = s.y + Math.sin(a) * s.r * g * 0.9;
+                            ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(ex, ey); ctx.stroke();
+                            for (let j = 1; j <= 3; j++) {
+                                const pr = j / 4;
+                                const bx = s.x + Math.cos(a) * s.r * g * pr, by = s.y + Math.sin(a) * s.r * g * pr * 0.9;
+                                const bl = s.r * 0.22 * (1 - pr * 0.4) * g;
+                                ctx.beginPath();
+                                ctx.moveTo(bx, by); ctx.lineTo(bx + Math.cos(a + 1.1) * bl, by + Math.sin(a + 1.1) * bl);
+                                ctx.moveTo(bx, by); ctx.lineTo(bx + Math.cos(a - 1.1) * bl, by + Math.sin(a - 1.1) * bl);
+                                ctx.stroke();
+                            }
+                        }
+                        break;
+                    }
+                    // 火流星：头亮尾透，一路拖到落点，比一个固定圆球有轨迹得多
+                    case 'meteor': {
+                        const pr = 1 - k;
+                        const x = s.x1 + (s.x2 - s.x1) * pr, y = s.y1 + (s.y2 - s.y1) * pr;
+                        const bx = s.x1 + (s.x2 - s.x1) * Math.max(0, pr - 0.26), by = s.y1 + (s.y2 - s.y1) * Math.max(0, pr - 0.26);
+                        const g = ctx.createLinearGradient(bx, by, x, y);
+                        g.addColorStop(0, 'rgba(255,255,255,0)');
+                        g.addColorStop(1, s.color);
+                        ctx.strokeStyle = g; ctx.lineWidth = s.r * 1.2;
+                        ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(x, y); ctx.stroke();
+                        const rg = ctx.createRadialGradient(x, y, 0, x, y, s.r * 1.8);
+                        rg.addColorStop(0, '#fff'); rg.addColorStop(.4, s.color); rg.addColorStop(1, 'rgba(0,0,0,0)');
+                        ctx.fillStyle = rg;
+                        ctx.beginPath(); ctx.arc(x, y, s.r * 1.8, 0, Math.PI * 2); ctx.fill();
+                        break;
+                    }
+                    // 弧形斩击：三层错位 + 白芯，从中间往两头扫开
+                    case 'arcCut': {
+                        const sweep = Math.min(1, t * 2.6);
+                        for (let i = 0; i < 3; i++) {
+                            ctx.lineWidth = (7 - i * 2) * k + 0.6;
+                            ctx.strokeStyle = i === 0 ? '#ffffff' : s.color;
+                            ctx.beginPath();
+                            ctx.arc(s.x - i * 9 * (s.dir || 1), s.y, s.r - i * 15,
+                                    -1.2 * sweep + i * 0.18, 1.3 * sweep + i * 0.18);
+                            ctx.stroke();
+                        }
+                        break;
+                    }
+                    // 多叉雷电：主链 + 三道旁叉，每帧重新抖一次，所以看着是“活”的
+                    case 'fork': {
+                        const zig = (x1, y1, x2, y2, w, jit) => {
+                            ctx.lineWidth = w;
+                            ctx.beginPath(); ctx.moveTo(x1, y1);
+                            for (let i = 1; i <= 6; i++) {
+                                const pr = i / 6;
+                                ctx.lineTo(x1 + (x2 - x1) * pr + (i === 6 ? 0 : (Math.random() - 0.5) * jit),
+                                            y1 + (y2 - y1) * pr + (i === 6 ? 0 : (Math.random() - 0.5) * jit * 0.8));
+                            }
+                            ctx.stroke();
+                        };
+                        zig(s.x1, s.y1, s.x2, s.y2, 4 * k + 1.2, 34);
+                        for (let i = 0; i < 3; i++) {
+                            const pr = 0.3 + i * 0.2;
+                            const bx = s.x1 + (s.x2 - s.x1) * pr, by = s.y1 + (s.y2 - s.y1) * pr;
+                            zig(bx, by, bx + (Math.random() - 0.5) * 170, by + (Math.random() - 0.2) * 130, 1.8, 26);
+                        }
+                        ctx.fillStyle = s.hot || '#ffffff';
+                        const hx = s.x1 + (s.x2 - s.x1) * (1 - k), hy = s.y1 + (s.y2 - s.y1) * (1 - k);
+                        ctx.beginPath(); ctx.arc(hx, hy, 9, 0, Math.PI * 2); ctx.fill();
+                        break;
+                    }
                     case 'ring': {
                         ctx.lineWidth = s.width * (0.5 + k * 0.8);
                         ctx.beginPath();

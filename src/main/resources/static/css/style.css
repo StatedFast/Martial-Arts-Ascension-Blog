@@ -1093,11 +1093,12 @@ textarea.form-control {
     box-shadow: 0 8px 18px -8px rgba(15,23,42,0.45);
 }
 
+/* 首页那句英文标语：原来 0.74rem 小得几乎看不清，它是封面图上的门面字号，抬到接近正文 */
 .home-hero .hero-eyebrow {
-    font-size: 0.74rem;
+    font-size: 0.98rem;
     font-weight: 700;
-    letter-spacing: 0.2em;
-    color: rgba(255,255,255,0.82);
+    letter-spacing: 0.14em;
+    color: rgba(255,255,255,0.88);
     margin-bottom: 10px;
 }
 
@@ -3064,7 +3065,8 @@ textarea.form-control {
 
     .home-hero .hero-eyebrow {
         margin-bottom: 6px;
-        font-size: 0.68rem;
+        font-size: 0.82rem;
+        letter-spacing: 0.1em;
     }
 
     .home-hero .hero-title {

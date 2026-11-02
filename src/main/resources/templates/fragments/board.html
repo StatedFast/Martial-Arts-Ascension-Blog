@@ -3,19 +3,24 @@
 <head><meta charset="UTF-8"><title>JVM 渡劫看板片段</title></head>
 <body>
 <!--
-  ~ JVM 渡劫看板（可复用片段）
+  ~ JVM 渡劫看板（可复用片段，拆成四块按需拼装）
   ~ 只被 /monitor 一处引用：看板（所有人可见）与渡劫操控台（仅管理员）已经合并到同一页，
   ~ 左栏就是本片段、右栏是操控台；/config 现在只是一个 redirect:/monitor 的旧地址。
   ~ 数据走公开的 /api/monitor/**，所以游客看到的曲线和开关状态与管理员完全一致（同一口径、同一接口）。
   ~
-  ~ 宿主页面约定：
-  ~   1) 提供 #metaXmx / #metaDirect / #metaGc / #metaPoll 四个横幅槽位（缺失则跳过，不报错）；
-  ~   2) 宿主页面可设 window.onJvmSample = fn 挂钩每轮样本（/monitor 用它刷境界与操控台控件状态）；
-  ~   3) 越线那一刻会回调 window.onBoardWarn(who)；
-  ~   4) 本页 app.js 加载完后调一次 initBoard()（片段自带脚本不自动跑，
+  ~ 为什么拆成四个片段：宿主页面要把「当前境界」卡片插在曲线与 JVM 核心参数之间，
+  ~ 而这两张卡原本同在一个片段里，中间插不进东西 —— 拆成 styles / chart / params / engine 后，
+  ~ 宿主自己掌握顺序，样式与内核脚本仍是同一份，不存在两处维护。
+  ~
+  ~ 宿主页面约定（按这个顺序插入即可）：
+  ~   1) styles  片段样式；2) chart 灵气盈亏曲线；3) params JVM 核心参数；4) engine 内核脚本；
+  ~   5) 提供 #metaXmx / #metaDirect / #metaGc / #metaPoll 四个横幅槽位（缺失则跳过，不报错）；
+  ~   6) 宿主页面可设 window.onJvmSample = fn 挂钩每轮样本（/monitor 用它刷境界与操控台控件状态）；
+  ~   7) 越线那一刻会回调 window.onBoardWarn(who)；
+  ~   8) 本页 app.js 加载完后调一次 initBoard()（engine 自带脚本不自动跑，
   ~      因为 http / escapeHtml / ConfirmDialog 都在 app.js 里，提前执行会 ReferenceError）。
 -->
-<div th:fragment="board">
+<div th:fragment="styles">
     <style>
         /* ==================== 看板样式（片段自带，宿主页面零依赖） ====================
            刻意不复用全局 .container：那是「正文 + 300px 右栏」的博客栅格，
@@ -104,9 +109,10 @@
 
         @media (max-width: 1240px) { .cfg-shell { padding: 0 18px; } }
     </style>
+</div>
 
-    <!-- ==================== 灵气盈亏曲线：读数直接标在图上方 ==================== -->
-    <section class="cfg-card">
+<!-- ==================== 灵气盈亏曲线：读数直接标在图上方 ==================== -->
+<section th:fragment="chart" class="cfg-card">
         <div class="cfg-card-head">
             <div class="cfg-card-title">灵气盈亏曲线 <small id="chartHint">百分比同轴 · 点击图例可隐藏某条线</small></div>
             <div class="cfg-legend">
@@ -130,13 +136,14 @@
     </section>
 
     <!-- ==================== JVM 核心参数（只读） ==================== -->
-    <section class="cfg-card">
+    <section th:fragment="params" class="cfg-card">
         <div class="cfg-card-head">
             <div class="cfg-card-title">JVM 核心参数 <small>运行时真实值，只读不可改 —— 渡劫要撞的就是这几堵墙</small></div>
         </div>
         <div id="jvmList"><div class="loading">加载中...</div></div>
     </section>
 
+<div th:fragment="engine">
     <script>
         // ======== 看板内核：曲线 + 读数 + 本地累计 ========
         const BOARD_HIST_CAP = 120;
