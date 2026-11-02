@@ -622,6 +622,23 @@ body {
     background: var(--primary-soft);
 }
 
+/* 深色横幅上的描边按钮：.btn-outline 的默认底色是卡片白（var(--card-bg)），
+   用在看板/配置中心那种深紫渐变横幅上就顶出一颗刺眼的白药丸。
+   这里只把按钮换成半透玻璃底 + 浅色描边，卡片、表格那些白色背景一律不动 */
+.cfg-hero .btn-outline,
+.home-cover .btn-outline {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(199,210,254,0.42);
+    color: #c7d2fe;
+}
+
+.cfg-hero .btn-outline:hover,
+.home-cover .btn-outline:hover {
+    background: rgba(255,255,255,0.22);
+    border-color: rgba(224,231,255,0.78);
+    color: #fff;
+}
+
 .btn-danger {
     background: linear-gradient(135deg, #f87171, #ef4444);
     color: white;
@@ -890,13 +907,10 @@ textarea.form-control {
     color: #fff;
     background-color: #0c1a24;
     background-image:
-        /* 1. 顶部压暗：保证白色导航文字在任何图片上都可读 */
-        linear-gradient(180deg, rgba(4,12,18,0.55) 0%, rgba(4,12,18,0.14) 20%, rgba(4,12,18,0) 38%),
-        /* 2. 底部压暗：承载标题与按钮 */
-        linear-gradient(180deg, rgba(4,12,18,0) 50%, rgba(4,12,18,0.6) 100%),
-        /* 3. 背景图：由 home.banner-image 注入，未配置时为 none */
+        /* 1. 单图模式的背景图：由 home.banner-image 注入，未配置时为 none；
+          轮播模式不用这里，改由下面的 .hb-img 图层承载 */
         var(--home-banner, none),
-        /* 4. 未配置图片时的占位光晕 */
+        /* 2. 未配置图片时的占位光晕 */
         radial-gradient(1100px 420px at 16% 6%, rgba(96,165,250,0.42), transparent 62%),
         radial-gradient(900px 400px at 84% 0%, rgba(129,140,248,0.36), transparent 60%),
         linear-gradient(135deg, #101c33 0%, #1b2a4a 52%, #0b1220 100%);
@@ -906,14 +920,52 @@ textarea.form-control {
     background-repeat: no-repeat;
 }
 
+/* 压暗层单独拆出来：原来它是 .home-cover 背景列表里的前两层，
+   可轮播图是真实的元素而不是背景，背景里的渐变永远压不到它 ——
+   拆成覆盖层之后，单图与轮播两种模式都能得到同一层暗角，白色导航文字才不会糊进亮图里 */
+.home-cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background-image:
+        /* 顶部压暗：保证白色导航文字在任何图片上都可读 */
+        linear-gradient(180deg, rgba(4,12,18,0.55) 0%, rgba(4,12,18,0.14) 20%, rgba(4,12,18,0) 38%),
+        /* 底部压暗：承载标题与按钮 */
+        linear-gradient(180deg, rgba(4,12,18,0) 50%, rgba(4,12,18,0.6) 100%);
+}
+
+/* ---- 首页封面轮播图层 ----
+   每张图一个绝对定位的 div，靠 opacity 交叉淡入；URL 放在 data-bg 上而不是 style 里，
+   是为了让 JS 决定「什么时候真的发起下载」：首屏那张立即上，其余的等 window load 之后再取，
+   否则首屏要和文章列表接口抢带宽（最大一张 2.4MB） */
+.hb-img {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-size: cover;
+    background-position: center 18%;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+}
+
+.hb-img.on {
+    opacity: 1;
+}
+
 /* Banner 只是封面里的一块内容区，背景由 .home-cover 统一提供 */
 .home-hero {
+    position: relative;
+    z-index: 2; /* 必须盖在 ::after 压暗层之上，否则标题和导航会被暗角糊掉 */
     flex: 1;
     display: flex;
     align-items: flex-end;
     padding: 24px 20px 38px;
 }
 
+/* 上下两块：上=标题区，下=导航行（五个站内入口靠左、其余靠右同排） */
 .home-hero-inner {
     position: relative;
     z-index: 2;
@@ -921,10 +973,9 @@ textarea.form-control {
     max-width: 1280px; /* 与首页三栏内容同宽 */
     margin: 0 auto;
     display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 24px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
 }
 
 .home-hero-copy {
@@ -932,28 +983,39 @@ textarea.form-control {
     max-width: 640px;
 }
 
-.hero-actions {
+/* 导航行本身允许换行，但必须给它确定宽度（上面的 align-items:stretch 已经给足）：
+   一个允许换行的 flex 容器，它的 max-content 只等于「最宽的那一个子项」，
+   没被钉住宽度的话整行会缩成一个链接那么宽，条目就竖成一列了 */
+.hero-nav-row {
     display: flex;
-    /* flex: none + margin-left: auto：不按内容去压缩标题那一边，
-       而是靠外边距把自己推到行末 —— 导航条目多到必须换行时，整块仍然贴在横幅右下角 */
-    flex: none;
-    margin-left: auto;
     align-items: center;
-    justify-content: flex-end;
-    /* 这里必须 nowrap：一个允许换行的多行 flex 容器，它的 max-content 宽度只等于「最宽的那一个子项」，
-       于是整块「按钮 + 导航」会被算成只有一个链接那么宽，链接在窄盒子里折行 ——
-       登录后八个条目就竖成一列排在左侧。窄屏交给下面的媒体查询重新换行 */
-    flex-wrap: nowrap;
-    gap: 10px;
-    margin-bottom: 4px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 12px 22px;
 }
 
-/* 首页：导航链接挪到 Banner 右下角，与“开始阅读 / 问 AI”同排（仍沿用 .nav-links 的基础样式） */
+/* 首页：五个站内入口贴在横幅左下（仍沿用 .nav-links 的基础样式） */
 .hero-nav {
     display: flex;
     align-items: center;
     gap: 4px;
-    flex-wrap: nowrap; /* 同上：不让导航自己被压成一列 */
+    flex-wrap: nowrap; /* 不让导航自己被压成一列，窄屏交给下面的媒体查询重新分行 */
+}
+
+.hero-nav-row > .hero-nav {
+    flex: 0 0 auto;
+}
+
+/* 右侧一组：洞中灵气条 + 问 AI + 写文章/铃铛/头像 */
+.hero-nav-extra {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: nowrap;
+    flex: 0 1 auto;
+    min-width: 0;
 }
 
 /* 只作用于直接子链接：否则下拉菜单里的链接也会被刷成白字，落在白底面板上就看不见了 */
@@ -2982,7 +3044,7 @@ textarea.form-control {
         gap: 14px;
     }
 
-    .hero-actions {
+    .hero-nav-row {
         width: 100%;
     }
 
@@ -3016,19 +3078,25 @@ textarea.form-control {
 }
 
 /* 窄一点的屏上登录态有八个条目，nowrap 会撑破横幅：这里才放开换行。
-   先把宽度钉死成整行，再让导航吃掉剩下的空间：两个容器都拿到确定宽度后，
-   换行折出来的是两三排，不会再退化成竖着的一列 */
+   先把左右两组钉成整行，再让各组内部自己换行：拿到确定宽度后，
+   折出来的是两三排横向条目，不会再退化成竖着的一列 */
 @media (max-width: 1180px) {
-    .hero-actions {
-        width: 100%;
-        margin-left: 0;
-        justify-content: flex-start;
+    .hero-nav-row > .hero-nav,
+    .hero-nav-extra {
+        flex: 1 1 100%;
         flex-wrap: wrap;
+        justify-content: flex-start;
     }
 
-    .hero-nav {
+    /* 右侧那组换行后仍然从右起排，洞中灵气条保持整块不拆 */
+    .hero-nav-extra {
+        justify-content: flex-end;
+    }
+
+    .hero-nav-extra .hero-nav {
         flex: 1 1 auto;
         flex-wrap: wrap;
+        justify-content: flex-end;
     }
 }
 

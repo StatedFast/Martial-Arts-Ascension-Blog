@@ -42,6 +42,13 @@ public class SysConfigService {
     /** 配置中心内存曲线刷新间隔（秒），前端每轮读取、变更后自动重排定时器 */
     public static final String MONITOR_POLL_INTERVAL = "monitor.poll-interval-seconds";
 
+    // ======== 配置键常量（首页封面轮播） ========
+
+    /** 首页封面轮播开关：false 时首页只用 home.banner-image 那一张，与开这个功能之前完全一样 */
+    public static final String HOME_BANNER_CYCLE = "home.banner-cycle.enabled";
+    /** 首页封面轮播间隔（秒）：开关打开后每隔这么久换下一张 */
+    public static final String HOME_BANNER_SECONDS = "home.banner-cycle-seconds";
+
     /** 每条固定 1MB，batch 直接约等于 MB 数，便于按「泄多少内存」直观调参 */
     public static final int CHUNK_BYTES = 1024 * 1024;
     /** batch-size 后端钳制上限，防手滑几十秒就爆、观察不到 GC 过程 */
@@ -91,6 +98,21 @@ public class SysConfigService {
             seconds = 3;
         }
         return Math.max(1, Math.min(seconds, 60));
+    }
+
+    /**
+     * 首页封面轮播间隔（秒），默认 8，钳制到 [3, 120]。
+     * 下限 3 秒：封面图最大一张 2.4MB，换得太快下一张还没下载完，用户会看到闪白；
+     * 上限 120 秒：再长就等同于没轮播。
+     */
+    public int getHomeBannerSeconds() {
+        int seconds;
+        try {
+            seconds = Integer.parseInt(getString(HOME_BANNER_SECONDS, "8").trim());
+        } catch (NumberFormatException e) {
+            seconds = 8;
+        }
+        return Math.max(3, Math.min(seconds, 120));
     }
 
     // ======== 写入 ========

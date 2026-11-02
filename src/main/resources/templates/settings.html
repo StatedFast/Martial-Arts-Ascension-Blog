@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">配置项 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=17">
+    <link rel="stylesheet" href="/css/style.css?v=18">
     <style>
         /* 配置项页：从看板里拆出来的纯表格页，不再混监控内容 */
         .cfg-page { background: var(--bg); }
@@ -22,14 +22,17 @@
         .cfg-title { font-size: 25px; font-weight: 800; letter-spacing: -0.02em; }
         .cfg-sub { margin-top: 8px; font-size: 13px; color: rgba(203,213,255,0.75); max-width: 720px; line-height: 1.75; }
 
-        /* 三页互跳：看板（公开）/ 配置中心（操控台）/ 配置项（本表） */
+        /* 两页互跳：看板（公开，右侧已并入管理员操控台）/ 配置项（本表） */
         .cfg-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
         .cfg-tabs a {
             padding: 7px 15px; border-radius: 999px; font-size: 13px; text-decoration: none;
             color: rgba(203,213,255,0.85); border: 1px solid rgba(199,210,254,0.28); transition: all .18s;
         }
         .cfg-tabs a:hover { background: rgba(199,210,254,0.14); color: #fff; }
-        .cfg-tabs a.active { background: #fff; color: #1e293b; border-color: #fff; font-weight: 600; }
+        /* 选中项不再刷白底：深紫横幅上顶出一块纯白很刺眼，改成同色系的玻璃高亮 */
+        .cfg-tabs a.active {
+            background: rgba(199,210,254,0.22); color: #fff; border-color: rgba(224,231,255,0.75); font-weight: 700;
+        }
 
         .cfg-card {
             background: var(--card-bg); border: 1px solid rgba(226,232,240,0.8);
@@ -72,8 +75,7 @@
                 </p>
             </div>
             <div class="cfg-tabs">
-                <a href="/monitor">JVM 渡劫看板</a>
-                <a href="/config">配置中心 · 操控台</a>
+                <a href="/monitor">JVM 渡劫看板 · 操控台</a>
                 <a href="/settings" class="active">配置项</a>
             </div>
         </div>
@@ -89,7 +91,7 @@
         </section>
     </div>
 
-    <script src="/js/app.js?v=13"></script>
+    <script src="/js/app.js?v=14"></script>
     <script>
         if (!Auth.isLoggedIn()) {
             window.location.href = '/login';

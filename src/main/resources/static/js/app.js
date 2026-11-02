@@ -209,15 +209,22 @@ function renderBrand() {
 function renderNavbar() {
     const navLinks = document.getElementById('navLinks');
     if (!navLinks) return;
+    /* 首页横幅那一行要分两端：五个站内入口贴左，其余（写文章 / 铃铛 / 头像）贴右同一行。
+       所以把条目拆成 main / extra 两段：页面上有 #navHomeExtra（只有首页有）就分开注入，
+       没有就合回 #navLinks —— 其他页面的导航长相一个字都不变 */
+    const extraBox = document.getElementById('navHomeExtra');
 
     const user = Auth.getUser();
+    const main = `
+        <a href="/">首页</a>
+        <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
+        <a href="/visits" title="本站访问热度 · 所有人可见">访问看板</a>
+        <a href="/rank" title="凡人修仙传 · 人界篇境界榜">修仙榜</a>
+        <a href="/duel" title="凡人修仙传 · 人界斗法台 · 自动过招报招">斗法台</a>
+    `;
+    let extra = '';
     if (Auth.isLoggedIn() && user) {
-        navLinks.innerHTML = `
-            <a href="/">首页</a>
-            <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
-            <a href="/visits" title="本站访问热度 · 所有人可见">访问看板</a>
-            <a href="/rank" title="凡人修仙传 · 人界篇境界榜">修仙榜</a>
-            <a href="/duel" title="凡人修仙传 · 人界斗法台 · 自动过招报招">斗法台</a>
+        extra = `
             <a href="/write" class="btn-write">写文章</a>
             <a href="/notifications" class="nav-bell" title="通知中心">
                 🔔<span class="nav-bell-badge" id="navBellBadge" hidden>0</span>
@@ -229,7 +236,7 @@ function renderNavbar() {
                 <div class="user-dropdown" id="userDropdown">
                     <a href="/profile">个人中心</a>
                     <a href="/notifications">通知中心</a>
-                    ${isAdmin(user) ? '<a href="/config">配置中心</a>' : ''}
+                    ${isAdmin(user) ? '<a href="/monitor">配置中心</a>' : ''}
                     ${isAdmin(user) ? '<a href="/settings">配置项</a>' : ''}
                     <a href="#" class="logout" onclick="Auth.logout();return false;">退出登录</a>
                 </div>
@@ -238,15 +245,17 @@ function renderNavbar() {
         NotificationCenter.start();
     } else {
         // 看板是公开页（接口 @NoAuth），游客也进得去，所以两个分支都要给入口
-        navLinks.innerHTML = `
-            <a href="/">首页</a>
-            <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
-            <a href="/visits" title="本站访问热度 · 所有人可见">访问看板</a>
-            <a href="/rank" title="凡人修仙传 · 人界篇境界榜">修仙榜</a>
-            <a href="/duel" title="凡人修仙传 · 人界斗法台 · 自动过招报招">斗法台</a>
+        extra = `
             <a href="/login">登录</a>
             <a href="/register" class="btn btn-primary btn-sm">注册</a>
         `;
+    }
+
+    if (extraBox) {
+        navLinks.innerHTML = main;
+        extraBox.innerHTML = extra;
+    } else {
+        navLinks.innerHTML = main + extra;
     }
 }
 

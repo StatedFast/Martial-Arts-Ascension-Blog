@@ -6,9 +6,12 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import spring.ai.example.spring_ai_demo.entity.User;
+import spring.ai.example.spring_ai_demo.service.SysConfigService;
 import spring.ai.example.spring_ai_demo.service.UserService;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Controller
@@ -20,19 +23,37 @@ public class HomeController {
     private static final String DEFAULT_AUTHOR_BIO = "记录技术成长 · 分享编程心得";
 
     private final UserService userService;
+    private final SysConfigService sysConfigService;
 
     /** 首页顶部封面背景图（/images/xxx.jpg）；留空则用默认渐变占位 */
     @Value("${home.banner-image:}")
     private String bannerImage;
 
-    public HomeController(UserService userService) {
+    /** 轮播候选图（逗号分隔）：只在配置中心把 home.banner-cycle.enabled 打开后才用得上 */
+    @Value("${home.banner-images:}")
+    private String bannerImages;
+
+    public HomeController(UserService userService, SysConfigService sysConfigService) {
         this.userService = userService;
+        this.sysConfigService = sysConfigService;
     }
 
     @GetMapping("/")
     public String index(Model model) {
         model.addAttribute("title", "修仙心得 - 首页");
         model.addAttribute("author", loadAuthorCard());
+
+        // 两种形态互斥：轮播开启就只下发图层，不要再给 --home-banner，
+        // 否则单图和轮播图层会各自请求一张、白下载一份体积
+        List<String> cycle = resolveBannerCycle();
+        if (!cycle.isEmpty()) {
+            model.addAttribute("bannerImages", cycle);
+            // 间隔以毫秒下发到 data-hb-ms：前端只读这一个值安排切换定时器
+            model.addAttribute("bannerHbMs", sysConfigService.getHomeBannerSeconds() * 1000L);
+            // 只预加载第一张（与图层内联的背景同址，命中同一份缓存）；其余交给页面脚本在 load 后再取
+            model.addAttribute("bannerUrl", cycle.get(0));
+            return "index";
+        }
         // 未配置背景图时不输出 style 属性，页面直接走渐变占位，避免一次 404 请求
         String bannerUrl = hasText(bannerImage) ? bannerImage.trim() : null;
         if (bannerUrl != null) {
@@ -41,6 +62,20 @@ public class HomeController {
             model.addAttribute("bannerStyle", "--home-banner: url('" + bannerUrl + "');");
         }
         return "index";
+    }
+
+    /**
+     * 首页封面轮播图列表：配置中心的 home.banner-cycle.enabled 打开才启用。
+     * 开关关闭、或图片列表没配 / 全是空白时，返回空集合，首页退回单图旧行为。
+     */
+    private List<String> resolveBannerCycle() {
+        if (!sysConfigService.getBoolean(SysConfigService.HOME_BANNER_CYCLE) || !hasText(bannerImages)) {
+            return List.of();
+        }
+        return Arrays.stream(bannerImages.split(","))
+                .map(String::trim)
+                .filter(this::hasText)
+                .toList();
     }
 
     @GetMapping("/article/{id}")
@@ -85,14 +120,16 @@ public class HomeController {
         return "write";
     }
 
-    /** 配置中心（仅管理员，页面内会二次校验角色；非管理员接口会返回 403） */
+    /**
+     * 配置中心（仅管理员，页面内会二次校验角色；非管理员接口会返回 403）。
+     * 看板与操控台已合并到 /monitor 同页，这里只做旧链接 / 书签 / 下拉菜单的跳转。
+     */
     @GetMapping("/config")
-    public String config(Model model) {
-        model.addAttribute("title", "配置中心 - 修仙心得");
-        return "config";
+    public String config() {
+        return "redirect:/monitor";
     }
 
-    /** 渡劫看板：全站公开入口（数据走 @NoAuth 的 /api/monitor/**），游客也能看内存曲线 */
+    /** 渡劫看板：全站公开入口（数据走 @NoAuth 的 /api/monitor/**），内存曲线 + 右侧渡劫操控台 */
     @GetMapping("/monitor")
     public String monitor(Model model) {
         model.addAttribute("title", "JVM 渡劫看板 - 修仙心得");

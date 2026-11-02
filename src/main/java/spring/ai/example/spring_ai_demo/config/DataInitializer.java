@@ -56,6 +56,8 @@ public class DataInitializer implements CommandLineRunner {
         defaults.put(SysConfigService.FAULT_BATCH_SIZE, "20|每5秒注入的MB数（后端钳制上限50，防止爆得太快看不到GC过程）");
         defaults.put(SysConfigService.FAULT_FIXED, "false|修复模式（true=注入走有界LRU/有界引用池，内存曲线走平；与泄漏态对比演示修复效果）");
         defaults.put(SysConfigService.MONITOR_POLL_INTERVAL, "3|配置中心内存曲线刷新间隔（秒，1-60，保存后前端自动生效）");
+        defaults.put(SysConfigService.HOME_BANNER_CYCLE, "false|首页封面轮播开关（false=只用 home.banner-image 那一张；true=按下面秒数在三张封面间循环）");
+        defaults.put(SysConfigService.HOME_BANNER_SECONDS, "8|首页封面轮播间隔（秒，3-120，开关打开后生效，保存后下一次刷新生效）");
 
         for (Map.Entry<String, String> entry : defaults.entrySet()) {
             Long exists = sysConfigMapper.selectCount(

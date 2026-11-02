@@ -4,12 +4,13 @@
 <body>
 <!--
   ~ JVM 渡劫看板（可复用片段）
-  ~ 被两处引用：/monitor（所有人可见的独立看板页）、/config（管理员配置中心的左栏）。
-  ~ 数据走公开的 /api/monitor/**，所以配置中心里看到的曲线和看板完全一致（同一口径、同一接口）。
+  ~ 只被 /monitor 一处引用：看板（所有人可见）与渡劫操控台（仅管理员）已经合并到同一页，
+  ~ 左栏就是本片段、右栏是操控台；/config 现在只是一个 redirect:/monitor 的旧地址。
+  ~ 数据走公开的 /api/monitor/**，所以游客看到的曲线和开关状态与管理员完全一致（同一口径、同一接口）。
   ~
   ~ 宿主页面约定：
   ~   1) 提供 #metaXmx / #metaDirect / #metaGc / #metaPoll 四个横幅槽位（缺失则跳过，不报错）；
-  ~   2) 管理员页面可设 window.onJvmSample = fn 挂钩每轮样本（用于刷新操控台控件状态）；
+  ~   2) 宿主页面可设 window.onJvmSample = fn 挂钩每轮样本（/monitor 用它刷境界与操控台控件状态）；
   ~   3) 越线那一刻会回调 window.onBoardWarn(who)；
   ~   4) 本页 app.js 加载完后调一次 initBoard()（片段自带脚本不自动跑，
   ~      因为 http / escapeHtml / ConfirmDialog 都在 app.js 里，提前执行会 ReferenceError）。
@@ -121,7 +122,7 @@
                 <span class="cfg-chip cfg-chip-plain"><i></i>累计注入 <b id="lgInject">--</b></span>
                 <span class="cfg-chip cfg-chip-plain"><i></i>GC <b id="lgGc">--</b></span>
                 <span class="cfg-chip cfg-chip-plain"><i></i>泄漏存量 <b id="lgLeak">--</b></span>
-                <span class="cfg-chip cfg-chip-lock" title="曲线与读数随便看；能改状态的操作（注入泄漏、改配置、止血）只在配置中心，且仅管理员可用"><i></i>🔒 只读</span>
+                <span class="cfg-chip cfg-chip-lock" title="曲线与读数随便看；能改状态的操作（注入泄漏、改配置、止血）都在本页右侧的渡劫操控台里，且仅管理员可用"><i></i>🔒 只读</span>
                 <span class="cfg-chip cfg-chip-clear cfg-act-admin" onclick="clearBoard()" title="清空本地曲线历史，重新开始累计">✕ 清空曲线</span>
             </div>
         </div>

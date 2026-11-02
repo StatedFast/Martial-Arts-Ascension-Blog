@@ -6,19 +6,23 @@
     <title th:text="${title}">修仙心得</title>
     <!-- 浏览器标签页图标：全站统一用这张小图（16px 就够，不要换成首页 banner）；原无 favicon 时浏览器会显示默认地球图标 -->
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <!-- 首屏封面图预加载：与 .home-cover 背景图共用同一 URL，只下载一次，后续 30 天走浏览器本地缓存 -->
+    <!-- 首屏封面图预加载：与 .home-cover 实际用的那张图共用同一 URL（单图模式取 home.banner-image，轮播模式取第一张），
+         只下载一次，后续 30 天走浏览器本地缓存 -->
     <link rel="preload" as="image" href="/images/home-songyu.jpg"
           th:if="${bannerUrl != null}" th:href="${bannerUrl}">
-    <link rel="stylesheet" href="/css/style.css?v=17">
+    <link rel="stylesheet" href="/css/style.css?v=18">
     <style>
         /* 首页专属：顶部「洞中灵气」实时条（样式其余额外加 .home 作用域，避免影响其他页面） */
         .home .hero-live {
-            display: inline-flex; align-items: center; gap: 12px; margin-top: 18px;
+            display: inline-flex; align-items: center; gap: 12px;
             padding: 9px 16px; border-radius: 999px; font-size: 13px; text-decoration: none;
             color: #fff; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.3);
             backdrop-filter: blur(8px); transition: all .2s;
         }
         .home .hero-live:hover { background: rgba(255,255,255,.26); transform: translateY(-1px); }
+        /* hidden 属性得显式压回来：上面那条 display:inline-flex 的权重高过浏览器默认的 [hidden]{display:none}，
+           不然接口还没回来（或拉失败）时，导航行里会多出一排 -- */
+        .home .hero-live[hidden] { display: none; }
         .home .hero-live-label { opacity: .78; letter-spacing: .04em; }
         .home .hero-live b { font-variant-numeric: tabular-nums; }
         .home .hero-live-dot {
@@ -28,35 +32,43 @@
         @keyframes heroLivePulse { 50% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } }
         .home .hero-live.warning .hero-live-dot { background: #fbbf24; }
         .home .hero-live.danger .hero-live-dot { background: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,.32); }
-        .home .hero-live-cta { padding-left: 12px; border-left: 1px solid rgba(255,255,255,.28); font-weight: 600; }
     </style>
 </head>
 <body class="home">
-    <!-- 顶部封面：导航与 Banner 共用同一张背景图，作为一个整体随页面滚动（图片由 home.banner-image 配置） -->
-    <div class="home-cover" th:style="${bannerStyle}">
+    <!-- 顶部封面：导航与 Banner 共用同一张背景图，作为一个整体随页面滚动
+         （单图来自 home.banner-image；轮播来自配置中心开关 + home.banner-images） -->
+    <div class="home-cover" th:style="${bannerStyle}" th:attr="data-hb-ms=${bannerHbMs}">
+        <!-- 轮播图层：开关关闭时后端不下发 bannerImages，这里一个节点都不渲染，首页与轮播功能上线前完全一致。
+             第一张直接写进内联背景（与 head 的 preload 同一地址），其余由页内脚本等 window load 后再取 -->
+        <div class="hb-img" th:each="img, st : ${bannerImages}"
+             th:classappend="${st.first} ? 'on'"
+             th:style="${st.first} ? ('background-image: url(' + ${img} + ');') : ''"
+             th:attr="data-bg=${img}"></div>
         <header class="home-hero">
             <div class="home-hero-inner">
                 <div class="home-hero-copy">
-                    <div class="hero-eyebrow">Ordinary People's Ascension to Immortality</div>
-                    <h1 class="hero-title">凡人修仙论坛</h1>
+                    <div class="hero-eyebrow">Ordinary person's cultivation hall for achieving immortality</div>
+                    <h1 class="hero-title">凡人修仙道场</h1>
                     <p class="hero-sub">凡身敢问大道远，修真心上问长生</p>
-                    <!-- 洞中灵气：把公开的后端监控接口当成首页氛围条用，
-                         顺便给「JVM 渡劫看板」一个不占导航位的入口（接口 @NoAuth，游客可看） -->
-                    <a class="hero-live" href="/monitor" id="heroLive" hidden>
-                        <span class="hero-live-dot"></span>
-                        <span class="hero-live-label">洞中灵气</span>
-                        <span>堆 <b id="liveHeap">--</b></span>
-                        <span>堆外 <b id="liveDirect">--</b></span>
-                        <span>境界 <b id="liveRealm">--</b></span>
-                        <span class="hero-live-cta">渡劫看板 →</span>
-                    </a>
                 </div>
-                <div class="hero-actions">
-                    <button type="button" class="hero-btn" onclick="AiAssistant.toggle()">🤖 问 大衍神君</button>
-                    <!-- 导航链接（首页 / 写文章 / 通知 / 用户菜单）与上面按钮同排；
-                         原「开始阅读」按钮已去掉：论坛是持续流动的帖子流，不是一篇要「读完」的书，
-                         文章列表本身就在首屏可见，锚点跳转反而多一次无意义点击 -->
+                <!-- 导航行：五个站内入口贴左，其余（洞中灵气 / 问 AI / 写文章 / 铃铛 / 头像）同一行贴右。
+                     原「开始阅读」按钮已去掉：论坛是持续流动的帖子流，不是一篇要「读完」的书，
+                     文章列表本身就在首屏可见，锚点跳转反而多一次无意义点击 -->
+                <div class="hero-nav-row">
                     <div class="nav-links hero-nav" id="navLinks"></div>
+                    <div class="hero-nav-extra">
+                        <!-- 洞中灵气：把公开的后端监控接口当成首页氛围条用，
+                             本身就是个跳看板的链接，所以原来那截「渡劫看板 →」文字去掉 -->
+                        <a class="hero-live" href="/monitor" id="heroLive" hidden>
+                            <span class="hero-live-dot"></span>
+                            <span class="hero-live-label">洞中灵气</span>
+                            <span>堆 <b id="liveHeap">--</b></span>
+                            <span>堆外 <b id="liveDirect">--</b></span>
+                            <span>境界 <b id="liveRealm">--</b></span>
+                        </a>
+                        <button type="button" class="hero-btn" onclick="AiAssistant.toggle()">🤖 问 大衍神君</button>
+                        <div class="nav-links hero-nav" id="navHomeExtra"></div>
+                    </div>
                 </div>
             </div>
         </header>
@@ -202,7 +214,7 @@
         </aside>
     </div>
 
-    <script src="/js/app.js?v=13"></script>
+    <script src="/js/app.js?v=14"></script>
     <script>
         // ==================== 首页逻辑 ====================
         let currentPage = 1;
@@ -505,6 +517,46 @@
         loadSiteStats();
         loadHeroLive();
         setInterval(loadHeroLive, 10000);
+        initHomeBanner();
+
+        // ==================== 首页封面轮播（配置中心开关驱动） ====================
+        /* 图层只在 home.banner-cycle.enabled 打开时才被后端渲染；关闭时页面里一个 .hb-img 都没有，
+           下面这段直接 return，首页表现与轮播功能上线之前完全一致。
+           间隔只读 .home-cover 上的 data-hb-ms：这个数走 th:attr 下发，脚本里不写 Thymeleaf 的内联表达式 ——
+           script 标签里的双层中括号会被当内联解析，一旦变量缺失整页直接 500（这个坑在首页注释里已经记过一笔）。 */
+        function initHomeBanner() {
+            const cover = document.querySelector('.home-cover');
+            const layers = Array.prototype.slice.call(document.querySelectorAll('.hb-img'));
+            // 一张都没有 / 只有一张：没有轮播可言
+            if (!cover || layers.length < 2) return;
+            const ms = Math.max(3000, Number(cover.dataset.hbMs) || 8000);
+            let idx = 0;
+
+            // 先用 Image 探一次：下载成功才把背景写给图层，下载失败（404 / 断网）就永远不把这个位置交给它
+            function arm(el) {
+                const probe = new Image();
+                probe.onload = function () {
+                    el.style.backgroundImage = 'url("' + el.dataset.bg + '")';
+                    el.dataset.ready = '1';
+                };
+                probe.onerror = function () { el.dataset.ready = 'err'; };
+                probe.src = el.dataset.bg;
+            }
+            layers.forEach((el, i) => {
+                // 首张已经写在内联背景里（和 head 的 preload 同一地址），不用重复取
+                if (i === 0) { el.dataset.ready = '1'; return; }
+                arm(el);
+            });
+
+            setInterval(function () {
+                const next = layers[(idx + 1) % layers.length];
+                // 还没下载好（或下载失败）：下一轮再试，当前这张继续显示，不让用户看到闪白
+                if (next.dataset.ready !== '1') return;
+                layers[idx].classList.remove('on');
+                next.classList.add('on');
+                idx = (idx + 1) % layers.length;
+            }, ms);
+        }
 
         // AI 助手对话框（右下角悬浮按钮）
         AiAssistant.init();
