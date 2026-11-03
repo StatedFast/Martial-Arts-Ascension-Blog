@@ -258,8 +258,9 @@ public final class Cultivation {
      * 斗法台报招配音：前端用浏览器语音合成把招名念出来，这里只定“听起来像谁”。
      * pitch/rate 直接给 Web Speech 用（1.0 为正常人声），timbre 是人设描述，
      * shout 是出手前那一声喊招 —— 短，否则一拍里光说话就打不完仗了。
+     * death 是败北倒下那一瞬的临终遗言：同样用这副嗓子念出来，只此一句，符合人物原型。
      */
-    public record Voice(double pitch, double rate, String timbre, String shout) {
+    public record Voice(double pitch, double rate, String timbre, String shout, String death) {
     }
 
     /** 特效键，前端 duel.js 按键分派画法 */

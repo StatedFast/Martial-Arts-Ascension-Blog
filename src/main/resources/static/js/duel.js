@@ -1161,6 +1161,18 @@
     }
 
     // ==================== 落幕判词 ====================
+    /**
+     * 败者临终遗言：倒下去那一瞬，用他自己的嗓子（voice.pitch/rate）念一句符合人设的话，
+     * 并打在人物气泡上。语音关着时 say 自行静默，气泡仍在 —— 不能因为没声音就少了这句。
+     * （遁走 ESCAPE 的人没死，不进这里；平手 DRAW 无败者）
+     */
+    function playDeathLine(side, person) {
+        const dying = ((person && person.voice) || {}).death;
+        if (!person || !dying) return;
+        Stage.bubble(side, `<b>${person.name} · 遗言</b><small>${dying}</small>`, true, 4200);
+        // 比报招稍慢半拍、压一点音调，听着像咽气前的最后一句
+        Speech.say(person, dying);
+    }
     function showOutcome(o, A, B, sideOf) {
         const head = $('dlVerdictHead'), body = $('dlVerdictBody'), src = $('dlVerdictSrc');
         const winSide = o.winnerId ? sideOf(o.winnerId) : null;
@@ -1172,7 +1184,10 @@
         } else {
             head.textContent = `${o.headline || ''} ｜ ${tag}`;
             if (winSide) { Stage.pose(winSide, 'win'); Stage.array(winSide, true); }
-            if (loseSide && o.type !== 'ESCAPE') Stage.pose(loseSide, 'down');
+            if (loseSide && o.type !== 'ESCAPE') {
+                Stage.pose(loseSide, 'down');
+                playDeathLine(loseSide, loseSide === 'A' ? A : B);
+            }
             if (loseSide && o.type === 'ESCAPE') Stage.pose(loseSide, 'flee');
         }
         body.innerHTML = `<b>${o.verdict || ''}</b>`;
