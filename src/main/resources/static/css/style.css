@@ -1001,6 +1001,7 @@ textarea.form-control {
     align-items: center;
     gap: 4px;
     flex-wrap: nowrap; /* 不让导航自己被压成一列，窄屏交给下面的媒体查询重新分行 */
+    white-space: nowrap; /* 每个入口的文字绝不断行（否则“首页”会被挤成“首/页”两行） */
 }
 
 .hero-nav-row > .hero-nav {
@@ -1015,6 +1016,7 @@ textarea.form-control {
     justify-content: flex-end;
     gap: 10px;
     flex-wrap: nowrap;
+    white-space: nowrap; /* 状态条与用户名也不拆行 */
     flex: 0 1 auto;
     min-width: 0;
     margin-left: auto;      /* 左侧那组入口贴左，这一组永远贴右 */
@@ -1024,6 +1026,8 @@ textarea.form-control {
 .hero-nav > a {
     color: rgba(255,255,255,0.95);
     text-shadow: 0 1px 8px rgba(4,12,24,0.45);
+    flex: 0 0 auto;         /* 不被 flex 挤窄：宁可整行略微超出容器，也不让文字折成两行 */
+    padding: 7px 10px;      /* 比默认 .nav-links a 略紧，腾出宽度让六个入口 + 右侧组同排放下 */
 }
 
 .hero-nav > a:hover {

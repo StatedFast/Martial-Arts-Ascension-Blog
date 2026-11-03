@@ -401,6 +401,8 @@
         utter: null,
         idleCbs: [],
         fuse: 0,
+        watchdog: 0,   // 「联网音色到点没出声」的看门狗
+        keep: 0,       // Chrome 念长句十几秒自动静音的保活定时器
 
         init() {
             if (!this.ok) {
@@ -483,7 +485,7 @@
                 return;
             }
             const v = this.pick();
-            this.state(`音色：${v.name} · 共 ${this.list.length} 个中文音色，下拉可换`);
+            this.state(`音色：${v.name}${v.localService ? '' : ' · 联网音色（国内网络可能不出声）'} · 共 ${this.list.length} 个中文音色，下拉可换`);
             const warn = $('dlVoiceWarn');
             if (warn) warn.style.display = 'none';
         },
@@ -510,8 +512,12 @@
 
         say(p, text) {
             if (!this.usable()) return;
+            const synth = window.speechSynthesis;
             try {
-                window.speechSynthesis.cancel();
+                /* Chrome 老毛病：cancel() 紧跟着 speak() 会把刚排进去的这句吞掉，表现就是「点了没声」。
+                   只在真在播 / 排队时才清台，别每次无条件 cancel。 */
+                if (synth.speaking || synth.pending) synth.cancel();
+                this._clearTimers();
                 const u = new SpeechSynthesisUtterance(text);
                 const v = (p && p.voice) || {};
                 u.voice = this.zh;
@@ -521,30 +527,90 @@
                 u.volume = 0.95;
                 this.busy = true;
                 this.utter = u;
+                let started = false;
+                u.onstart = () => {
+                    started = true;
+                    clearTimeout(this.watchdog);      // 真的出声：撤掉「联网音色哑了」的看门狗
+                    this._startKeepAlive(synth);      // 绕开 Chrome 念到十几秒就自动静音的老毛病
+                };
                 u.onend = () => this.release(u);
                 u.onerror = () => this.release(u);
-                /* 兜底：联网音色卡住、或内核一个回调都不发时，按预估时长再给 3 秒就当作念完了。
-                   绝不能把整场斗法冻在「等一句话」上 —— 宁可少等一句，也不能不往下打。 */
-                clearTimeout(this.fuse);
+                /* 保险丝：内核一个回调都不发时，按预估时长再给 3 秒就当作念完了，
+                   绝不能把整场斗法冻在「等一句话」上。 */
                 this.fuse = setTimeout(() => this.release(u), this.estMs(p, text) + 3000);
-                window.speechSynthesis.speak(u);
+                /* 看门狗：Google 这类「联网音色」请求发不出去时既不报错也不出声，就一直哑着。
+                   1.6 秒还没 onstart 就判定这个音色不响：有本地音色就自动换过去重念，没有就把话说清楚。 */
+                this.watchdog = setTimeout(() => this._onSilent(p, text, u, synth, started), 1600);
+                if (synth.paused) synth.resume();
+                synth.speak(u);
             } catch (e) {
                 // 语音失败不影响演出，气泡与字幕还在，也别把下一拍锁死
                 this.release(this.utter);
             }
         },
 
-        /** 这一句结束了（或兜底超时了）：把等着「念完」的下一拍全部放行 */
-        release(u) {
-            if (u && this.utter !== u) return;   // 被 cancel 掉的旧 utterance 迟到的回调，忽略
-            clearTimeout(this.fuse);
-            this.busy = false;
-            this.utter = null;
+        /** 看门狗到期：这一句到点仍没出声。联网音色在国内网络下就是这种「不报错也不响」的哑状态。 */
+        _onSilent(p, text, u, synth, started) {
+            if (started || this.utter !== u) return;   // 已出声，或这句早被下一句顶掉：什么都不做
+            this._clearTimers();
+            try { synth.cancel(); } catch (e) { /* ignore */ }
+            // 本来就选的本地音色还不响：多半不是「联网不通」，交回保险丝放行，别乱换
+            if (this.zh && this.zh.localService) { this.busy = false; this.utter = null; this._flushIdle(); return; }
+            const local = this.localVoice();
+            if (local) {
+                this.zh = local;
+                this.busy = false; this.utter = null;
+                this.state(`音色：${local.name} · 联网音色不出声，已自动切到本地`);
+                this.warn('刚才的「联网音色」在当前网络下不出声，已改用本地音色：' + local.name + '。');
+                const keep = D.voice; D.voice = true;   // 试听时开关可能是关的，补救这一句必须出声
+                this.say(p, text);                       // 换本地音色把这一句补念回来
+                D.voice = keep;
+                return;
+            }
+            // 机器上只有联网音色、且它哑了：给一条照着做就行的提示，同时放行下一拍别把斗法冻住
+            this.warn('这台机器只有 Google 联网音色，而它在当前网络下不出声。装个本地中文语音即可：'
+                + 'Windows「设置 → 时间和语言 → 语音 → 添加「中文(中国)」」，或直接用 Edge（自带晓晓等本地音色）。');
+            this.state('联网音色不出声 · 建议换本地音色');
+            this.busy = false; this.utter = null;
+            this._flushIdle();
+        },
+
+        /** 放行所有等着「这句念完」的下一拍 */
+        _flushIdle() {
             const cbs = this.idleCbs;
             this.idleCbs = [];
             cbs.forEach(fn => {
                 try { fn(); } catch (e) { console.warn('[speech] 放行回调异常', e); }
             });
+        },
+
+        /** 列表里第一个本地音色（本地音色不依赖网络，几乎总能出声） */
+        localVoice() { return this.list.find(v => v.localService) || null; },
+
+        /** Chrome 念长句 ~15 秒会自己停：每 9 秒 pause+resume 顶一下，保持发声 */
+        _startKeepAlive(synth) {
+            clearInterval(this.keep);
+            this.keep = setInterval(() => {
+                try {
+                    if (synth.speaking && !synth.paused) { synth.pause(); synth.resume(); }
+                } catch (e) { /* ignore */ }
+            }, 9000);
+        },
+
+        _clearTimers() {
+            clearTimeout(this.fuse);
+            clearTimeout(this.watchdog);
+            clearInterval(this.keep);
+            this.fuse = this.watchdog = this.keep = 0;
+        },
+
+        /** 这一句结束了（或兜底超时了）：把等着「念完」的下一拍全部放行 */
+        release(u) {
+            if (u && this.utter !== u) return;   // 被 cancel 掉的旧 utterance 迟到的回调，忽略
+            this._clearTimers();
+            this.busy = false;
+            this.utter = null;
+            this._flushIdle();
         },
 
         /** 等这句念完再走下一拍；语音关闭时 busy 恒为 false，等于当场放行 */
@@ -561,7 +627,7 @@
 
         /** 清台 / 重新开局：连等待队列一起丢掉，旧链子不该再往下走 */
         reset() {
-            clearTimeout(this.fuse);
+            this._clearTimers();
             this.idleCbs = [];
             this.busy = false;
             this.utter = null;
