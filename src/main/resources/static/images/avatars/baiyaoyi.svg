@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+<defs><linearGradient id="g_baiyaoyi" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7f1d1d"/><stop offset="1" stop-color="#fca5a5"/></linearGradient></defs>
+<circle cx="50" cy="50" r="50" fill="url(#g_baiyaoyi)"/>
+<ellipse cx="33" cy="21" rx="27" ry="14" fill="#ffffff" opacity="0.15"/>
+<circle cx="50" cy="50" r="48" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2"/>
+<text x="50" y="50" dy="0.05em" dominant-baseline="central" text-anchor="middle" font-family="'PingFang SC','Microsoft YaHei','Hiragino Sans GB',sans-serif" font-size="64" font-weight="700" fill="#ffffff" opacity="0.97">白</text>
+</svg>

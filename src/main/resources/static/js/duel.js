@@ -629,37 +629,50 @@
             });
         },
 
-        /* 轮转（每一合起手）：两段纯五度（G3→D4）慢起慢收地往上聚，像灵气拢过来；
-           再叠一层低通到 900Hz 以内的极轻气流。去掉原来顶到 1500Hz 的啸叫，不再像哨子 */
+        /* ---- 打斗音效：整体往「拳拳到肉」调 —— 低频砸 + 中高频破风 + 金属相击，去掉偏雅致的钟磬味 ---- */
+        /* 一记闷响：低频快速下坠，做命中/重击/落幕砸地的底 */
+        boom(freq, dur, gain) {
+            this.tone(freq, dur, 'sine', gain, Math.max(28, freq * 0.32));
+        },
+        /* 起手聚气：低吼垫底 + 一道快速上扬的灵气啸 + 由远及近的破风，像要出杀招前的蓄力 */
         charge() {
-            this.swell(196.00, 0.44, 0.04, 1.33);
-            this.swell(293.66, 0.44, 0.024, 1.33);
-            this.noise(0.3, 320, 880, 0.026);
+            this.tone(88, 0.46, 'sawtooth', 0.045, 150);
+            this.swell(220, 0.4, 0.035, 2.4);
+            this.noise(0.42, 480, 2400, 0.05);
         },
-        swing(ult) { this.noise(ult ? 0.52 : 0.32, 1900, 320, ult ? 0.2 : 0.13); },
+        /* 出手破风：短促、由亮转闷的一扫 */
+        swing(ult) { this.noise(ult ? 0.34 : 0.22, ult ? 3600 : 3000, 620, ult ? 0.17 : 0.12); },
+        /* 命中：低频闷响砸底 + 一记碎裂高频；暴击再补一声骨裂般的方波 */
         hit(ult, crit) {
-            this.noise(ult ? 0.58 : 0.32, 900, 120, ult ? 0.28 : 0.18);
-            this.tone(ult ? 82 : 128, ult ? 0.5 : 0.3, 'square', crit ? 0.11 : 0.075, 44);
+            this.boom(ult ? 62 : 96, ult ? 0.5 : 0.3, crit ? 0.24 : 0.17);
+            this.noise(ult ? 0.4 : 0.24, 1500, 200, ult ? 0.2 : 0.14);
+            if (crit) this.tone(190, 0.16, 'square', 0.12, 70);
         },
-        guard() { this.tone(520, 0.34, 'sine', 0.09, 300); this.noise(0.18, 2600, 900, 0.07); },
-        heal() { this.tone(660, 0.46, 'sine', 0.075, 990); },
-        flee() { this.noise(0.55, 2600, 480, 0.11); },
-        /* 失神：原来是一记 150→96 的锄齿波，满屏毛刺。改成低频往下坠 + 一记问心闷响 */
-        stall() { this.swell(110, 0.36, 0.045, 0.72); this.noise(0.22, 240, 85, 0.05); },
-        /* 落幕：胜局走一串清亮的宫-角-徵-羽上行大和弦（C-E-G-C）加一层低钟铺底；
-           平手不砸，只往低处轻轻收两个音。全部改用 chime（和谐泛音、缓起音），
-           不再用 bell 那套带拍频的钟声 —— 那才是原来「难听」的根 */
+        /* 格挡：金铁相击，两记错开的高频 + 一簇火星噪声 */
+        guard() {
+            this.tone(1500, 0.12, 'square', 0.075, 1150);
+            this.tone(2500, 0.09, 'sine', 0.055, 1900);
+            this.noise(0.14, 3200, 1400, 0.06);
+        },
+        /* 回复：清亮上行的一串灵光，柔和但带光泽 */
+        heal() {
+            this.tone(660, 0.3, 'sine', 0.06, 990);
+            this.tone(990, 0.36, 'sine', 0.042, 1320);
+        },
+        /* 遁走：由近及远的急速破风 */
+        flee() { this.noise(0.5, 2600, 320, 0.1); },
+        /* 失神：一记发闷的顿挫，低频下坠 + 短噪 */
+        stall() { this.boom(140, 0.34, 0.06); this.noise(0.2, 380, 110, 0.05); },
+        /* 落幕：胜——一记重鼓砸地 + 上行亮音收束；平——低沉一叹，往低处收 */
         verdict(win) {
             if (win) {
-                this.chime(523.25, 1.5, 0.06, 0);
-                this.chime(659.25, 1.5, 0.055, 0.13);
-                this.chime(783.99, 1.7, 0.055, 0.26);
-                this.chime(1046.5, 2.1, 0.05, 0.4);
-                this.swell(130.81, 2.2, 0.038, 1);
+                this.boom(72, 0.6, 0.22);
+                this.noise(0.5, 1000, 200, 0.16);
+                this.chime(523.25, 1.2, 0.05, 0.14);
+                this.chime(783.99, 1.5, 0.05, 0.3);
             } else {
-                this.chime(392.0, 1.7, 0.05, 0);
-                this.chime(329.63, 2.1, 0.045, 0.18);
-                this.swell(98, 2.0, 0.032, 1);
+                this.boom(64, 0.7, 0.16);
+                this.tone(196, 0.9, 'sine', 0.05, 130);
             }
         }
     };
@@ -818,12 +831,20 @@
         });
     }
 
-    /** 这一拍留多久：取「动作时长」与「把这句话说完」的较大者；
-     *  真正的硬约束在 run() 的链子上（念不完就不开下一拍），这里只是先把拍子给足 */
-    function rawDur(ev, p) {
+    /** 起手到「放技能名 + 特效」之间的前置拍子：先把这句报招读完、把描述打在屏上，读完才动手。
+     *  关语音时缩到最短（CHARGE_MS），开着语音就按这句话的预估时长留，封顶 1500ms 免得拖沓。 */
+    function leadMs(ev, p) {
+        if (ev.skipped) return CHARGE_MS;
         const spoken = Speech.usable() ? Speech.estMs(p, Speech.line(p, ev)) : 0;
+        return Math.min(Math.max(CHARGE_MS, spoken * 0.62), 1500);
+    }
+
+    /** 这一拍留多久：至少要把「前置读招 + 出手 + 命中」这条链走完，再叠动作底时长；
+     *  真正的硬约束仍在 run() 的链子上（念不完就不开下一拍） */
+    function rawDur(ev, p) {
+        const lead = leadMs(ev, p);
         const base = ev.ult ? ULT_MS : (ev.kind === 'ATTACK' || ev.kind === 'ULT' ? BASE_MS : SOFT_MS);
-        return Math.max(base, spoken + 520) + (ev.crit ? 320 : 0) + (ev.skipped ? -300 : 0);
+        return Math.max(base, lead + FLIGHT_MS + 620) + (ev.crit ? 320 : 0) + (ev.skipped ? -300 : 0);
     }
 
     /** 一招四段：蓄力报招 → 出手 → 命中 → 收势 */
@@ -837,7 +858,8 @@
         const move = ev.kind === 'MOBILITY' || ev.kind === 'ESCAPE';
         const inv = 1 / D.speed;
 
-        // ① 蓄力：抬手上抬、脚底起阵，人物先喝出声
+        // ① 起手：先把这句报招读出来、把招式描述打在气泡上 —— 这一步不抢技能名，也不放特效
+        const lead = leadMs(ev, p) * inv;
         $('dlRoundTag').textContent = `第 ${ev.round} 合 · ${ult ? '神通' : ev.skipped ? '失神' : '招式'}`;
         Stage.pose(actor, 'cast');
         Stage.array(actor, true);
@@ -845,32 +867,33 @@
         if (ev.skipped) {
             Stage.bubble(actor, '<b>……真元逆乱</b><small>这一手慢了半拍</small>', false, Math.max(900, dur * 0.6));
             Sfx.stall();
+            showSkillName(ev, false);
         } else {
-            Stage.bubble(actor, `<b>${trimSkill(ev.skill)}</b><small>${p.name} · ${(p.voice || {}).timbre || '喝声'}</small>`,
-                ult, Math.max(1000, dur * 0.78));
+            // 气泡先只把「这句要念的招式描述」亮出来，读完才轮到技能名与特效
+            Stage.bubble(actor, `<b>${p.name}</b><small>${ev.line || ((p.voice || {}).timbre || '喝声')}</small>`,
+                ult, lead + FLIGHT_MS * inv + 260);
             Speech.say(p, shout);
             Stage.talk(actor, true);
             Sfx.charge();
             Fx.charge(Fx.pos(actor), p.realmColor, ult);
         }
-        showSkillName(ev, ult);
-        if (ult) {
-            stage.classList.add('zoom');
-            later(() => stage.classList.remove('zoom'), Math.min(1200, dur * 0.7));
-        }
 
-        // ② 出手：扑身 + 飞行物
+        // ② 念到位了再放：技能名大字 + 扑身出手 + 特效
         later(() => {
-            if (!ev.skipped) {
-                Stage.pose(actor, 'attack');
-                Sfx.swing(ult);
-                if (offense) Fx.projectile(ev, actor, foe, p.realmColor, ult);
-                else if (defense) { Fx.defense(Fx.pos(actor), p.realmColor, ev.vfx); Sfx.guard(); }
-                else if (heal) { Fx.heal(Fx.pos(actor), ev.vfx); Sfx.heal(); }
-                else if (move) { Fx.move(Fx.pos(actor), actor, p.realmColor); Sfx.flee(); }
-                else Fx.projectile(ev, actor, foe, p.realmColor, ult);
+            if (!D.playing || ev.skipped) return;
+            showSkillName(ev, ult);
+            if (ult) {
+                stage.classList.add('zoom');
+                later(() => stage.classList.remove('zoom'), Math.min(1200, dur * 0.7));
             }
-        }, CHARGE_MS * inv);
+            Stage.pose(actor, 'attack');
+            Sfx.swing(ult);
+            if (offense) Fx.projectile(ev, actor, foe, p.realmColor, ult);
+            else if (defense) { Fx.defense(Fx.pos(actor), p.realmColor, ev.vfx); Sfx.guard(); }
+            else if (heal) { Fx.heal(Fx.pos(actor), ev.vfx); Sfx.heal(); }
+            else if (move) { Fx.move(Fx.pos(actor), actor, p.realmColor); Sfx.flee(); }
+            else Fx.projectile(ev, actor, foe, p.realmColor, ult);
+        }, lead);
 
         // ③ 命中：血条在这一刻才动
         later(() => {
@@ -892,7 +915,7 @@
             if (ev.kind === 'CONTROL' && !ev.damage) floatText(foe, ev.line ? '受制' : '乱了', '');
             Stage.bars(ev, maxA, maxB);
             pushLog(ev, p);
-        }, (CHARGE_MS + FLIGHT_MS) * inv);
+        }, lead + FLIGHT_MS * inv);
 
         // ④ 收势：回到待手，留一段静默给人看清战况
         later(() => {
