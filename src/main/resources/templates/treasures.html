@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">混沌万灵榜 · 法宝排行 - 修仙心得</title>
+    <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
+    <link rel="stylesheet" href="/css/style.css?v=23">
+    <style>
+        /* ==================== 混沌万灵榜（tl- 前缀作用域隔离） ==================== */
+        .tl-page { background: var(--bg); }
+        .tl-shell { max-width: 1280px; margin: 0 auto; padding: 0 26px 44px; }
+
+        .tl-hero {
+            background:
+                radial-gradient(700px 300px at 84% -18%, rgba(251,191,36,0.26), transparent 60%),
+                radial-gradient(620px 280px at 6% 132%, rgba(129,140,248,0.3), transparent 62%),
+                linear-gradient(118deg, #0b1020 0%, #191b38 46%, #2b1e3e 100%);
+            color: #eef2ff; padding: 30px 0 26px; margin-bottom: 22px;
+        }
+        .tl-hero-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 26px; flex-wrap: wrap; }
+        .tl-eyebrow { font-size: 11px; letter-spacing: .24em; text-transform: uppercase; color: rgba(226,215,255,0.72); margin-bottom: 8px; }
+        .tl-title { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+        .tl-sub { margin-top: 8px; font-size: 13px; color: rgba(214,207,245,0.82); max-width: 820px; line-height: 1.85; }
+        .tl-sub b { color: #fde68a; }
+
+        .tl-card {
+            background: var(--card-bg); border: 1px solid rgba(226,232,240,0.85);
+            border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden;
+        }
+        .tl-card-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #eef1f7; flex-wrap: wrap; }
+        .tl-card-title { font-size: 15.5px; font-weight: 700; }
+        .tl-card-title small { font-size: 12px; font-weight: 400; color: var(--text-light); }
+
+        /* 筛选条 */
+        .tl-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 20px; border-bottom: 1px solid #eef1f7; background: #fbfcff; }
+        .tl-chip { font-size: 12px; padding: 5px 12px; border-radius: 999px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; transition: all .15s ease; }
+        .tl-chip:hover { border-color: var(--primary); color: var(--primary); }
+        .tl-chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .tl-search { margin-left: auto; padding: 7px 12px; border: 1px solid #e2e8f0; border-radius: 9px; font-size: 12.5px; min-width: 210px; background: #fff; }
+
+        /* 榜单卡片网格 */
+        .tl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; padding: 18px 20px; }
+        .tl-item {
+            position: relative; border: 1px solid #e8edf7; border-radius: 14px; padding: 14px 15px 13px;
+            background: linear-gradient(180deg, #fff, #fbfcff); transition: transform .16s ease, box-shadow .16s ease;
+        }
+        .tl-item:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(30,41,59,.09); }
+        .tl-item-top { display: flex; align-items: center; gap: 9px; }
+        .tl-rank {
+            flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+            font-size: 13px; font-weight: 900; color: #fff; background: #94a3b8; font-variant-numeric: tabular-nums;
+        }
+        .tl-rank.top1 { background: linear-gradient(135deg, #f59e0b, #fbbf24); box-shadow: 0 4px 12px rgba(245,158,11,.35); }
+        .tl-rank.top2 { background: linear-gradient(135deg, #64748b, #94a3b8); }
+        .tl-rank.top3 { background: linear-gradient(135deg, #b45309, #d97706); }
+        .tl-name { font-size: 15.5px; font-weight: 800; letter-spacing: .01em; }
+        .tl-tier { margin-left: auto; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+        .tl-meta { margin-top: 9px; font-size: 12px; color: var(--text-light); display: flex; flex-wrap: wrap; gap: 6px 12px; }
+        .tl-meta b { color: #475569; font-weight: 600; }
+        .tl-effect { margin-top: 9px; font-size: 12.5px; line-height: 1.75; color: #334155; }
+
+        /* 分页 */
+        .tl-pager { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 4px 20px 20px; flex-wrap: wrap; }
+        .tl-pager button {
+            min-width: 34px; height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #e2e8f0;
+            background: #fff; font-size: 12.5px; color: #475569; cursor: pointer; transition: all .15s ease;
+        }
+        .tl-pager button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+        .tl-pager button.on { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+        .tl-pager button:disabled { opacity: .45; cursor: not-allowed; }
+        .tl-pager .tl-page-info { font-size: 12px; color: var(--text-light); margin: 0 6px; font-variant-numeric: tabular-nums; }
+        .tl-empty { padding: 46px 20px; text-align: center; color: var(--text-light); font-size: 13px; }
+    </style>
+</head>
+<body class="tl-page">
+
+<nav class="navbar">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand">修仙心得</a>
+        <div class="nav-links" id="navLinks"></div>
+    </div>
+</nav>
+
+<div class="tl-hero">
+    <div class="tl-shell tl-hero-row">
+        <div>
+            <div class="tl-eyebrow">Fanren · Treasure Rankings</div>
+            <h1 class="tl-title">混沌万灵榜</h1>
+            <p class="tl-sub">
+                按品阶收录 <b>玄天仙品 · 通天灵宝 · 灵宝 · 法宝 · 灵器 · 法器</b> 六等，
+                共二十四件有主之物。品阶高者不必然排名靠前 —— 榜位看的是<b>原著的实战分量与持主身份</b>。
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="tl-shell">
+    <section class="tl-card">
+        <div class="tl-card-head">
+            <div class="tl-card-title">法宝排行 <small>点品阶筛，按榜位分页</small></div>
+            <div class="tl-card-title" style="font-size:12.5px;color:var(--text-light);font-weight:400" id="tlCount"></div>
+        </div>
+        <div class="tl-toolbar" id="tlTierBar"></div>
+        <div class="tl-grid" id="tlGrid"><div class="tl-empty">加载中...</div></div>
+        <div class="tl-pager" id="tlPager"></div>
+    </section>
+</div>
+
+<script src="/js/app.js?v=7"></script>
+<script src="/js/treasures.js?v=1"></script>
+</body>
+</html>

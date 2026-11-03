@@ -151,6 +151,13 @@ public class HomeController {
         return "duel";
     }
 
+    /** 混沌万灵榜：法宝分页榜，数据走 @NoAuth 的 /api/treasures */
+    @GetMapping("/treasures")
+    public String treasures(Model model) {
+        model.addAttribute("title", "混沌万灵榜 · 法宝排行 - 修仙心得");
+        return "treasures";
+    }
+
     /** 配置中心（k-v 全表，仅管理员）：从看板里拆出来，避免监控台和改配置混在同一屏 */
     @GetMapping("/settings")
     public String settings(Model model) {

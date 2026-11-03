@@ -990,9 +990,9 @@ textarea.form-control {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;      /* 左六个入口 + 右侧头像组必须同排：绝不让整行折成两行 */
     width: 100%;
-    gap: 12px 22px;
+    gap: 10px 18px;
 }
 
 /* 首页：五个站内入口贴在横幅左下（仍沿用 .nav-links 的基础样式） */
@@ -1004,7 +1004,8 @@ textarea.form-control {
 }
 
 .hero-nav-row > .hero-nav {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
 }
 
 /* 右侧一组：洞中灵气条 + 问 AI + 写文章/铃铛/头像 */
@@ -1016,6 +1017,7 @@ textarea.form-control {
     flex-wrap: nowrap;
     flex: 0 1 auto;
     min-width: 0;
+    margin-left: auto;      /* 左侧那组入口贴左，这一组永远贴右 */
 }
 
 /* 只作用于直接子链接：否则下拉菜单里的链接也会被刷成白字，落在白底面板上就看不见了 */
@@ -3079,26 +3081,33 @@ textarea.form-control {
     }
 }
 
-/* 窄一点的屏上登录态有八个条目，nowrap 会撑破横幅：这里才放开换行。
-   先把左右两组钉成整行，再让各组内部自己换行：拿到确定宽度后，
-   折出来的是两三排横向条目，不会再退化成竖着的一列 */
+/* 窄一点的屏上登录态有八个条目：不再拆成两排，改成整体缩小间距与字号，
+   保证「左侧六个入口 + 右侧头像组」始终在同一行 */
 @media (max-width: 1180px) {
-    .hero-nav-row > .hero-nav,
-    .hero-nav-extra {
-        flex: 1 1 100%;
-        flex-wrap: wrap;
-        justify-content: flex-start;
+    .hero-nav-row {
+        gap: 8px 12px;
     }
 
-    /* 右侧那组换行后仍然从右起排，洞中灵气条保持整块不拆 */
-    .hero-nav-extra {
-        justify-content: flex-end;
+    .hero-nav {
+        gap: 2px;
     }
 
-    .hero-nav-extra .hero-nav {
-        flex: 1 1 auto;
-        flex-wrap: wrap;
-        justify-content: flex-end;
+    .hero-nav > a {
+        padding: 6px 8px;
+        font-size: 0.82rem;
+    }
+
+    .hero-nav-extra {
+        gap: 7px;
+    }
+
+    /* 洞中灵气的文字标签让位，只留一点位置给数字，必要时整条从「堆/外/境」读 */
+    .hero-live-label {
+        display: none;
+    }
+
+    .hero-live > span {
+        font-size: 0.72rem;
     }
 }
 

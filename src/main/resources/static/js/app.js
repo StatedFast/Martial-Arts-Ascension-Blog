@@ -220,6 +220,7 @@ function renderNavbar() {
         <a href="/monitor" title="JVM 内存实时曲线 · 所有人可见">渡劫看板</a>
         <a href="/visits" title="本站访问热度 · 所有人可见">访问看板</a>
         <a href="/rank" title="凡人修仙传 · 人界篇境界榜">修仙榜</a>
+        <a href="/treasures" title="混沌万灵榜 · 法宝排行 · 按品阶分页">混沌万灵榜</a>
         <a href="/duel" title="凡人修仙传 · 人界斗法台 · 自动过招报招">斗法台</a>
     `;
     let extra = '';

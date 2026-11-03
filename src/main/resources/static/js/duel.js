@@ -1313,6 +1313,21 @@
                 this.shapes.push({ kind: 'vortex', x: p.x, y: p.y - 62, color, life: 150, max: 150, r: 124, arms: 5, spin: -1.5 });
                 this.ring(p, color, 210, 92, 2.4);
             }
+            // 灵云底盘 + 环绕星点：让「气机在聚」这件事看得见
+            this.shapes.push({ kind: 'nebula', x: p.x, y: p.y - 58, color,
+                life: ult ? 150 : 100, max: ult ? 150 : 100, r: ult ? 210 : 140, spin: 0.02 });
+            const orbitN = ult ? 28 : 15;
+            for (let i = 0; i < orbitN; i++) {
+                this.parts.push({
+                    kind: 'orbit', cx: p.x, cy: p.y - 60,
+                    a0: Math.random() * Math.PI * 2,
+                    av: (0.045 + Math.random() * 0.035) * (Math.random() < 0.5 ? 1 : -1),
+                    r0: (ult ? 155 : 100) * (0.55 + Math.random() * 0.7),
+                    r: 1.5 + Math.random() * 2.4,
+                    life: ult ? 132 : 96, max: ult ? 132 : 96,
+                    color: i % 3 === 0 ? '#ffffff' : color
+                });
+            }
         },
 
         /**
@@ -1602,14 +1617,23 @@
                 this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 66, color: tn.hot, life: 120, max: 120, r: 168, spin: 1 });
                 this.shapes.push({ kind: 'vortex', x: p.x, y: p.y - 60, color: tn.dark, life: 130, max: 130, r: 190, arms: 5, spin: -1.9 });
                 this.shards(p, tn, 16, 4.2);
+                // 第三层「华丽加码」：光柱拔地 + 错峰三环 + 星芒雨 + 追补闪电
+                this.shapes.push({ kind: 'pillar', x: p.x, y: p.y + 12, w: 96, h: 430, color: tn.hot, life: 46, max: 46 });
+                this.ring(p, '#ffffff', 430, 44, 3, 6);
+                this.ring(p, tn.hot, 360, 52, 5, 12);
+                this.ring(p, tn.main, 300, 60, 7, 18);
+                this.stars(p, tn, 12);
+                this.bolts(p, tn, 5);
             } else if (crit) {
                 this.shapes.push({ kind: 'flash', color: '#ffffff', life: 16, max: 16, a: 0.34 });
                 this.shapes.push({ kind: 'crack', x: p.x, y: p.y - 62, color: tn.hot, life: 78, max: 78 });
+                this.shapes.push({ kind: 'pillar', x: p.x, y: p.y + 12, w: 58, h: 280, color: tn.hot, life: 34, max: 34 });
+                this.ring(p, tn.hot, 260, 40, 3, 8);
             }
         },
 
-        ring(p, color, radius, life, width) {
-            this.shapes.push({ kind: 'ring', x: p.x, y: p.y - 54, color, r: 12, maxR: radius, life, max: life, width: width || 3 });
+        ring(p, color, radius, life, width, delay) {
+            this.shapes.push({ kind: 'ring', x: p.x, y: p.y - 54, color, r: 12, maxR: radius, life, max: life, width: width || 3, delay: delay || 0 });
         },
 
         finale(color) {
@@ -1753,6 +1777,14 @@
                     ctx.globalAlpha = k * 0.85;
                     ctx.beginPath(); ctx.arc(0, 0, Math.max(0.5, p.r * 0.42 * k), 0, Math.PI * 2); ctx.fill();
                     ctx.restore();
+                } else if (p.kind === 'orbit') {
+                    // 环绕灵气：绕着人物转的星点，蓄力时把「气机在转」画出来
+                    const ang = p.a0 + (p.max - p.life) * p.av;
+                    const rr = p.r0 * (0.58 + 0.42 * k);
+                    const ox = p.cx + Math.cos(ang) * rr;
+                    const oy = p.cy + Math.sin(ang) * rr * 0.44;
+                    ctx.globalAlpha = k * 0.92;
+                    ctx.beginPath(); ctx.arc(ox, oy, Math.max(0.6, p.r * k), 0, Math.PI * 2); ctx.fill();
                 } else if (p.kind === 'fog') {
                     const g = ctx.createRadialGradient(x, y, 0, x, y, p.r);
                     g.addColorStop(0, p.color);
@@ -1772,11 +1804,37 @@
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             this.shapes = this.shapes.filter(s => {
+                if (s.delay > 0) { s.delay--; return true; }   // 错峰：让多层演出按拍子依次炸开
                 s.life--;
                 const k = Math.max(0, s.life / s.max), t = 1 - k;
                 ctx.globalAlpha = k;
                 ctx.strokeStyle = s.color; ctx.fillStyle = s.color;
                 switch (s.kind) {
+                    // 光柱：从脚下拔起的一道纵向光束，命中/大招时把「打实了」钉在画面上
+                    case 'pillar': {
+                        const hgt = s.h * (0.3 + 0.7 * Math.sin(k * Math.PI));
+                        const pg = ctx.createLinearGradient(s.x, s.y, s.x, s.y - hgt);
+                        pg.addColorStop(0, s.color);
+                        pg.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+                        pg.addColorStop(1, 'rgba(255,255,255,0)');
+                        ctx.globalAlpha = k * 0.6;
+                        ctx.fillStyle = pg;
+                        const wgt = (s.w || 60) * (0.5 + 0.5 * Math.sin(k * Math.PI));
+                        ctx.fillRect(s.x - wgt / 2, s.y - hgt, wgt, hgt);
+                        break;
+                    }
+                    // 灵云：身后缓慢旋转的椭光团，蓄力时给人「气机在聚」的底盘
+                    case 'nebula': {
+                        const rot = (s.max - s.life) * (s.spin || 0.02);
+                        const rr = s.r * (0.72 + 0.28 * Math.sin(k * Math.PI));
+                        const ng = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, rr);
+                        ng.addColorStop(0, s.color);
+                        ng.addColorStop(1, 'rgba(0,0,0,0)');
+                        ctx.globalAlpha = k * 0.42;
+                        ctx.fillStyle = ng;
+                        ctx.beginPath(); ctx.ellipse(s.x, s.y, rr, rr * 0.44, rot, 0, Math.PI * 2); ctx.fill();
+                        break;
+                    }
                     // 电流弧光：锯齿闪电从命中点向外炸，每帧重摇抖动，天生就是噼里啪啦的观感
                     case 'bolt': {
                         const seg = 7, len = s.len * (0.3 + 0.7 * Math.sin(k * Math.PI));
