@@ -391,6 +391,34 @@
     }
 
     // ==================== 报招语音 ====================
+    /* 服务端报招语音包：所有台词在部署前用 edge-tts 合成成 mp3，
+       前端按「音色分组 + 台词」直接查表播放 —— 不再依赖访客本机的中文音色。
+       manifest 形如 { "male|青竹蜂云剑，去。": "a1b2c3d4e5f6a7b8.mp3" } */
+    const AudioPack = {
+        map: null, loading: false, base: '/audio/duel/',
+        load() {
+            if (this.map || this.loading) return;
+            this.loading = true;
+            fetch(this.base + 'manifest.json')
+                .then(r => r.ok ? r.json() : {})
+                .then(m => { this.map = m || {}; Speech.onPackReady(); })
+                .catch(() => { this.map = {}; });
+        },
+        ok() { return !!this.map && Object.keys(this.map).length > 0; },
+        size() { return this.map ? Object.keys(this.map).length : 0; },
+        /* 分两把嗓子按左右站位：男 A=云健 / B=云扬，女 A=晓晓 / B=晓伊。
+           同一角色在不同对局可能站左也可能站右，所以每句都备了 A/B 两版 */
+        voiceKey(p, side) {
+            const pitch = (p && p.voice && p.voice.pitch) || 1;
+            const g = pitch >= 1.05 ? 'female' : 'male';
+            return g + (side === 'B' ? 'B' : 'A');
+        },
+        file(p, text, side) {
+            if (!this.map) return null;
+            return this.map[this.voiceKey(p, side) + '|' + text] || null;
+        }
+    };
+
     const Speech = {
         ok: typeof window !== 'undefined' && 'speechSynthesis' in window,
         zh: null,
@@ -399,20 +427,26 @@
            busy 由 utterance 的 onend/onerror 归位，另有超时保险丝（有些内核被 cancel 后两个回调都不发）。 */
         busy: false,
         utter: null,
+        audio: null,   // 服务端语音包播放中的 Audio 元素
         idleCbs: [],
         fuse: 0,
         watchdog: 0,   // 「联网音色到点没出声」的看门狗
         keep: 0,       // Chrome 念长句十几秒自动静音的保活定时器
 
         init() {
+            AudioPack.load();          // 先拉服务端语音包：它是主路径，不挑机器
             if (!this.ok) {
-                this.state('浏览器不支持语音合成');
-                this.warn('这个浏览器没有语音合成接口，报招改用气泡（不影响斗法）。换 Edge / Chrome 正式版即可。');
+                this.state('浏览器不支持语音合成，改用服务端语音包');
                 return;
             }
             // 音色是异步进来的：先试一次，剩下的交给 onvoiceschanged 与自查重试
             this.refresh();
             window.speechSynthesis.onvoiceschanged = () => this.refresh();
+        },
+
+        /** 语音包拉到了：刷新状态栏（此时本机音色有没有都不影响出声） */
+        onPackReady() {
+            this.report();
         },
 
         /* 本机可用的中文音色。只看 lang 会漏：有的系统 lang 只写 "zh"，
@@ -477,6 +511,13 @@
         report() {
             const btn = $('dlVoiceTry');
             if (btn) btn.disabled = !this.list.length;
+            // 服务端语音包优先：有它就不必再纠结本机音色，也不会误报「本机没有中文音色」
+            if (AudioPack.ok()) {
+                this.state(`服务端语音包已就绪（${AudioPack.size()} 句）· 不依赖本机音色`);
+                const w = $('dlVoiceWarn');
+                if (w) w.style.display = 'none';
+                return;
+            }
             if (!this.list.length) {
                 this.state('本机没有中文音色');
                 this.warn('系统里没有中文语音包 —— 人物仍会「张口」，招名以气泡呈现。'
@@ -508,10 +549,14 @@
             return Math.round(text.length * 250 / rate);
         },
 
-        usable() { return D.voice && this.ok && !!this.zh; },
+        usable() { return D.voice && (AudioPack.ok() || (this.ok && !!this.zh)); },
 
-        say(p, text) {
-            if (!this.usable()) return;
+        say(p, text, side) {
+            if (!D.voice) return;
+            // 首选：服务端语音包（音色按「性别 + 左右」分配，本机没有中文语音也能出声）
+            const file = AudioPack.file(p, text, side || 'A');
+            if (file) { this.playAudio(p, text, file); return; }
+            if (!this.ok || !this.zh) return;
             const synth = window.speechSynthesis;
             try {
                 /* Chrome 老毛病：cancel() 紧跟着 speak() 会把刚排进去的这句吞掉，表现就是「点了没声」。
@@ -540,7 +585,7 @@
                 this.fuse = setTimeout(() => this.release(u), this.estMs(p, text) + 3000);
                 /* 看门狗：Google 这类「联网音色」请求发不出去时既不报错也不出声，就一直哑着。
                    1.6 秒还没 onstart 就判定这个音色不响：有本地音色就自动换过去重念，没有就把话说清楚。 */
-                this.watchdog = setTimeout(() => this._onSilent(p, text, u, synth, started), 1600);
+                this.watchdog = setTimeout(() => this._onSilent(p, text, u, synth, started, side), 1600);
                 if (synth.paused) synth.resume();
                 synth.speak(u);
             } catch (e) {
@@ -549,8 +594,37 @@
             }
         },
 
+        /** 播服务端语音包：一句一个 mp3，播完放行下一拍；fuse 兜底防卡死 */
+        playAudio(p, text, file) {
+            try {
+                if (this.audio) { try { this.audio.pause(); } catch (e) { /* ignore */ } }
+                const a = new Audio(AudioPack.base + file);
+                a.playbackRate = clampNum(D.speed >= 1.7 ? 1.12 : 1, 0.6, 1.6);
+                a.volume = 0.95;
+                this.audio = a;
+                this.busy = true;
+                let settled = false;
+                const done = () => {
+                    if (settled) return;
+                    settled = true;
+                    if (this.audio === a) this.audio = null;
+                    this.busy = false;
+                    this._flushIdle();
+                };
+                a.onended = done;
+                a.onerror = done;
+                clearTimeout(this.fuse);
+                this.fuse = setTimeout(done, Math.max(1500, String(text).length * 330));
+                a.play().catch(done);
+            } catch (e) {
+                // 音频失败不影响演出：气泡与字幕还在
+                this.busy = false;
+                this._flushIdle();
+            }
+        },
+
         /** 看门狗到期：这一句到点仍没出声。联网音色在国内网络下就是这种「不报错也不响」的哑状态。 */
-        _onSilent(p, text, u, synth, started) {
+        _onSilent(p, text, u, synth, started, side) {
             if (started || this.utter !== u) return;   // 已出声，或这句早被下一句顶掉：什么都不做
             this._clearTimers();
             try { synth.cancel(); } catch (e) { /* ignore */ }
@@ -563,7 +637,7 @@
                 this.state(`音色：${local.name} · 联网音色不出声，已自动切到本地`);
                 this.warn('刚才的「联网音色」在当前网络下不出声，已改用本地音色：' + local.name + '。');
                 const keep = D.voice; D.voice = true;   // 试听时开关可能是关的，补救这一句必须出声
-                this.say(p, text);                       // 换本地音色把这一句补念回来
+                this.say(p, text, side);                 // 换本地音色把这一句补念回来
                 D.voice = keep;
                 return;
             }
@@ -648,7 +722,7 @@
             const sk = (p.skills || []).find(s => s.kind === 'ULT') || (p.skills || [])[0];
             const keep = D.voice;
             D.voice = true;
-            this.say(p, this.line(p, { skill: (sk || {}).name || p.styleLabel || p.style, skipped: false }));
+            this.say(p, this.line(p, { skill: (sk || {}).name || p.styleLabel || p.style, skipped: false }), 'A');
             D.voice = keep;
         }
     };
@@ -1076,7 +1150,7 @@
             // 气泡先只把「这句要念的招式描述」亮出来，读完才轮到技能名与特效
             Stage.bubble(actor, `<b>${p.name}</b><small>${ev.line || ((p.voice || {}).timbre || '喝声')}</small>`,
                 ult, lead + FLIGHT_MS * inv + 260);
-            Speech.say(p, shout);
+            Speech.say(p, shout, actor);
             Stage.talk(actor, true);
             Sfx.charge();
             Fx.charge(Fx.pos(actor), p.realmColor, ult);
@@ -1237,7 +1311,7 @@
         if (!person || !dying) return;
         Stage.bubble(side, `<b>${person.name} · 遗言</b><small>${dying}</small>`, true, 4200);
         // 比报招稍慢半拍、压一点音调，听着像咽气前的最后一句
-        Speech.say(person, dying);
+        Speech.say(person, dying, side);
     }
     function showOutcome(o, A, B, sideOf) {
         const head = $('dlVerdictHead'), body = $('dlVerdictBody'), src = $('dlVerdictSrc');
