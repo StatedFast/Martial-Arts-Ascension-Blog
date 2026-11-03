@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">访问看板 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=19">
+    <link rel="stylesheet" href="/css/style.css?v=21">
     <style>
         /* ==================== 访问看板专属样式（作用域隔离，不污染全局） ====================
            刻意不复用全局 .container：那是「正文 + 300px 右栏」的博客栅格，
@@ -14,6 +14,8 @@
         /* 宽度收到 1440：原来 1720 在超宽屏上会把曲线图拉成一条横得发扁的图，
            数据量小的时候上半部分全是空白，看板本身又不需要那么多列 */
         .va-shell { max-width: 1440px; margin: 0 auto; padding: 0 28px; }
+        /* 顶部导航与本页内容左对齐（内容 1440，导航默认 1200） */
+        .va-page .nav-inner { max-width: 1440px; padding: 0 28px; }
 
         .va-hero {
             background:
@@ -182,7 +184,7 @@
         </section>
     </div>
 
-    <script src="/js/app.js?v=14"></script>
+    <script src="/js/app.js?v=15"></script>
     <script>
         // ==================== 访问看板内核：拉一次 /visit/summary，渲染全部卡片 ====================
         const VA_COLORS = { pv: '#3b82f6', uv: '#8b5cf6' };

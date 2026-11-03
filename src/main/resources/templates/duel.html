@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">斗法台 · 人界篇 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=19">
+    <link rel="stylesheet" href="/css/style.css?v=21">
     <style>
         /* ==================== 斗法台专属样式（dl- 前缀作用域隔离） ====================
            本页只干一件事：选人 → 看两个人打。榜单（境界塔 / 人物墙 / 战力榜）在 /rank。
            刻意零内联脚本：全部逻辑在 /js/duel.js，绕开 Thymeleaf JS 内联的解析坑。 */
         .dl-page { background: var(--bg); }
         .dl-shell { max-width: 1560px; margin: 0 auto; padding: 0 26px 40px; }
+        /* 顶部导航与本页内容左对齐（内容 1560，导航默认 1200） */
+        .dl-page .nav-inner { max-width: 1560px; padding: 0 26px; }
 
         .dl-hero {
             background:
@@ -515,7 +517,7 @@
         </section>
     </div>
 
-    <script src="/js/app.js?v=14"></script>
+    <script src="/js/app.js?v=15"></script>
     <script src="/js/duel.js?v=6"></script>
 </body>
 </html>

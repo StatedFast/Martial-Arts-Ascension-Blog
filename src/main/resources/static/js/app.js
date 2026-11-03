@@ -236,8 +236,9 @@ function renderNavbar() {
                 <div class="user-dropdown" id="userDropdown">
                     <a href="/profile">个人中心</a>
                     <a href="/notifications">通知中心</a>
-                    ${isAdmin(user) ? '<a href="/monitor">配置中心</a>' : ''}
-                    ${isAdmin(user) ? '<a href="/settings">配置项</a>' : ''}
+                    <!-- 下拉里只留一个配置入口：原来「配置中心」跳看板、「配置项」跳 k-v 表，
+                         两个名字近似极易误点，而且改配置本质就是改那一堆键值 -->
+                    ${isAdmin(user) ? '<a href="/settings">配置中心</a>' : ''}
                     <a href="#" class="logout" onclick="Auth.logout();return false;">退出登录</a>
                 </div>
             </div>

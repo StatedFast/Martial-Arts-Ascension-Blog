@@ -10,7 +10,7 @@
          只下载一次，后续 30 天走浏览器本地缓存 -->
     <link rel="preload" as="image" href="/images/home-songyu.jpg"
           th:if="${bannerUrl != null}" th:href="${bannerUrl}">
-    <link rel="stylesheet" href="/css/style.css?v=19">
+    <link rel="stylesheet" href="/css/style.css?v=21">
     <style>
         /* 首页专属：顶部「洞中灵气」实时条（样式其余额外加 .home 作用域，避免影响其他页面） */
         .home .hero-live {
@@ -36,7 +36,7 @@
 </head>
 <body class="home">
     <!-- 顶部封面：导航与 Banner 共用同一张背景图，作为一个整体随页面滚动
-         （单图来自 home.banner-image；轮播来自配置中心开关 + home.banner-images） -->
+         （单图来自 home.banner-image；轮播来自配置中心的 home.banner-cycle.enabled 开关 + home.banner-images 图列表） -->
     <div class="home-cover" th:style="${bannerStyle}" th:attr="data-hb-ms=${bannerHbMs}">
         <!-- 轮播图层：开关关闭时后端不下发 bannerImages，这里一个节点都不渲染，首页与轮播功能上线前完全一致。
              第一张直接写进内联背景（与 head 的 preload 同一地址），其余由页内脚本等 window load 后再取 -->
@@ -214,7 +214,7 @@
         </aside>
     </div>
 
-    <script src="/js/app.js?v=14"></script>
+    <script src="/js/app.js?v=15"></script>
     <script>
         // ==================== 首页逻辑 ====================
         let currentPage = 1;

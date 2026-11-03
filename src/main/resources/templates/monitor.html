@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">JVM 渡劫看板 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=19">
+    <link rel="stylesheet" href="/css/style.css?v=21">
     <style>
         /* 看板页专属样式；曲线/卡片/表格等公共部分由 fragments/board 自带 */
         .cfg-page { background: var(--bg); }
@@ -37,9 +37,9 @@
         .cfg-kv span { display: block; font-size: 11.5px; color: var(--text-light); }
         .cfg-kv b { display: block; font-size: 15px; margin-top: 4px; font-variant-numeric: tabular-nums; }
 
-        /* 管理员才看得到的一键直达（操控台已经在本页右侧，这里只剩配置项） */
-        #adminShortcuts { display: none; gap: 10px; flex-wrap: wrap; }
-        body.is-admin #adminShortcuts { display: flex; }
+        /* 顶部导航与本页内容左对齐：内容走 .cfg-shell（1720），导航默认只有 1200，
+           宽屏下“修仙心得”会落在内容右侧一大截 —— 把导航拉到同宽同边距就齐了 */
+        .cfg-page .nav-inner { max-width: 1720px; padding: 0 28px; }
 
         /* ==================== 主体两栏：左观测（看板片段）/ 右操控 ==================== */
         .cfg-main { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
@@ -144,9 +144,6 @@
                     往 JVM 注入堆内 / 堆外泄漏，让 OOM 真实发生一次。这块看板对所有人开放 ——
                     灵气（内存）何时盈亏、何时渡劫，道友一同见证；能改状态的那一半只向管理员开放。
                 </p>
-                <div id="adminShortcuts">
-                    <a href="/settings" class="btn btn-outline btn-sm">⚙ 配置项（k-v）</a>
-                </div>
             </div>
             <div class="cfg-hero-meta">
                 <div class="cfg-meta"><span>堆上限 -Xmx</span><b id="metaXmx">--</b></div>
@@ -339,7 +336,7 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=14"></script>
+    <script src="/js/app.js?v=15"></script>
     <script>
         // 境界划分：直接复用看板的占用率口径，不自己再算一遍，避免两处数字打架
         const REALMS = [

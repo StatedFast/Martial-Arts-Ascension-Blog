@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">修仙排行榜 · 人界篇 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=19">
+    <link rel="stylesheet" href="/css/style.css?v=21">
     <style>
         /* ==================== 修仙排行榜专属样式（rk- 前缀作用域隔离，不污染全局） ====================
            与看板页同一取舍：不复用全局 .container —— 那是「正文 + 300px 右栏」的博客栅格，
            榜单是宽幅图 + 对战舞台，套进去两边留白、舞台会被压扁。 */
         .rk-page { background: var(--bg); }
         .rk-shell { max-width: 1560px; margin: 0 auto; padding: 0 26px 40px; }
+        /* 顶部导航与本页内容左对齐（内容 1560，导航默认 1200） */
+        .rk-page .nav-inner { max-width: 1560px; padding: 0 26px; }
 
         .rk-hero {
             background:
@@ -204,7 +206,7 @@
         </section>
     </div>
 
-    <script src="/js/app.js?v=14"></script>
+    <script src="/js/app.js?v=15"></script>
     <script src="/js/rank.js?v=2"></script>
 </body>
 </html>

@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${title}">配置项 - 修仙心得</title>
+    <title th:text="${title}">配置中心 - 修仙心得</title>
     <link rel="icon" type="image/jpeg" href="/images/home-songyu.jpg">
-    <link rel="stylesheet" href="/css/style.css?v=19">
+    <link rel="stylesheet" href="/css/style.css?v=21">
     <style>
-        /* 配置项页：从看板里拆出来的纯表格页，不再混监控内容 */
+        /* 配置中心页：从看板里拆出来的纯表格页，不再混监控内容 */
         .cfg-page { background: var(--bg); }
         .cfg-shell { max-width: 1240px; margin: 0 auto; padding: 0 28px 40px; }
+        /* 顶部导航与内容左对齐：本页内容 1240，导航默认 1200，拉到同宽同边距 */
+        .cfg-page .nav-inner { max-width: 1240px; padding: 0 28px; }
 
         .cfg-hero {
             background:
@@ -67,8 +69,8 @@
     <div class="cfg-hero">
         <div class="cfg-shell cfg-hero-row" style="padding:0;">
             <div>
-                <div class="cfg-eyebrow">Site Config · 配置项</div>
-                <h1 class="cfg-title">配置项（k-v）</h1>
+                <div class="cfg-eyebrow">Site Config · 配置中心</div>
+                <h1 class="cfg-title">配置中心（k-v）</h1>
                 <p class="cfg-sub">
                     存在 blog_sys_config 表，改完即生效、无需重启 —— 演练开关、注入速率、看板刷新间隔都在这里。
                     带默认值钳制：越界的数值会被后端按边界收敛后再落库。
@@ -76,7 +78,7 @@
             </div>
             <div class="cfg-tabs">
                 <a href="/monitor">JVM 渡劫看板 · 操控台</a>
-                <a href="/settings" class="active">配置项</a>
+                <a href="/settings" class="active">配置中心</a>
             </div>
         </div>
     </div>
@@ -91,14 +93,14 @@
         </section>
     </div>
 
-    <script src="/js/app.js?v=14"></script>
+    <script src="/js/app.js?v=15"></script>
     <script>
         if (!Auth.isLoggedIn()) {
             window.location.href = '/login';
         }
         if (!isAdmin(Auth.getUser())) {
             document.getElementById('cfgBody').innerHTML =
-                '<div class="empty-state"><h3>无权限</h3><p>配置项仅管理员可访问</p></div>';
+                '<div class="empty-state"><h3>无权限</h3><p>配置中心仅管理员可访问</p></div>';
         }
 
         /* notify：手点「重新拉取」时必须给回执 —— 表格长得一模一样，不提示就看不出到底刷没刷；
@@ -137,7 +139,7 @@
 
         async function saveOne(id, key) {
             const input = document.getElementById('val_' + id);
-            if (!(await ConfirmDialog.show('确定保存配置项 ' + key + ' 吗？\n新值：' + input.value))) return;
+            if (!(await ConfirmDialog.show('确定保存配置 ' + key + ' 吗？\n新值：' + input.value))) return;
             try {
                 await http.put('/admin/config', { configKey: key, configValue: input.value });
                 Toast.show('已保存：' + key);

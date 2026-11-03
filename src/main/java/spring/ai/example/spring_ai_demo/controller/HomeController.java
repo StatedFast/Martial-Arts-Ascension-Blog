@@ -9,7 +9,6 @@ import spring.ai.example.spring_ai_demo.entity.User;
 import spring.ai.example.spring_ai_demo.service.SysConfigService;
 import spring.ai.example.spring_ai_demo.service.UserService;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,10 +27,6 @@ public class HomeController {
     /** 首页顶部封面背景图（/images/xxx.jpg）；留空则用默认渐变占位 */
     @Value("${home.banner-image:}")
     private String bannerImage;
-
-    /** 轮播候选图（逗号分隔）：只在配置中心把 home.banner-cycle.enabled 打开后才用得上 */
-    @Value("${home.banner-images:}")
-    private String bannerImages;
 
     public HomeController(UserService userService, SysConfigService sysConfigService) {
         this.userService = userService;
@@ -66,16 +61,15 @@ public class HomeController {
 
     /**
      * 首页封面轮播图列表：配置中心的 home.banner-cycle.enabled 打开才启用。
+     * 图列表存在配置中心（home.banner-images）而不是 properties：
+     * 上一版改在配置文件里，每次换图都要重新打包发布，还会被旧 jar 里的残留值顶回去。
      * 开关关闭、或图片列表没配 / 全是空白时，返回空集合，首页退回单图旧行为。
      */
     private List<String> resolveBannerCycle() {
-        if (!sysConfigService.getBoolean(SysConfigService.HOME_BANNER_CYCLE) || !hasText(bannerImages)) {
+        if (!sysConfigService.getBoolean(SysConfigService.HOME_BANNER_CYCLE)) {
             return List.of();
         }
-        return Arrays.stream(bannerImages.split(","))
-                .map(String::trim)
-                .filter(this::hasText)
-                .toList();
+        return sysConfigService.getHomeBannerImages();
     }
 
     @GetMapping("/article/{id}")
@@ -157,10 +151,10 @@ public class HomeController {
         return "duel";
     }
 
-    /** 配置项（k-v 全表，仅管理员）：从看板里拆出来，避免监控台和改配置混在同一屏 */
+    /** 配置中心（k-v 全表，仅管理员）：从看板里拆出来，避免监控台和改配置混在同一屏 */
     @GetMapping("/settings")
     public String settings(Model model) {
-        model.addAttribute("title", "配置项 - 修仙心得");
+        model.addAttribute("title", "配置中心 - 修仙心得");
         return "settings";
     }
 

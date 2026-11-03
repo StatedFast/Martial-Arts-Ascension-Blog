@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import spring.ai.example.spring_ai_demo.entity.SysConfig;
 import spring.ai.example.spring_ai_demo.mapper.SysConfigMapper;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -48,6 +49,12 @@ public class SysConfigService {
     public static final String HOME_BANNER_CYCLE = "home.banner-cycle.enabled";
     /** 首页封面轮播间隔（秒）：开关打开后每隔这么久换下一张 */
     public static final String HOME_BANNER_SECONDS = "home.banner-cycle-seconds";
+    /**
+     * 允许参与轮播的封面图（逗号分隔）。
+     * 存这里而不是 application.properties：改图列表不再动代码、不用重新打包发布，
+     * 在配置中心改完即生效。
+     */
+    public static final String HOME_BANNER_IMAGES = "home.banner-images";
 
     /** 每条固定 1MB，batch 直接约等于 MB 数，便于按「泄多少内存」直观调参 */
     public static final int CHUNK_BYTES = 1024 * 1024;
@@ -98,6 +105,17 @@ public class SysConfigService {
             seconds = 3;
         }
         return Math.max(1, Math.min(seconds, 60));
+    }
+
+    /**
+     * 允许轮播的封面图列表：按书写顺序循环，空条目会被滤掉。
+     * 没配置返回空集合，首页退回单图旧行为。
+     */
+    public List<String> getHomeBannerImages() {
+        return Arrays.stream(getString(HOME_BANNER_IMAGES, "").split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 
     /**
