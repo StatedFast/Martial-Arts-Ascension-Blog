@@ -225,8 +225,10 @@
         .dl-figure.cast .dl-aura { opacity: .42; filter: blur(8px); }
         .dl-figure.cast .arm-f { transform: rotate(-58deg); }
         .dl-figure.cast .arm-b { transform: rotate(-42deg); }
-        .dl-figure.cast .torso { transform: rotate(-6deg) translateY(-6px); }
-        .dl-figure.cast .dl-headwrap { transform: translateX(-50%) scaleX(var(--flip,1)) translateY(-8px) rotate(-5deg); }
+        /* 施法侧倾必须整身一起走：躯干与头分开 transform 时，torso 绕胯旋转会把颈顶甩出十几 px，
+           而 .dl-headwrap 只原地抬高、不跟着颈肩横移，下巴就对不上脖子 —— 这正是“头和身子分离”的根因。
+           改成给 .dl-visual 整体侧倾（头/颈/袍/手同属一个刚体），抬袖仍由 arm-f/arm-b 各自绕肩完成，贴合不受影响。 */
+        .dl-figure.cast .dl-visual { transform-origin: 50% 76%; transform: rotate(calc(var(--flip,1) * -3deg)) translateY(-5px); }
         /* 扑身/受创的位移与倾角都乘 --flip：右侧那人要朝左冲，位移方向刚好取反 */
         .dl-figure.attack .dl-visual { transform: translateX(calc(var(--flip,1) * 52px)) rotate(calc(var(--flip,1) * 4deg)); }
         .dl-figure.attack .arm-f { transform: rotate(34deg); }

@@ -24,12 +24,12 @@
     const avatarOf = p => (p && p.avatar) ? p.avatar : '/images/default-avatar.svg';
 
     // 一拍时长（毫秒）：普通招式、神通大招、自守疗伤，再乘语音长度，保证「说完看完」才收
-    const BASE_MS = 1900;      // 攻招
-    const ULT_MS = 3300;       // 神通：自带慢镜
-    const SOFT_MS = 1600;      // 守 / 疗 / 遁
-    const CHARGE_MS = 640;     // 起手蓄力（报招在这一步开始）
-    const FLIGHT_MS = 330;     // 出手到命中
-    const TAIL_MS = 620;       // 命中后的收势余韵
+    const BASE_MS = 2000;      // 攻招
+    const ULT_MS = 3520;       // 神通：自带慢镜
+    const SOFT_MS = 1680;      // 守 / 疗 / 遁
+    const CHARGE_MS = 680;     // 起手蓄力（报招在这一步开始）
+    const FLIGHT_MS = 400;     // 出手到命中
+    const TAIL_MS = 760;       // 命中后的收势余韵
 
     // 武器字由路数决定；用汉字而不是 emoji，各系统渲染一致、不会变成彩色图标
     const GLYPH = {
@@ -844,7 +844,7 @@
     function rawDur(ev, p) {
         const lead = leadMs(ev, p);
         const base = ev.ult ? ULT_MS : (ev.kind === 'ATTACK' || ev.kind === 'ULT' ? BASE_MS : SOFT_MS);
-        return Math.max(base, lead + FLIGHT_MS + 620) + (ev.crit ? 320 : 0) + (ev.skipped ? -300 : 0);
+        return Math.max(base, lead + FLIGHT_MS + TAIL_MS) + (ev.crit ? 320 : 0) + (ev.skipped ? -300 : 0);
     }
 
     /** 一招四段：蓄力报招 → 出手 → 命中 → 收势 */
@@ -947,7 +947,7 @@
             x.classList.remove('play');
             void x.offsetWidth;
             // 人家用完一句话的时间，字得还在屏上：时长跟这一拍同样缩放
-            const dur = (ult ? 3.1 : 1.9) / D.speed;
+            const dur = (ult ? 3.7 : 2.4) / D.speed;
             x.style.animationDuration = dur + 's';
             x.style.setProperty('--sdur', dur + 's');
             x.classList.add('play');
@@ -1142,20 +1142,23 @@
 
         /** 蓄力：灵气由四面汇向人物，出手前就有前摇；神通额外开一层旋转法阵与灵气漩涡 */
         charge(p, color, ult) {
-            const n = ult ? 52 : 26;
+            const n = ult ? 66 : 34;
             for (let i = 0; i < n; i++) {
                 const a = Math.random() * Math.PI * 2;
-                const r = (ult ? 250 : 150) * (0.5 + Math.random() * 0.7);
+                const r = (ult ? 260 : 160) * (0.5 + Math.random() * 0.7);
                 this.parts.push({
                     kind: 'converge', x: p.x + Math.cos(a) * r, y: p.y - 50 + Math.sin(a) * r * 0.7,
-                    tx: p.x, ty: p.y - 66, k: 0, speed: 0.02 + Math.random() * 0.02, cx: p.x, cy: p.y,
-                    life: 92, max: 92, r: 1.6 + Math.random() * 2.6, color
+                    tx: p.x, ty: p.y - 66, k: 0, speed: 0.018 + Math.random() * 0.018, cx: p.x, cy: p.y,
+                    life: ult ? 124 : 104, max: ult ? 124 : 104, r: 1.6 + Math.random() * 2.8, color
                 });
             }
-            this.shapes.push({ kind: 'halo', x: p.x, y: p.y - 54, color, life: ult ? 116 : 76, max: ult ? 116 : 76, r: ult ? 172 : 112 });
+            this.shapes.push({ kind: 'halo', x: p.x, y: p.y - 54, color, life: ult ? 140 : 96, max: ult ? 140 : 96, r: ult ? 182 : 120 });
+            // 起手就开一层缓缓旋转的法阵：普通招小一圈，神通大两圈并另叠反向法阵与灵气漩涡
+            this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 4, color: ult ? '#fde68a' : color, life: ult ? 158 : 108, max: ult ? 158 : 108, r: ult ? 150 : 96, spin: ult ? 1 : 0.7 });
             if (ult) {
-                this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 4, color: '#fde68a', life: 140, max: 140, r: 148, spin: 1 });
-                this.shapes.push({ kind: 'vortex', x: p.x, y: p.y - 62, color, life: 128, max: 128, r: 118, arms: 5, spin: -1.5 });
+                this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 4, color, life: 150, max: 150, r: 108, spin: -1.3 });
+                this.shapes.push({ kind: 'vortex', x: p.x, y: p.y - 62, color, life: 150, max: 150, r: 124, arms: 5, spin: -1.5 });
+                this.ring(p, color, 210, 92, 2.4);
             }
         },
 
@@ -1169,7 +1172,8 @@
             const tn = toneOf(ev.vfx, color);
             const midY = from.y - 62;
             // 起手一道拖光：让「这一招从他身上飞出去」有明确起点
-            this.trails.push({ x1: from.x, y1: midY, x2: to.x, y2: to.y - 58, color: tn.main, life: 46, max: 46, w: ult ? 20 : 11 });
+            this.trails.push({ x1: from.x, y1: midY, x2: to.x, y2: to.y - 58, color: tn.main, life: ult ? 66 : 52, max: ult ? 66 : 52, w: ult ? 22 : 12 });
+            this.trails.push({ x1: from.x, y1: midY, x2: to.x, y2: to.y - 50, color: tn.hot, life: ult ? 52 : 40, max: ult ? 52 : 40, w: ult ? 12 : 7 });
             switch (ev.vfx) {
                 case 'SLASH':
                     this.shapes.push({ kind: 'arcCut', x: to.x, y: to.y - 66, color: tn.main, life: 46, max: 46, dir, r: 112 });
@@ -1292,9 +1296,16 @@
                     this.shapes.push({ kind: 'bloom', x: to.x, y: to.y - 58, color: tn.hot, life: 58, max: 58, r: 96 });
                     this.shapes.push({ kind: 'rays', x: to.x, y: to.y - 58, color: tn.main, life: 44, max: 44, r: 120, n: 10, rot: -0.5 });
             }
+            // 通用加一层出手华光：落点核心光 + 扩散环 + 细碎星屑 + 起手余烬，让每一招都比原来更满
+            this.shapes.push({ kind: 'bloom', x: to.x, y: to.y - 58, color: tn.hot, life: ult ? 96 : 60, max: ult ? 96 : 60, r: ult ? 150 : 100 });
+            this.ring(to, tn.main, ult ? 250 : 156, ult ? 108 : 74, ult ? 4 : 2.4);
+            this.shards(to, tn, ult ? 14 : 7, ult ? 3.4 : 2.4);
+            this.embers(from, { main: tn.main, hot: tn.hot }, ult ? 16 : 8);
             if (ult) {
-                this.ring(from, '#ffffff', 300, 92, 3);
-                this.shapes.push({ kind: 'runeRing', x: from.x, y: from.y - 8, color: tn.hot, life: 120, max: 120, r: 132, spin: -1 });
+                this.ring(from, '#ffffff', 320, 110, 4);
+                this.ring(from, tn.hot, 240, 96, 3);
+                this.shapes.push({ kind: 'runeRing', x: from.x, y: from.y - 8, color: tn.hot, life: 150, max: 150, r: 148, spin: -1 });
+                this.shapes.push({ kind: 'shock', x: to.x, y: to.y + 8, color: tn.main, life: 110, max: 110, r: 340 });
             }
         },
 
@@ -1400,8 +1411,11 @@
                 });
             }
             this.ring(p, tn.hot, ult ? 300 : 172, ult ? 92 : 62, ult ? 5 : 2.6);
-            this.shapes.push({ kind: 'shock', x: p.x, y: p.y + 8, color: tn.main, life: 84, max: 84, r: ult ? 300 : 168 });
-            this.shapes.push({ kind: 'rays', x: p.x, y: p.y - 62, color: tn.main, life: ult ? 70 : 44, max: ult ? 70 : 44, r: ult ? 250 : 132, n: ult ? 20 : 10, rot: 0.3 });
+            this.shapes.push({ kind: 'shock', x: p.x, y: p.y + 8, color: tn.main, life: ult ? 112 : 88, max: ult ? 112 : 88, r: ult ? 320 : 172 });
+            this.shapes.push({ kind: 'rays', x: p.x, y: p.y - 62, color: tn.main, life: ult ? 86 : 54, max: ult ? 86 : 54, r: ult ? 250 : 132, n: ult ? 20 : 10, rot: 0.3 });
+            // 命中余韵：上升余烬 + 一圈慢速扩散，让“打实了”这一下在屏上多留一会儿
+            this.embers(p, { main: tn.main, hot: tn.hot }, ult ? 26 : crit ? 16 : 10);
+            this.ring(p, tn.main, ult ? 320 : crit ? 230 : 160, ult ? 120 : 88, 2);
             if (ult) {
                 this.shapes.push({ kind: 'flash', color: tn.main, life: 26, max: 26, a: 0.6 });
                 this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 66, color: tn.hot, life: 120, max: 120, r: 168, spin: 1 });
@@ -1475,7 +1489,7 @@
                 const k = Math.max(0, t.life / t.max);
                 ctx.globalAlpha = k * 0.42;
                 ctx.strokeStyle = t.color;
-                ctx.lineWidth = 12 * k;
+                ctx.lineWidth = (t.w || 12) * k;
                 ctx.beginPath(); ctx.moveTo(t.x1, t.y1); ctx.lineTo(t.x2, t.y2); ctx.stroke();
                 return t.life > 0;
             });
