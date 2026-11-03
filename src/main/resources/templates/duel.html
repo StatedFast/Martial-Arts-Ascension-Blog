@@ -132,6 +132,14 @@
            原来 190x250 套 120x200 的框会把人横向拉胖 —— 那是「像一坨袍子」的根因 */
         .dl-body { position: absolute; left: 50%; bottom: 14px; width: 150px; height: 240px;
             transform: translateX(-50%) scaleX(var(--flip, 1)); overflow: visible; }
+        /* ---- 立绘（插画）：魔修/妖修/男修/女修四套，图片缺失时由 duel.js 加 .fallback 回落到下面的 SVG 道影 ---- */
+        .dl-portrait { position: absolute; left: 50%; bottom: 2px; height: 292px; width: auto; max-width: 200px;
+            transform: translateX(-50%) scaleX(var(--flip, 1)); transform-origin: 50% 100%;
+            object-fit: contain; object-position: 50% 100%; pointer-events: none;
+            filter: drop-shadow(0 10px 18px rgba(2, 6, 18, .55)); }
+        .dl-legacy { display: none; }
+        .dl-visual.fallback .dl-legacy { display: block; }
+        .dl-visual.fallback .dl-portrait { display: none; }
         /* 配色全部从境界色 --pc 派生：光源在左上，所以左上偏亮、右下压暗 */
         .dl-body .halo { fill: color-mix(in srgb, var(--pc) 45%, transparent); opacity: .3; filter: blur(11px); }
         .dl-body .hair { fill: #171d2e; }
@@ -249,7 +257,8 @@
         .dl-legend { position: absolute; top: 14px; left: 18px; right: 18px; display: flex; justify-content: space-between; gap: 14px; z-index: 6; }
         .dl-fighter { width: 40%; color: #e2e8f0; }
         .dl-fighter.right { text-align: right; }
-        .dl-f-name { font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+        .dl-f-name { font-size: 22px; font-weight: 900; display: flex; align-items: center; gap: 8px;
+            letter-spacing: .04em; text-shadow: 0 0 14px color-mix(in srgb, var(--pc, #a78bfa) 65%, transparent), 0 2px 6px rgba(2,6,18,.8); }
         .dl-fighter.right .dl-f-name { flex-direction: row-reverse; }
         .dl-f-realm { font-size: 11px; color: rgba(203,213,225,0.75); font-weight: 600; }
         .dl-bar { height: 14px; border-radius: 999px; background: rgba(148,163,184,0.24); margin-top: 6px; overflow: hidden; position: relative; }
@@ -389,35 +398,18 @@
             </div>
             <div class="dl-hero-actions">
                 <span class="dl-updated" id="dlUpdated">加载中...</span>
-                <button class="btn btn-outline btn-sm" id="dlRandom" title="随机点两位，差两级最好玩">🎲 随机配对</button>
             </div>
         </div>
     </div>
 
     <div class="dl-shell">
-        <!-- ==================== 选人 ==================== -->
+        <!-- ==================== 斗法台（舞台 + 控制） ==================== -->
         <section class="dl-card">
             <div class="dl-card-head">
-                <div class="dl-card-title">配对 <small id="dlMatchTip">先选两位 —— 同境界拼小层与底牌，差两级基本无解。</small></div>
+                <div class="dl-card-title">斗法台 <small id="dlMatchTip">选好两位，点「开始斗法」—— 同一对人种子相同，招式序列必然相同。</small></div>
                 <div class="dl-hint" id="dlSeedTip"></div>
             </div>
             <div class="dl-card-body">
-                <div class="dl-pick-grid">
-                    <div class="dl-pick" id="pickA">
-                        <div class="dl-pick-label">甲 · 左</div>
-                        <div class="dl-picked empty" id="pickedA">尚未选人</div>
-                        <input class="dl-search" id="searchA" placeholder="搜索名字 / 功法 / 境界" autocomplete="off">
-                        <div class="dl-roster" id="rosterA"></div>
-                    </div>
-                    <div class="dl-vs">VS</div>
-                    <div class="dl-pick" id="pickB">
-                        <div class="dl-pick-label">乙 · 右</div>
-                        <div class="dl-picked empty" id="pickedB">尚未选人</div>
-                        <input class="dl-search" id="searchB" placeholder="搜索名字 / 功法 / 境界" autocomplete="off">
-                        <div class="dl-roster" id="rosterB"></div>
-                    </div>
-                </div>
-
                 <!-- ==================== 舞台 ==================== -->
                 <div class="dl-stage" id="dlStage">
                     <svg class="dl-mountains" viewBox="0 0 1200 520" preserveAspectRatio="none" aria-hidden="true">
@@ -465,6 +457,7 @@
                         <button data-speed="1" class="on">1×</button>
                         <button data-speed="1.7">快</button>
                     </span>
+                    <button class="btn btn-primary btn-sm" id="dlRandom" title="随机点两位，差两级最好玩">🎲 随机配对</button>
                 </div>
 
                 <!-- 音色三件套：能不能发声、用哪个音色、刚装完语音包怎么重检 -->
@@ -479,6 +472,30 @@
                 </div>
 
                 <div class="dl-log" id="dlLog"></div>
+            </div>
+        </section>
+
+        <!-- ==================== 配对（选人） ==================== -->
+        <section class="dl-card">
+            <div class="dl-card-head">
+                <div class="dl-card-title">配对 <small id="dlMatchTip">先选两位 —— 同境界拼小层与底牌，差两级基本无解。</small></div>
+            </div>
+            <div class="dl-card-body">
+                <div class="dl-pick-grid">
+                    <div class="dl-pick" id="pickA">
+                        <div class="dl-pick-label">甲 · 左</div>
+                        <div class="dl-picked empty" id="pickedA">尚未选人</div>
+                        <input class="dl-search" id="searchA" placeholder="搜索名字 / 功法 / 境界" autocomplete="off">
+                        <div class="dl-roster" id="rosterA"></div>
+                    </div>
+                    <div class="dl-vs">VS</div>
+                    <div class="dl-pick" id="pickB">
+                        <div class="dl-pick-label">乙 · 右</div>
+                        <div class="dl-picked empty" id="pickedB">尚未选人</div>
+                        <input class="dl-search" id="searchB" placeholder="搜索名字 / 功法 / 境界" autocomplete="off">
+                        <div class="dl-roster" id="rosterB"></div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -499,6 +516,6 @@
     </div>
 
     <script src="/js/app.js?v=14"></script>
-    <script src="/js/duel.js?v=5"></script>
+    <script src="/js/duel.js?v=6"></script>
 </body>
 </html>

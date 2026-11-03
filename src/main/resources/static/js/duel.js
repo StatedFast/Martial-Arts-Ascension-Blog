@@ -197,10 +197,23 @@
         paint(side) {
             const p = D.byId.get(D['pick' + side]);
             const fig = $('fig' + side);
-            fig.innerHTML = figureHtml(side);
+            fig.innerHTML = figureHtml(side, p);
             fig.style.setProperty('--pc', p ? p.realmColor : '#64748b');
             fig.style.setProperty('--flip', side === 'A' ? '1' : '-1');
             if (!p) return;
+            // 立绘：逐个候选试（专属 → 流派 webp → 流派 png），全失败回落 SVG 道影
+            const portrait = fig.querySelector('.dl-portrait');
+            if (portrait) {
+                const cands = portraitList(p);
+                let ci = 0;
+                const visual = portrait.closest('.dl-visual');
+                portrait.onerror = () => {
+                    ci += 1;
+                    if (ci < cands.length) portrait.src = cands[ci];
+                    else if (visual) visual.classList.add('fallback');
+                };
+                portrait.src = cands[0];
+            }
             const head = fig.querySelector('.dl-head');
             head.src = avatarOf(p);
             head.onerror = () => { head.onerror = null; head.src = '/images/default-avatar.svg'; };
@@ -224,7 +237,38 @@
      * 看着就是两片翅膀。尺寸仍走 viewBox 0 0 100 160 等比坐标（.dl-body 150x240 = 1.5 倍）。
      * 渐变 id 必须带侧别后缀：A/B 两片 SVG 在同一份文档里，重名会让 B 取到 A 的境界色。
      */
-    function figureHtml(side) {
+    /* 立绘分组：魔道 → 魔修，妖体/妖盾/御兽 → 妖修，其余按音色音高分男女。
+       pitch 是后端 cultivation.voice 给的值（女声普遍 ≥1.05），比名字靠谱。
+       找不到对应立绘时 onerror 回落到原来的 SVG 道影，界面不会开天窗。 */
+    function archetypeKey(p) {
+        const st = String((p && p.style) || '').toUpperCase();
+        if (st === 'DEMON') return 'demon';
+        if (st === 'BEAST' || st === 'TURTLE' || st === 'TRAIN') return 'yao';
+        const pitch = p && p.voice && typeof p.voice.pitch === 'number' ? p.voice.pitch : 1;
+        return pitch >= 1.05 ? 'female' : 'male';
+    }
+
+    /* 这 10 位没能生成专属立绘（多次出图抠不干净），复用形象最接近的已生成立绘：
+       同流派优先、性别必须一致、年龄气质按音高靠近。以后补齐了 u{id}.webp，这里会自动让位。 */
+    const PORTRAIT_ALIAS = {
+        115: 164, 123: 127, 128: 145, 139: 155, 141: 107,
+        151: 142, 153: 172, 157: 136, 163: 116, 168: 140
+    };
+
+    /* 立绘候选链：先试本人专属立绘 u{userId}.webp，缺了退到别名形象，再退流派四套，再退 PNG，最后 SVG 道影 */
+    function portraitList(p) {
+        const list = [];
+        if (p && p.userId != null) {
+            list.push(`/images/duel/u${p.userId}.webp`);
+            const alias = PORTRAIT_ALIAS[p.userId];
+            if (alias) list.push(`/images/duel/u${alias}.webp`);
+        }
+        const k = archetypeKey(p);
+        list.push(`/images/duel/${k}.webp`, `/images/duel/${k}.png`);
+        return list;
+    }
+
+    function figureHtml(side, p) {
         const gid = name => `dl${name}${side}`;
         const url = name => `url(#${gid(name)})`;
         return `
@@ -232,6 +276,8 @@
             <div class="dl-array"></div>
             <div class="dl-shadow"></div>
             <div class="dl-visual">
+                ${p ? '<img class="dl-portrait" alt="">' : ''}
+                <div class="dl-legacy">
                 <svg class="dl-body" viewBox="0 0 100 160" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
                     <defs>
                         <linearGradient id="${gid('Robe')}" x1="0" y1="0" x2="1" y2="1">
@@ -336,6 +382,7 @@
                         <path class="hair-tie" d="M26 14 Q38 20 50 14"/>
                         <path class="ribbon rb3" d="M50 4 Q66 11 62 30"/>
                     </svg>
+                </div>
                 </div>
                 <div class="dl-weapon">诀</div>
             </div>
@@ -572,15 +619,16 @@
             src.connect(f); f.connect(g); g.connect(c.destination); src.start();
         },
 
-        tone(freq, dur, type, gain, slideTo) {
+        tone(freq, dur, type, gain, slideTo, delay) {
             if (!this.ready()) return;
-            const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+            const c = this.ctx, t0 = c.currentTime + (delay || 0);
+            const o = c.createOscillator(), g = c.createGain();
             o.type = type || 'sine';
-            o.frequency.setValueAtTime(freq, c.currentTime);
-            if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, c.currentTime + dur);
-            g.gain.setValueAtTime(gain, c.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.0008, c.currentTime + dur);
-            o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + dur);
+            o.frequency.setValueAtTime(freq, t0);
+            if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+            g.gain.setValueAtTime(gain, t0);
+            g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+            o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + dur);
         },
 
         /** 慢起慢收的一层音。蓄力这类音不该「砸」出来，它得是聚起来再散掉的 */
@@ -673,6 +721,96 @@
             } else {
                 this.boom(64, 0.7, 0.16);
                 this.tone(196, 0.9, 'sine', 0.05, 130);
+            }
+        },
+
+        /* ---- 按技能路数配声：每一路有自己的「音色签名」，不再是一招一个破风声 ----
+           底层还是 tone/noise/swell 三件套，靠频率走向、波形与叠加层数调出差别。
+           未收录的路数回落到 swing（破风声）。 */
+        skill(vfx, ult) {
+            const g = ult ? 1.35 : 1;
+            switch (vfx) {
+                case 'SLASH':  // 剑气：亮金属刮擦一声收
+                    this.noise(0.16 * g, 5200, 900, 0.15);
+                    this.tone(2600, 0.14, 'sine', 0.055, 1300);
+                    break;
+                case 'SWORD_RAIN':  // 剑雨：一串急促的金属点刺
+                    for (let i = 0; i < (ult ? 12 : 7); i++)
+                        this.tone(1700 + Math.random() * 1000, 0.07, 'sine', 0.042, 850, i * 0.055);
+                    this.noise(0.5, 2400, 500, 0.05);
+                    break;
+                case 'GOLD_BEAM':  // 金光柱：低频轰鸣顶着一条持续嗡声
+                    this.swell(72, 0.7 * g, 0.07, 1.6);
+                    this.tone(320, 0.55 * g, 'sawtooth', 0.05, 210);
+                    this.noise(0.5, 900, 300, 0.07);
+                    break;
+                case 'ICE_FROST':  // 至寒：玻璃质感的高频碎裂，往下掉
+                    this.tone(3200, 0.22, 'sine', 0.05, 1500);
+                    this.tone(4100, 0.16, 'sine', 0.038, 2400, 0.09);
+                    this.noise(0.4, 5200, 1600, 0.05);
+                    break;
+                case 'FIRE_ORB':  // 火球：呼——砸
+                    this.noise(0.34, 300, 1500, 0.13);
+                    this.boom(ult ? 58 : 84, 0.42, 0.2);
+                    this.noise(0.3, 800, 150, 0.1);
+                    break;
+                case 'MIND_WAVE':  // 神念：两只微失谐的正弦慢慢拧，听着发飘
+                    this.tone(440, 0.6 * g, 'sine', 0.045, 415);
+                    this.tone(446, 0.6 * g, 'sine', 0.045, 480);
+                    this.swell(880, 0.5, 0.02, 0.5);
+                    break;
+                case 'SOUND_RING':  // 音律：一串钟磬荡开
+                    this.chime(659.25, 0.7, 0.05);
+                    this.chime(880, 0.7, 0.045, 0.12);
+                    this.chime(1108.7, 0.8, 0.04, 0.24);
+                    break;
+                case 'BLOOD_SHADOW':  // 血影：闷 + 阴
+                    this.boom(70, 0.4, 0.16);
+                    this.noise(0.45, 700, 120, 0.09);
+                    this.tone(150, 0.35, 'sawtooth', 0.05, 60);
+                    break;
+                case 'MAGNET_BEAM':  // 元磁：金属被拽走的上滑嗡
+                    this.tone(180, 0.5 * g, 'square', 0.045, 1300);
+                    this.noise(0.4, 1400, 3400, 0.05);
+                    break;
+                case 'ARRAY_PRESS':  // 阵法：厚重的低鸣压下来
+                    this.swell(96, 0.75 * g, 0.075, 0.6);
+                    this.tone(144, 0.6, 'triangle', 0.05, 96);
+                    break;
+                case 'POISON_MIST':  // 毒雾：长长的嘶——
+                    this.noise(0.9, 3800, 700, 0.08);
+                    this.tone(230, 0.7, 'sine', 0.035, 140);
+                    break;
+                case 'SUMMON':  // 召唤：几层往上爬的柔音
+                    this.swell(196, 0.6, 0.045, 2.1);
+                    this.tone(392, 0.5, 'sine', 0.04, 660, 0.12);
+                    this.tone(523.25, 0.5, 'sine', 0.032, 784, 0.24);
+                    break;
+                case 'TURTLE_SHELL':
+                case 'SHIELD':  // 护体：一记厚钟
+                    this.bell(150, 0.8 * g, 0.09);
+                    this.noise(0.2, 500, 140, 0.05);
+                    break;
+                case 'MOON_GLOW':  // 月华：清冷的两记柔音
+                    this.chime(1046.5, 0.9, 0.04);
+                    this.chime(1318.5, 1.1, 0.032, 0.16);
+                    break;
+                case 'ULT_NOVA':  // 神通新星：双重爆 + 白噪 + 上行收束
+                    this.boom(56, 0.7, 0.26);
+                    this.noise(0.7, 1200, 120, 0.2);
+                    this.boom(90, 0.5, 0.14);
+                    this.chime(783.99, 1.0, 0.045, 0.3);
+                    break;
+                case 'QI_PALM':  // 掌力：一记实的拍击
+                    this.noise(0.14, 900, 180, 0.16);
+                    this.boom(ult ? 60 : 88, 0.32, 0.18);
+                    break;
+                case 'MORTAL_PUNCH':  // 凡人拳：干巴巴两下
+                    this.noise(0.09, 700, 160, 0.15);
+                    this.boom(110, 0.2, 0.14);
+                    break;
+                default:
+                    this.swing(ult);
             }
         }
     };
@@ -887,7 +1025,7 @@
                 later(() => stage.classList.remove('zoom'), Math.min(1200, dur * 0.7));
             }
             Stage.pose(actor, 'attack');
-            Sfx.swing(ult);
+            Sfx.skill(ev.vfx, ult);
             if (offense) Fx.projectile(ev, actor, foe, p.realmColor, ult);
             else if (defense) { Fx.defense(Fx.pos(actor), p.realmColor, ev.vfx); Sfx.guard(); }
             else if (heal) { Fx.heal(Fx.pos(actor), ev.vfx); Sfx.heal(); }
@@ -1301,6 +1439,7 @@
             this.ring(to, tn.main, ult ? 250 : 156, ult ? 108 : 74, ult ? 4 : 2.4);
             this.shards(to, tn, ult ? 14 : 7, ult ? 3.4 : 2.4);
             this.embers(from, { main: tn.main, hot: tn.hot }, ult ? 16 : 8);
+            this.stars(to, tn, ult ? 9 : 4);
             if (ult) {
                 this.ring(from, '#ffffff', 320, 110, 4);
                 this.ring(from, tn.hot, 240, 96, 3);
@@ -1342,6 +1481,30 @@
                     vx: (Math.random() - 0.5) * 0.7, vy: 0.7 + Math.random() * 1.1,
                     life: 160 + Math.random() * 70, max: 230, r: 3 + Math.random() * 3.4,
                     spin: (Math.random() - 0.5) * 0.16, sway: Math.random() * 6, color: tn.main
+                });
+            }
+        },
+
+        /** 四芒星闪：命中点四周亮晶晶的十字光斑，一闪一闪像碎星，加「华丽」全靠它 */
+        stars(p, tn, n) {
+            for (let i = 0; i < n; i++) {
+                this.parts.push({
+                    kind: 'star', x: p.x + (Math.random() - 0.5) * 170, y: p.y - 30 - Math.random() * 120,
+                    vx: (Math.random() - 0.5) * 0.5, vy: 0.25 + Math.random() * 0.35,
+                    life: 66 + Math.random() * 64, max: 130, r: 3.4 + Math.random() * 5.2,
+                    spin: Math.random() * Math.PI, flick: Math.random() * 6,
+                    color: i % 3 === 0 ? '#ffffff' : (i % 3 === 1 ? tn.hot : tn.main)
+                });
+            }
+        },
+
+        /** 电流弧光：从命中点向外炸开的锯齿闪电，每帧重摇——天生就是「噼里啪啦」的动感 */
+        bolts(p, tn, n) {
+            for (let i = 0; i < n; i++) {
+                this.shapes.push({
+                    kind: 'bolt', x: p.x, y: p.y - 62, a: Math.random() * Math.PI * 2,
+                    len: 84 + Math.random() * 150, color: i % 2 ? '#ffffff' : tn.hot,
+                    life: 22 + Math.random() * 20, max: 42
                 });
             }
         },
@@ -1399,7 +1562,7 @@
 
         impact(p, ev, color, ult, crit) {
             const tn = toneOf(ev && ev.vfx, color);
-            const n = ult ? 86 : crit ? 46 : 30;
+            const n = ult ? 104 : crit ? 56 : 38;
             for (let i = 0; i < n; i++) {
                 const a = Math.random() * Math.PI * 2;
                 const s = (ult ? 7 : crit ? 5.4 : 4) * (0.35 + Math.random() * 0.95);
@@ -1416,6 +1579,9 @@
             // 命中余韵：上升余烬 + 一圈慢速扩散，让“打实了”这一下在屏上多留一会儿
             this.embers(p, { main: tn.main, hot: tn.hot }, ult ? 26 : crit ? 16 : 10);
             this.ring(p, tn.main, ult ? 320 : crit ? 230 : 160, ult ? 120 : 88, 2);
+            // 华丽层：碎星 + 电流弧光——命中一瞬的「炸裂感」主要来自这两样
+            this.stars(p, tn, ult ? 14 : crit ? 9 : 5);
+            this.bolts(p, tn, ult ? 7 : crit ? 5 : 2);
             if (ult) {
                 this.shapes.push({ kind: 'flash', color: tn.main, life: 26, max: 26, a: 0.6 });
                 this.shapes.push({ kind: 'runeRing', x: p.x, y: p.y - 66, color: tn.hot, life: 120, max: 120, r: 168, spin: 1 });
@@ -1556,6 +1722,22 @@
                     // 余烬：火苗本身会闪，亮度用 sin 抽一抽，不然就是一串匀速上升的圆点
                     ctx.globalAlpha = k * (0.55 + 0.45 * Math.sin(p.life * 0.28 + p.flick));
                     ctx.beginPath(); ctx.arc(x, y, p.r * (0.6 + k * 0.6), 0, Math.PI * 2); ctx.fill();
+                } else if (p.kind === 'star') {
+                    // 四芒星闪：十字光斑一缩一放地闪，中心再补一个亮点，远看就是「碎星」
+                    const s = p.r * (0.55 + 0.75 * Math.abs(Math.sin(p.life * 0.26 + p.flick)));
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(p.spin || 0);
+                    ctx.globalAlpha = k;
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = p.color;
+                    ctx.beginPath();
+                    ctx.moveTo(-s, 0); ctx.lineTo(s, 0);
+                    ctx.moveTo(0, -s); ctx.lineTo(0, s);
+                    ctx.stroke();
+                    ctx.globalAlpha = k * 0.85;
+                    ctx.beginPath(); ctx.arc(0, 0, Math.max(0.5, p.r * 0.42 * k), 0, Math.PI * 2); ctx.fill();
+                    ctx.restore();
                 } else if (p.kind === 'fog') {
                     const g = ctx.createRadialGradient(x, y, 0, x, y, p.r);
                     g.addColorStop(0, p.color);
@@ -1580,6 +1762,26 @@
                 ctx.globalAlpha = k;
                 ctx.strokeStyle = s.color; ctx.fillStyle = s.color;
                 switch (s.kind) {
+                    // 电流弧光：锯齿闪电从命中点向外炸，每帧重摇抖动，天生就是噼里啪啦的观感
+                    case 'bolt': {
+                        const seg = 7, len = s.len * (0.3 + 0.7 * Math.sin(k * Math.PI));
+                        const jx = i => s.x + Math.cos(s.a) * (len * i / seg)
+                            + Math.sin(s.a) * (Math.random() - 0.5) * 30 * (1 - i / seg);
+                        const jy = i => s.y + Math.sin(s.a) * (len * i / seg)
+                            - Math.cos(s.a) * (Math.random() - 0.5) * 30 * (1 - i / seg);
+                        ctx.globalAlpha = k * 0.9;
+                        // 先画一圈粗的低透明辉光，再叠一道白的细芯——两层才有电的感觉
+                        ctx.lineCap = 'round';
+                        ctx.lineWidth = 6; ctx.strokeStyle = s.color; ctx.globalAlpha = k * 0.38;
+                        ctx.beginPath(); ctx.moveTo(s.x, s.y);
+                        for (let i = 1; i <= seg; i++) ctx.lineTo(jx(i), jy(i));
+                        ctx.stroke();
+                        ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = k * 0.95;
+                        ctx.beginPath(); ctx.moveTo(s.x, s.y);
+                        for (let i = 1; i <= seg; i++) ctx.lineTo(jx(i), jy(i));
+                        ctx.stroke();
+                        break;
+                    }
                     // 全屏白闪：只在头几帧有值，配合震屏就是“被大招正面抽中”的观感
                     case 'flash': {
                         ctx.globalAlpha = Math.pow(k, 2.2) * (s.a || 0.5);
