@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import spring.ai.example.spring_ai_demo.entity.Article;
 import spring.ai.example.spring_ai_demo.entity.VisitLog;
+import spring.ai.example.spring_ai_demo.mapper.ArticleMapper;
 import spring.ai.example.spring_ai_demo.mapper.VisitLogMapper;
 
 import java.time.LocalDate;
@@ -32,6 +34,7 @@ import java.util.Map;
 public class VisitAnalyticsService {
 
     private final VisitLogMapper visitLogMapper;
+    private final ArticleMapper articleMapper;
 
     /** 当前在线近似口径：近 N 分钟内有访问即视为在线 */
     private static final int ONLINE_WINDOW_MINUTES = 5;
@@ -159,17 +162,67 @@ public class VisitAnalyticsService {
     }
 
     private List<Map<String, Object>> buildTopPages(LocalDateTime now) {
+        List<Map<String, Object>> rows = visitLogMapper.topPages(recentSince(now), 10);
+        // 看板要的是「标题」而不是 /article/12 这种路径：先把文章页 id 收齐，一次性把真实标题查回来
+        List<Long> articleIds = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            Long id = articleIdOf(String.valueOf(row.get("path")));
+            if (id != null) {
+                articleIds.add(id);
+            }
+        }
+        Map<Long, String> titles = loadArticleTitles(articleIds);
         List<Map<String, Object>> out = new ArrayList<>();
-        for (Map<String, Object> row : visitLogMapper.topPages(recentSince(now), 10)) {
+        for (Map<String, Object> row : rows) {
             String path = String.valueOf(row.get("path"));
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("path", path);
-            item.put("label", humanizePath(path));
+            item.put("label", pageTitle(path, titles));
             item.put("pv", toLong(row.get("pv")));
             item.put("uv", toLong(row.get("uv")));
             out.add(item);
         }
         return out;
+    }
+
+    /** 从 /article/{id} 里取出文章 id；非文章页（或 id 不是数字）返回 null */
+    private Long articleIdOf(String path) {
+        if (path != null && path.startsWith("/article/")) {
+            try {
+                return Long.parseLong(path.substring("/article/".length()).trim());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /** 批量查文章标题；看板是旁路，查失败也不能让整块空掉，调用方会退回友好标签 */
+    private Map<Long, String> loadArticleTitles(List<Long> ids) {
+        Map<Long, String> map = new LinkedHashMap<>();
+        if (ids == null || ids.isEmpty()) {
+            return map;
+        }
+        try {
+            for (Article a : articleMapper.selectBatchIds(ids)) {
+                if (a != null && a.getTitle() != null && !a.getTitle().isBlank()) {
+                    map.put(a.getId(), a.getTitle());
+                }
+            }
+        } catch (Exception e) {
+            log.debug("批量查文章标题失败: {}", e.getMessage());
+        }
+        return map;
+    }
+
+    /** 标题优先取真实文章标题；文章被删/查不到时退回「文章 #id」；静态页沿用友好中文名，绝不把裸路径甩上看板 */
+    private String pageTitle(String path, Map<Long, String> titles) {
+        Long id = articleIdOf(path);
+        if (id != null) {
+            String t = titles.get(id);
+            return (t != null && !t.isBlank()) ? t : ("文章 #" + id);
+        }
+        return humanizePath(path);
     }
 
     private List<Map<String, Object>> buildDistribution(List<Map<String, Object>> rows) {

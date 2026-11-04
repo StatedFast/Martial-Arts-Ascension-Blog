@@ -353,7 +353,7 @@
                 const rankCls = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
                 return `<tr>
                     <td class="va-rank ${rankCls}">${i + 1}</td>
-                    <td>${escapeHtml(it.label)}<div class="va-muted"><code>${escapeHtml(it.path)}</code></div></td>
+                    <td>${escapeHtml(it.label)}</td>
                     <td class="va-num">${fmt(it.pv)}</td>
                     <td class="va-num">${fmt(it.uv)}</td>
                 </tr>`;
